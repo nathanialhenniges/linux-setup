@@ -12,10 +12,11 @@ Before step 5, confirm [dotfiles PR #24](https://github.com/nathanialhenniges/do
 - [ ] 1. Preview the base setup: `./setup.sh --dry-run base`
 - [ ] 2. Install the base: `./setup.sh base`
 - [ ] 3. Preview/install core apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
-- [ ] 4. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
-- [ ] 5. Apply desktop-only dotfiles: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
-- [ ] 6. Apply the GNOME look: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
-- [ ] 7. Decide later: `./setup.sh --dry-run optional`
+- [ ] 4. After Ghostty launch-tests successfully: `./setup.sh terminal`
+- [ ] 5. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
+- [ ] 6. Apply desktop-only dotfiles: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
+- [ ] 7. Apply the GNOME look: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
+- [ ] 8. Decide later: `./setup.sh --dry-run optional`
 
 Stop after any failed box. Do not keep stacking fixes.
 
@@ -54,6 +55,7 @@ cd linux-setup
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Zsh, fzf, eza, direnv, Zsh plugins, Cascadia Code | No SSH server, Docker, runtimes, upgrade, or login |
 | `apps` | GitHub CLI and VS Code from signed vendor APT repos; Ghostty from Ubuntu | Does not replace the default terminal |
+| `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`; runs only `linux-desktop.sh` | Never calls generic, server, devbox, or agent setup |
 | `gnome` | Dark mode, battery percent, no hot corners, bottom auto-hiding dock | No extensions or keyboard interception |
@@ -105,6 +107,10 @@ gsettings reset org.gnome.shell.extensions.dash-to-dock dock-position
 gsettings reset org.gnome.shell.extensions.dash-to-dock extend-height
 gsettings reset org.gnome.shell.extensions.dash-to-dock dock-fixed
 ```
+
+To stop using Ghostty as the default, restore the backup path printed by
+`./setup.sh terminal`, or edit `~/.config/ubuntu-xdg-terminals.list` and move
+another installed terminal above `com.mitchellh.ghostty.desktop`.
 
 ## Test before publishing
 

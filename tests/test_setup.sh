@@ -30,6 +30,25 @@ else
   fail 'help output'
 fi
 
+if "$setup" --help | grep -Fq 'terminal  Make launch-tested Ghostty'; then
+  pass 'default-terminal command is documented'
+else
+  fail 'default-terminal command help'
+fi
+
+test_root="$(mktemp -d)"
+printf 'org.gnome.Terminal.desktop\ncom.mitchellh.ghostty.desktop\n' > "$test_root/terminals.list"
+# Resolved from this test's repository root.
+# shellcheck disable=SC1090,SC1091
+source "$setup"
+trap 'rm -rf "$test_root"' EXIT
+terminal_result="$(terminal_list_content com.mitchellh.ghostty.desktop "$test_root/terminals.list")"
+if [[ "$terminal_result" == $'com.mitchellh.ghostty.desktop\norg.gnome.Terminal.desktop' ]]; then
+  pass 'Ghostty becomes first without duplicating it'
+else
+  fail 'default-terminal list ordering'
+fi
+
 if "$setup" definitely-not-a-command >/dev/null 2>&1; then
   fail 'unknown command must fail'
 else

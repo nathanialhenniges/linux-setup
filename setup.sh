@@ -26,6 +26,7 @@ Usage:
   ./setup.sh [--dry-run] status
   ./setup.sh [--dry-run] base
   ./setup.sh [--dry-run] apps
+  ./setup.sh [--dry-run] terminal
   ./setup.sh [--dry-run] codex
   ./setup.sh [--dry-run] dotfiles
   ./setup.sh [--dry-run] gnome
@@ -35,6 +36,7 @@ Commands:
   status    Read-only package and setup report
   base      Core command-line and shell packages
   apps      GitHub CLI, VS Code, and Ghostty
+  terminal  Make launch-tested Ghostty the Ubuntu default
   codex     Official user-local Codex CLI installer
   dotfiles  Pull and run only dotfiles/linux-desktop.sh
   gnome     Small, reversible macOS-friendly GNOME preferences
@@ -60,7 +62,7 @@ parse_args() {
         [[ -z "$selected" ]] || die "help cannot be combined with a command"
         selected="help"
         ;;
-      status | base | apps | codex | dotfiles | gnome | optional)
+      status | base | apps | terminal | codex | dotfiles | gnome | optional)
         [[ -z "$selected" ]] || die "choose one command; help cannot be combined"
         selected="$1"
         ;;
@@ -230,6 +232,56 @@ install_apps() {
   note 'Ghostty needs OpenGL 4.3; launch-test it before making it the default terminal.'
 }
 
+terminal_list_content() {
+  local desktop_id="$1" list_file="$2"
+  printf '%s\n' "$desktop_id"
+  if [[ -f "$list_file" ]]; then
+    awk -v id="$desktop_id" '$0 != id { print }' "$list_file"
+  fi
+}
+
+set_default_terminal() {
+  require_target
+
+  local desktop_id="com.mitchellh.ghostty.desktop"
+  local desktop_file="/usr/share/applications/$desktop_id"
+  local config_dir="$HOME/.config"
+  local list_file="$config_dir/ubuntu-xdg-terminals.list"
+
+  [[ -f "$desktop_file" ]] || die "Ghostty desktop entry is missing: $desktop_file"
+  [[ ! -L "$config_dir" && ! -L "$list_file" ]] ||
+    die "refusing symlink in the default-terminal path"
+  [[ ! -e "$list_file" || -f "$list_file" ]] ||
+    die "default-terminal path is not a regular file: $list_file"
+
+  if [[ -f "$list_file" && "$(head -n 1 "$list_file")" == "$desktop_id" ]]; then
+    note 'Ghostty is already the default terminal.'
+    return
+  fi
+
+  if [[ "$DRY_RUN" == true ]]; then
+    note "[dry-run] place $desktop_id first in $list_file"
+    note '[dry-run] preserve the current list in a timestamped backup'
+    return
+  fi
+
+  mkdir -p "$config_dir"
+  local temporary_file backup_file=""
+  temporary_file="$(mktemp "$config_dir/.ubuntu-xdg-terminals.list.XXXXXX")"
+  terminal_list_content "$desktop_id" "$list_file" > "$temporary_file"
+  chmod 0644 "$temporary_file"
+
+  if [[ -f "$list_file" ]]; then
+    backup_file="$list_file.backup-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    cp -p "$list_file" "$backup_file"
+  fi
+  mv "$temporary_file" "$list_file"
+
+  note 'Ghostty is now first in Ubuntu\047s default-terminal list.'
+  [[ -z "$backup_file" ]] || note "Previous list backup: $backup_file"
+  note 'Press Ctrl+Alt+T to verify it opens Ghostty.'
+}
+
 install_optional() {
   require_target
   require_base_tools
@@ -352,6 +404,12 @@ show_status() {
   else
     printf '%-18s %s\n' 'Codex CLI' 'not installed'
   fi
+  if [[ -f "$HOME/.config/ubuntu-xdg-terminals.list" &&
+        "$(head -n 1 "$HOME/.config/ubuntu-xdg-terminals.list")" == "com.mitchellh.ghostty.desktop" ]]; then
+    printf '%-18s %s\n' 'Default terminal' 'Ghostty'
+  else
+    printf '%-18s %s\n' 'Default terminal' 'Ubuntu default'
+  fi
   if [[ -f "$DOTFILES_DIR/linux-desktop.sh" ]]; then
     printf '%-18s %s\n' 'Desktop dotfiles' 'available'
   else
@@ -366,6 +424,7 @@ main() {
     status) show_status ;;
     base) install_base ;;
     apps) install_apps ;;
+    terminal) set_default_terminal ;;
     codex) install_codex ;;
     dotfiles) apply_dotfiles ;;
     gnome) apply_gnome ;;
@@ -373,4 +432,6 @@ main() {
   esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi
