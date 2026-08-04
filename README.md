@@ -5,6 +5,8 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 > [!IMPORTANT]
 > This is a **desktop workstation** setup. It never configures a server or devbox and never invokes the dotfiles `server.sh`, `server-dev.sh`, `install.sh`, `config/server/**`, or `config/agent/**` paths.
 
+Before step 5, confirm [dotfiles PR #24](https://github.com/nathanialhenniges/dotfiles/pull/24) is merged. The `dotfiles` command intentionally refuses to run until its dedicated entry point exists on `main`.
+
 ## Do one box at a time
 
 - [ ] 1. Preview the base setup: `./setup.sh --dry-run base`
