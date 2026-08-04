@@ -10,6 +10,8 @@ Never configure or invoke server/devbox behavior. Do not add `openssh-server`, D
 
 Dotfiles may flow one way only: `linux-setup` may clone/update the expected repository and run its dedicated `linux-desktop.sh`. Fail closed if that file, origin, or clean checkout check fails.
 
+After that dedicated desktop profile succeeds, `linux-setup` may make the packaged `/usr/bin/zsh` the current desktop user's login shell. Validate it against `/etc/shells`; never change root's shell or global shell configuration.
+
 ## Package rules
 
 - Prefer Ubuntu packages.

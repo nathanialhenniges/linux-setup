@@ -349,6 +349,46 @@ apply_dotfiles() {
   fi
 }
 
+configured_login_shell() {
+  local account entry
+  account="$(id -un)"
+  entry="$(getent passwd "$account")" || return 1
+  [[ "$entry" == *:* ]] || return 1
+  printf '%s\n' "${entry##*:}"
+}
+
+set_default_login_shell() {
+  local current_shell
+  local -r zsh_path='/usr/bin/zsh'
+
+  command -v getent >/dev/null 2>&1 || die "getent is required to verify the login shell"
+  [[ -x "$zsh_path" ]] || die "Zsh is missing at $zsh_path; run ./setup.sh base first"
+  [[ -r /etc/shells ]] || die "cannot read /etc/shells"
+  grep -Fxq "$zsh_path" /etc/shells || die "$zsh_path is not an approved login shell in /etc/shells"
+  current_shell="$(configured_login_shell || true)"
+  [[ -n "$current_shell" ]] || die "could not resolve the current user's login shell"
+
+  case "$current_shell" in
+    /bin/zsh | /usr/bin/zsh)
+      note 'Zsh is already the default login shell.'
+      return 0
+      ;;
+  esac
+
+  command -v chsh >/dev/null 2>&1 || die "chsh is required to change the login shell"
+  if [[ "$DRY_RUN" == true ]]; then
+    run chsh -s "$zsh_path"
+    note 'After the real change, sign out and back in once.'
+    return 0
+  fi
+
+  note 'Ubuntu may ask for your account password to make Zsh the default shell.'
+  chsh -s "$zsh_path" || die "chsh could not set Zsh as the login shell"
+  current_shell="$(configured_login_shell || true)"
+  [[ "$current_shell" == "$zsh_path" ]] || die "the login shell did not change to $zsh_path"
+  note 'Zsh is now the default login shell. Sign out and back in once.'
+}
+
 gsettings_has_key() {
   local schema="$1" key="$2"
   gsettings list-keys "$schema" 2>/dev/null | grep -Fxq "$key"
@@ -410,6 +450,13 @@ show_status() {
   else
     printf '%-18s %s\n' 'Default terminal' 'Ubuntu default'
   fi
+  local login_shell
+  login_shell="$(configured_login_shell 2>/dev/null || true)"
+  case "$login_shell" in
+    /bin/zsh | /usr/bin/zsh) printf '%-18s %s\n' 'Login shell' 'Zsh' ;;
+    '') printf '%-18s %s\n' 'Login shell' 'unknown' ;;
+    *) printf '%-18s %s\n' 'Login shell' "$login_shell" ;;
+  esac
   if [[ -f "$DOTFILES_DIR/linux-desktop.sh" ]]; then
     printf '%-18s %s\n' 'Desktop dotfiles' 'available'
   else
@@ -426,7 +473,10 @@ main() {
     apps) install_apps ;;
     terminal) set_default_terminal ;;
     codex) install_codex ;;
-    dotfiles) apply_dotfiles ;;
+    dotfiles)
+      apply_dotfiles || return
+      set_default_login_shell
+      ;;
     gnome) apply_gnome ;;
     optional) install_optional ;;
   esac

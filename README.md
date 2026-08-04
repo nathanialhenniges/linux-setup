@@ -5,7 +5,7 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 > [!IMPORTANT]
 > This is a **desktop workstation** setup. It never configures a server or devbox and never invokes the dotfiles `server.sh`, `server-dev.sh`, `install.sh`, `config/server/**`, or `config/agent/**` paths.
 
-Before step 5, confirm [dotfiles PR #24](https://github.com/nathanialhenniges/dotfiles/pull/24) is merged. The `dotfiles` command intentionally refuses to run until its dedicated entry point exists on `main`.
+[Dotfiles PR #24](https://github.com/nathanialhenniges/dotfiles/pull/24) is merged. The `dotfiles` command still refuses to run unless its dedicated entry point exists on the verified `main` branch.
 
 ## Do one box at a time
 
@@ -14,13 +14,13 @@ Before step 5, confirm [dotfiles PR #24](https://github.com/nathanialhenniges/do
 - [ ] 3. Preview/install core apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
 - [ ] 4. After Ghostty launch-tests successfully: `./setup.sh terminal`
 - [ ] 5. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
-- [ ] 6. Apply desktop-only dotfiles: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
+- [ ] 6. Apply desktop-only dotfiles and make Zsh the login shell: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
 - [ ] 7. Apply the GNOME look: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
 - [ ] 8. Decide later: `./setup.sh --dry-run optional`
 
 Stop after any failed box. Do not keep stacking fixes.
 
-After dotfiles pass, make Zsh the login shell only if you want it: `chsh -s /usr/bin/zsh`, then sign out and back in.
+The real dotfiles step may ask for your Ubuntu account password while `chsh` makes Zsh the login shell. It never uses `sudo` for this change. Sign out and back in once afterward; the dry run never prompts or changes the shell.
 
 ## Start here
 
@@ -57,7 +57,7 @@ cd linux-setup
 | `apps` | GitHub CLI and VS Code from signed vendor APT repos; Ghostty from Ubuntu | Does not replace the default terminal |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
-| `dotfiles` | Pulls `nathanialhenniges/dotfiles`; runs only `linux-desktop.sh` | Never calls generic, server, devbox, or agent setup |
+| `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
 | `gnome` | Dark mode, battery percent, no hot corners, bottom auto-hiding dock | No extensions or keyboard interception |
 | `optional` | Official Claude Desktop beta and Cloudflare WARP packages | No Claude Cowork, WARP enrollment, DNS/routing change, or tunnel |
 

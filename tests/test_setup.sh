@@ -49,6 +49,53 @@ else
   fail 'default-terminal list ordering'
 fi
 
+if (
+  sequence=''
+  # shellcheck disable=SC2329 # main resolves these test doubles dynamically.
+  apply_dotfiles() { sequence="${sequence}dotfiles "; }
+  # shellcheck disable=SC2329
+  set_default_login_shell() { sequence="${sequence}shell"; }
+  main dotfiles
+  [[ "$sequence" == 'dotfiles shell' ]]
+); then
+  pass 'dotfiles apply before the login-shell change'
+else
+  fail 'dotfiles and login-shell ordering'
+fi
+
+if (
+  shell_change_called=false
+  # shellcheck disable=SC2329 # main resolves these test doubles dynamically.
+  apply_dotfiles() { return 7; }
+  # shellcheck disable=SC2329
+  set_default_login_shell() { shell_change_called=true; }
+  main dotfiles >/dev/null 2>&1 || true
+  [[ "$shell_change_called" == false ]]
+); then
+  pass 'failed dotfiles cannot change the login shell'
+else
+  fail 'dotfiles failure boundary'
+fi
+
+if (
+  # shellcheck disable=SC2329 # configured_login_shell resolves these test doubles dynamically.
+  id() { printf 'tester\n'; }
+  # shellcheck disable=SC2329
+  getent() { printf 'tester:x:1000:1000::/home/tester:/usr/bin/zsh\n'; }
+  [[ "$(configured_login_shell)" == '/usr/bin/zsh' ]]
+); then
+  pass 'configured login shell is read from the account record'
+else
+  fail 'configured login-shell lookup'
+fi
+
+# shellcheck disable=SC2016 # The literal source expression is the assertion target.
+if grep -Fq 'chsh -s "$zsh_path"' "$setup" && ! grep -Eq 'sudo[[:space:]]+chsh' "$setup"; then
+  pass 'Zsh login-shell change is current-user only'
+else
+  fail 'Zsh login-shell safety boundary'
+fi
+
 if "$setup" definitely-not-a-command >/dev/null 2>&1; then
   fail 'unknown command must fail'
 else
