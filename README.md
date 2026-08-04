@@ -70,7 +70,7 @@ cd linux-setup
 | Command | Installs or changes | Does **not** do |
 |---|---|---|
 | `status` | Nothing; shows a short table | No network or `sudo` |
-| `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Zsh, fzf, eza, direnv, Zsh plugins, Cascadia Code | No SSH server, Docker, runtimes, upgrade, or login |
+| `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Zsh, fzf, eza, direnv, Zsh plugins, Cascadia Code, and the pinned Oh My Posh prompt | No SSH server, Docker, runtimes, upgrade, or login |
 | `apps` | GitHub CLI and VS Code from signed vendor APT repos; Ghostty from Ubuntu | Does not replace the default terminal |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
@@ -82,7 +82,7 @@ Chrome and 1Password are already installed on the target laptop. `status` detect
 
 ## Safety boundary
 
-The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed.
+The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh comes from a pinned immutable upstream release and must pass its reviewed SHA-256 before the user-local binary is installed.
 
 It never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens.
 

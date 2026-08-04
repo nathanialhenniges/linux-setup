@@ -17,6 +17,7 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 - Prefer Ubuntu packages.
 - For vendor APT repos, use deb822 `.sources`, isolated `/etc/apt/keyrings` files, `Signed-By`, and a full documented fingerprint check.
 - Never use `apt-key`, `trusted=yes`, PPAs, or `curl | sh`.
+- Pin non-APT artifacts to immutable upstream releases, verify reviewed SHA-256 values before installation, and keep them user-local when possible.
 - Keep account authentication and Cloudflare enrollment manual.
 - Keep `--dry-run` free of sudo, network, and writes.
 

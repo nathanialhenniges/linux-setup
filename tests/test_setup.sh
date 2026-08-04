@@ -50,6 +50,49 @@ else
 fi
 
 if (
+  HOME="$test_root/dry-run-home"
+  mkdir -p "$HOME"
+  DRY_RUN=true
+  TEMP_DIR=''
+  # shellcheck disable=SC2329 # install_oh_my_posh resolves this test double dynamically.
+  curl() { return 99; }
+  install_oh_my_posh >/dev/null
+  [[ ! -e "$HOME/.local/bin/oh-my-posh" ]]
+); then
+  pass 'Oh My Posh dry-run has no network or writes'
+else
+  fail 'Oh My Posh dry-run safety'
+fi
+
+mkdir -p "$test_root/checksum-home" "$test_root/checksum-temp"
+if (
+  HOME="$test_root/checksum-home"
+  # shellcheck disable=SC2034 # install_oh_my_posh reads the sourced globals dynamically.
+  DRY_RUN=false
+  # shellcheck disable=SC2034
+  TEMP_DIR="$test_root/checksum-temp"
+  # shellcheck disable=SC2329 # install_oh_my_posh resolves this test double dynamically.
+  curl() {
+    local output=''
+    while (($#)); do
+      if [[ "$1" == '--output' ]]; then
+        output="$2"
+        break
+      fi
+      shift
+    done
+    printf 'tampered\n' > "$output"
+  }
+  install_oh_my_posh >/dev/null 2>&1
+); then
+  fail 'checksum mismatch must stop Oh My Posh installation'
+elif [[ ! -e "$test_root/checksum-home/.local/bin/oh-my-posh" ]]; then
+  pass 'checksum mismatch fails before Oh My Posh installation'
+else
+  fail 'checksum mismatch wrote the Oh My Posh target'
+fi
+
+if (
   sequence=''
   # shellcheck disable=SC2329 # main resolves these test doubles dynamically.
   apply_dotfiles() { sequence="${sequence}dotfiles "; }

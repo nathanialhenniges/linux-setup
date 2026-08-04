@@ -8,6 +8,9 @@ SUDO_READY=false
 
 readonly DOTFILES_REPO="https://github.com/nathanialhenniges/dotfiles.git"
 readonly DOTFILES_DIR="${HOME:-}/.local/share/dotfiles"
+readonly OH_MY_POSH_VERSION="30.5.0"
+readonly OH_MY_POSH_SHA256="03bc5c288b6f2fc4ad9db4e11f191e970b31e93d3aa2e55ecc09bd7096226484"
+readonly OH_MY_POSH_URL="https://github.com/JanDeDobbeleer/oh-my-posh/releases/download/v${OH_MY_POSH_VERSION}/posh-linux-amd64"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -129,6 +132,42 @@ make_temp_dir() {
   [[ -n "$TEMP_DIR" ]] || TEMP_DIR="$(mktemp -d)"
 }
 
+install_oh_my_posh() {
+  local install_dir="$HOME/.local/bin"
+  local target="$install_dir/oh-my-posh"
+  local downloaded actual_version
+
+  [[ ! -L "$HOME/.local" && ! -L "$install_dir" && ! -L "$target" ]] ||
+    die "refusing symbolic link in the Oh My Posh install path"
+  [[ ! -e "$target" || -f "$target" ]] || die "Oh My Posh target is not a regular file: $target"
+
+  if [[ -x "$target" ]] && actual_version="$("$target" version 2>/dev/null)" &&
+     [[ "$actual_version" == "$OH_MY_POSH_VERSION" ]]; then
+    note "Oh My Posh $OH_MY_POSH_VERSION is already installed."
+    return
+  fi
+
+  if [[ "$DRY_RUN" == true ]]; then
+    note "[dry-run] download and SHA-256 verify Oh My Posh $OH_MY_POSH_VERSION"
+    note "[dry-run] install $target"
+    return
+  fi
+
+  command -v curl >/dev/null 2>&1 || die "curl is required to install Oh My Posh"
+  command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required to verify Oh My Posh"
+  make_temp_dir
+  downloaded="$TEMP_DIR/oh-my-posh"
+  curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
+    --output "$downloaded" "$OH_MY_POSH_URL"
+  printf '%s  %s\n' "$OH_MY_POSH_SHA256" "$downloaded" | sha256sum --check --status ||
+    die "Oh My Posh checksum verification failed"
+  install -d -m 0755 "$install_dir"
+  install -m 0755 "$downloaded" "$target"
+  [[ "$("$target" version)" == "$OH_MY_POSH_VERSION" ]] ||
+    die "installed Oh My Posh version did not match $OH_MY_POSH_VERSION"
+  note "Installed Oh My Posh $OH_MY_POSH_VERSION."
+}
+
 require_base_tools() {
   command -v curl >/dev/null 2>&1 || die "curl is missing; run ./setup.sh base first"
   command -v gpg >/dev/null 2>&1 || die "gpg is missing; run ./setup.sh base first"
@@ -219,6 +258,7 @@ install_base() {
   run sudo apt-get install --yes \
     ca-certificates curl direnv eza fonts-cascadia-code fzf git gnupg jq openssh-client rsync \
     unzip zip zsh zsh-autosuggestions zsh-syntax-highlighting
+  install_oh_my_posh
 }
 
 install_apps() {
@@ -443,6 +483,11 @@ show_status() {
     printf '%-18s %s\n' 'Codex CLI' 'installed'
   else
     printf '%-18s %s\n' 'Codex CLI' 'not installed'
+  fi
+  if [[ -x "$HOME/.local/bin/oh-my-posh" ]]; then
+    printf '%-18s %s\n' 'Zsh prompt' 'Oh My Posh'
+  else
+    printf '%-18s %s\n' 'Zsh prompt' 'plain fallback'
   fi
   if [[ -f "$HOME/.config/ubuntu-xdg-terminals.list" &&
         "$(head -n 1 "$HOME/.config/ubuntu-xdg-terminals.list")" == "com.mitchellh.ghostty.desktop" ]]; then
