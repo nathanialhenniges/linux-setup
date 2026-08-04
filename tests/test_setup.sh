@@ -7,6 +7,17 @@ failures=0
 
 pass() { printf 'PASS: %s\n' "$1"; }
 fail() { printf 'FAIL: %s\n' "$1" >&2; failures=$((failures + 1)); }
+fake_tampered_curl() {
+  local output=''
+  while (($#)); do
+    if [[ "$1" == '--output' ]]; then
+      output="$2"
+      break
+    fi
+    shift
+  done
+  printf 'tampered\n' > "$output"
+}
 
 if bash -n "$setup"; then
   pass 'Bash syntax'
@@ -72,17 +83,7 @@ if (
   # shellcheck disable=SC2034
   TEMP_DIR="$test_root/checksum-temp"
   # shellcheck disable=SC2329 # install_oh_my_posh resolves this test double dynamically.
-  curl() {
-    local output=''
-    while (($#)); do
-      if [[ "$1" == '--output' ]]; then
-        output="$2"
-        break
-      fi
-      shift
-    done
-    printf 'tampered\n' > "$output"
-  }
+  curl() { fake_tampered_curl "$@"; }
   install_oh_my_posh >/dev/null 2>&1
 ); then
   fail 'checksum mismatch must stop Oh My Posh installation'
@@ -90,6 +91,43 @@ elif [[ ! -e "$test_root/checksum-home/.local/bin/oh-my-posh" ]]; then
   pass 'checksum mismatch fails before Oh My Posh installation'
 else
   fail 'checksum mismatch wrote the Oh My Posh target'
+fi
+
+if (
+  HOME="$test_root/font-dry-run-home"
+  mkdir -p "$HOME"
+  DRY_RUN=true
+  TEMP_DIR=''
+  # shellcheck disable=SC2329 # install_nerd_font resolves this test double dynamically.
+  curl() { return 99; }
+  install_nerd_font >/dev/null
+  [[ ! -e "$HOME/.local/share/fonts/CaskaydiaCove/.nerd-font-version" ]]
+); then
+  pass 'Nerd Font dry-run has no network or writes'
+else
+  fail 'Nerd Font dry-run safety'
+fi
+
+mkdir -p "$test_root/font-checksum-home" "$test_root/font-checksum-temp"
+if (
+  HOME="$test_root/font-checksum-home"
+  # shellcheck disable=SC2034 # install_nerd_font reads the sourced globals dynamically.
+  DRY_RUN=false
+  # shellcheck disable=SC2034
+  TEMP_DIR="$test_root/font-checksum-temp"
+  # shellcheck disable=SC2329 # install_nerd_font resolves these test doubles dynamically.
+  curl() { fake_tampered_curl "$@"; }
+  # shellcheck disable=SC2329
+  tar() { return 99; }
+  # shellcheck disable=SC2329
+  fc-cache() { return 99; }
+  install_nerd_font >/dev/null 2>&1
+); then
+  fail 'checksum mismatch must stop Nerd Font installation'
+elif [[ ! -e "$test_root/font-checksum-home/.local/share/fonts/CaskaydiaCove" ]]; then
+  pass 'checksum mismatch fails before Nerd Font installation'
+else
+  fail 'checksum mismatch wrote the Nerd Font target'
 fi
 
 if (

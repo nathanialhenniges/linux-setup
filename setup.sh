@@ -11,6 +11,9 @@ readonly DOTFILES_DIR="${HOME:-}/.local/share/dotfiles"
 readonly OH_MY_POSH_VERSION="30.5.0"
 readonly OH_MY_POSH_SHA256="03bc5c288b6f2fc4ad9db4e11f191e970b31e93d3aa2e55ecc09bd7096226484"
 readonly OH_MY_POSH_URL="https://github.com/JanDeDobbeleer/oh-my-posh/releases/download/v${OH_MY_POSH_VERSION}/posh-linux-amd64"
+readonly NERD_FONT_VERSION="3.5.0"
+readonly NERD_FONT_SHA256="f30f67f203f9da78df857ebe558321bdfd8fc313662c72fd9e9fef9d4f4c96e7"
+readonly NERD_FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERD_FONT_VERSION}/CascadiaCode.tar.xz"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -168,6 +171,65 @@ install_oh_my_posh() {
   note "Installed Oh My Posh $OH_MY_POSH_VERSION."
 }
 
+install_nerd_font() {
+  local font_dir="$HOME/.local/share/fonts/CaskaydiaCove"
+  local marker="$font_dir/.nerd-font-version"
+  local archive extract_dir font
+  local -a fonts=(
+    CaskaydiaCoveNerdFontMono-Regular.ttf
+    CaskaydiaCoveNerdFontMono-Bold.ttf
+    CaskaydiaCoveNerdFontMono-Italic.ttf
+    CaskaydiaCoveNerdFontMono-BoldItalic.ttf
+  )
+
+  [[ ! -L "$HOME/.local" && ! -L "$HOME/.local/share" &&
+     ! -L "$HOME/.local/share/fonts" && ! -L "$font_dir" && ! -L "$marker" ]] ||
+    die "refusing symbolic link in the Nerd Font install path"
+  for font in "${fonts[@]}"; do
+    [[ ! -L "$font_dir/$font" ]] || die "refusing symbolic-link font target: $font_dir/$font"
+  done
+
+  if [[ -f "$marker" && "$(<"$marker")" == "$NERD_FONT_VERSION" ]]; then
+    for font in "${fonts[@]}"; do
+      [[ -f "$font_dir/$font" ]] || break
+    done
+    if [[ -n "$font" && -f "$font_dir/$font" ]]; then
+      note "CaskaydiaCove Nerd Font $NERD_FONT_VERSION is already installed."
+      return
+    fi
+  fi
+
+  if [[ "$DRY_RUN" == true ]]; then
+    note "[dry-run] download and SHA-256 verify CaskaydiaCove Nerd Font $NERD_FONT_VERSION"
+    note "[dry-run] install four font styles in $font_dir"
+    return
+  fi
+
+  command -v curl >/dev/null 2>&1 || die "curl is required to install the Nerd Font"
+  command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required to verify the Nerd Font"
+  command -v tar >/dev/null 2>&1 || die "tar is required to install the Nerd Font"
+  command -v fc-cache >/dev/null 2>&1 || die "fontconfig is required to activate the Nerd Font"
+  make_temp_dir
+  archive="$TEMP_DIR/CascadiaCode.tar.xz"
+  extract_dir="$TEMP_DIR/CaskaydiaCove"
+  mkdir -p "$extract_dir"
+  curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
+    --output "$archive" "$NERD_FONT_URL"
+  printf '%s  %s\n' "$NERD_FONT_SHA256" "$archive" | sha256sum --check --status ||
+    die "Nerd Font checksum verification failed"
+  tar --extract --xz --file "$archive" --directory "$extract_dir" -- "${fonts[@]}"
+  install -d -m 0755 "$font_dir"
+  for font in "${fonts[@]}"; do
+    [[ -f "$extract_dir/$font" && ! -L "$extract_dir/$font" ]] ||
+      die "Nerd Font archive is missing a regular file: $font"
+    install -m 0644 "$extract_dir/$font" "$font_dir/$font"
+  done
+  printf '%s\n' "$NERD_FONT_VERSION" > "$extract_dir/version"
+  install -m 0644 "$extract_dir/version" "$marker"
+  fc-cache -f "$font_dir"
+  note "Installed CaskaydiaCove Nerd Font $NERD_FONT_VERSION."
+}
+
 require_base_tools() {
   command -v curl >/dev/null 2>&1 || die "curl is missing; run ./setup.sh base first"
   command -v gpg >/dev/null 2>&1 || die "gpg is missing; run ./setup.sh base first"
@@ -256,9 +318,10 @@ install_base() {
   ensure_sudo
   run sudo apt-get update
   run sudo apt-get install --yes \
-    ca-certificates curl direnv eza fonts-cascadia-code fzf git gnupg jq openssh-client rsync \
-    unzip zip zsh zsh-autosuggestions zsh-syntax-highlighting
+    ca-certificates curl direnv eza fontconfig fonts-cascadia-code fzf git gnupg jq openssh-client rsync \
+    unzip xz-utils zip zsh zsh-autosuggestions zsh-syntax-highlighting
   install_oh_my_posh
+  install_nerd_font
 }
 
 install_apps() {
@@ -488,6 +551,12 @@ show_status() {
     printf '%-18s %s\n' 'Zsh prompt' 'Oh My Posh'
   else
     printf '%-18s %s\n' 'Zsh prompt' 'plain fallback'
+  fi
+  if [[ -f "$HOME/.local/share/fonts/CaskaydiaCove/.nerd-font-version" &&
+        "$(<"$HOME/.local/share/fonts/CaskaydiaCove/.nerd-font-version")" == "$NERD_FONT_VERSION" ]]; then
+    printf '%-18s %s\n' 'Zsh font' 'CaskaydiaCove Nerd Font'
+  else
+    printf '%-18s %s\n' 'Zsh font' 'not installed'
   fi
   if [[ -f "$HOME/.config/ubuntu-xdg-terminals.list" &&
         "$(head -n 1 "$HOME/.config/ubuntu-xdg-terminals.list")" == "com.mitchellh.ghostty.desktop" ]]; then
