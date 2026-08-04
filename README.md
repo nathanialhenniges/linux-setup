@@ -22,6 +22,23 @@ Stop after any failed box. Do not keep stacking fixes.
 
 The real dotfiles step may ask for your Ubuntu account password while `chsh` makes Zsh the login shell. It never uses `sudo` for this change. Sign out and back in once afterward; the dry run never prompts or changes the shell.
 
+## Update an installed machine later
+
+Run these from the existing MBA checkout whenever this setup or the desktop
+dotfiles change:
+
+```bash
+cd ~/linux-setup
+git pull --ff-only
+./setup.sh dotfiles
+./setup.sh status
+```
+
+The Git pull updates this trusted setup first. The `dotfiles` command then
+verifies and fast-forwards the managed `~/.local/share/dotfiles` checkout,
+backs up replaced home files, and reapplies only `linux-desktop.sh`. It stops
+instead of overwriting local Git changes or an unexpected origin.
+
 ## Start here
 
 Check for Git first:
