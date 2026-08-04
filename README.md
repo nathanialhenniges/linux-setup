@@ -21,6 +21,21 @@ After dotfiles pass, make Zsh the login shell only if you want it: `chsh -s /usr
 
 ## Start here
 
+Check for Git first:
+
+```bash
+git --version
+```
+
+If Ubuntu says `git: command not found`, bootstrap only Git:
+
+```bash
+sudo apt-get update
+sudo apt-get install --yes git
+```
+
+Then clone the setup:
+
 ```bash
 git clone https://github.com/nathanialhenniges/linux-setup.git
 cd linux-setup
