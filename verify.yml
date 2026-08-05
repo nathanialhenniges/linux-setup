@@ -254,6 +254,7 @@
           - "REQUIRED PACKAGES  {{ 'ready' if missing_required_packages | length == 0 else 'missing: ' ~ (missing_required_packages | join(', ')) }}"
           - "PERSONAL PROMPT    {{ 'ready' if prompt_ready else 'needs base action' }}"
           - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
+          - "CORE APT SOURCES   {{ 'ready' if core_sources_ready else 'needs apps action' }}"
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
           - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"
           - "DESKTOP DOTFILES   {{ 'ready' if dotfiles_ready else 'needs dotfiles action or review' }}"
