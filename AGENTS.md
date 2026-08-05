@@ -19,7 +19,9 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 - Never use `apt-key`, `trusted=yes`, PPAs, or `curl | sh`.
 - Pin non-APT artifacts to immutable upstream releases, verify reviewed SHA-256 values before installation, and keep them user-local when possible.
 - Keep account authentication and Cloudflare enrollment manual.
-- Keep `--dry-run` free of sudo, network, and writes.
+- Use local `ansible-core` playbooks with builtin modules and task-level `become`; never add remote inventory or host management.
+- Keep every mutating action explicitly tagged and selected through `setup.sh`; never add a catch-all action.
+- Keep `--dry-run` free of sudo, network, and managed-state writes. Ansible's ignored local temporary directory is the only allowed side effect.
 
 ## Checks
 
@@ -29,5 +31,7 @@ Run before every commit:
 ./tests/test_setup.sh
 git diff --check
 ```
+
+The tests must cover playbook syntax, the localhost lock, explicit action selection, check-mode mutation gates, vendor checksum/fingerprint gates, and the dedicated dotfiles entry point.
 
 Review every tracked file for secrets and absolute personal paths before the first public push.

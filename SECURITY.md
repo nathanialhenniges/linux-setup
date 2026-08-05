@@ -14,7 +14,8 @@ Use GitHub's private vulnerability reporting for security issues. Do not open a 
 - Never embed personal email, Git identity, SSH hosts, Wi-Fi networks, 1Password URLs, or Cloudflare enrollment data.
 - Use official Ubuntu packages or documented vendor repositories with isolated keyrings and full fingerprint checks.
 - Never use `apt-key`, `trusted=yes`, or an unreviewed PPA.
-- `--dry-run` must remain free of `sudo`, downloads, and writes.
+- `--dry-run` must remain free of `sudo`, downloads, and managed-state writes; only Ansible's ignored local temporary directory is allowed.
+- Ansible must stay locked to the local workstation. Do not add remote inventory, server roles, or a catch-all action.
 - Dotfiles integration may invoke only the dedicated `linux-desktop.sh` entry point.
 - Never add calls to server/devbox scripts or `config/server/**` / `config/agent/**`.
 

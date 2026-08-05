@@ -5,22 +5,22 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 > [!IMPORTANT]
 > This is a **desktop workstation** setup. It never configures a server or devbox and never invokes the dotfiles `server.sh`, `server-dev.sh`, `install.sh`, `config/server/**`, or `config/agent/**` paths.
 
-[Dotfiles PR #24](https://github.com/nathanialhenniges/dotfiles/pull/24) is merged. The `dotfiles` command still refuses to run unless its dedicated entry point exists on the verified `main` branch.
-
 ## Do one box at a time
 
-- [ ] 1. Preview the base setup: `./setup.sh --dry-run base`
-- [ ] 2. Install the base: `./setup.sh base`
-- [ ] 3. Preview/install core apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
-- [ ] 4. After Ghostty launch-tests successfully: `./setup.sh terminal`
-- [ ] 5. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
-- [ ] 6. Apply desktop-only dotfiles and make Zsh the login shell: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
-- [ ] 7. Apply the GNOME look: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
-- [ ] 8. Decide later: `./setup.sh --dry-run optional`
+- [ ] 1. Install the small Ansible runtime: `./setup.sh bootstrap`
+- [ ] 2. See what is already ready: `./setup.sh status`
+- [ ] 3. Preview/install the base: `./setup.sh --dry-run base`, then `./setup.sh base`
+- [ ] 4. Preview/install core apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
+- [ ] 5. After Ghostty launch-tests successfully: `./setup.sh terminal`
+- [ ] 6. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
+- [ ] 7. Apply desktop-only dotfiles and make Zsh the login shell: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
+- [ ] 8. Apply the GNOME look: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
+- [ ] 9. Confirm the core workstation: `./setup.sh verify`
+- [ ] 10. Decide later: `./setup.sh --dry-run optional`
 
 Stop after any failed box. Do not keep stacking fixes.
 
-The real dotfiles step may ask for your Ubuntu account password while `chsh` makes Zsh the login shell. It never uses `sudo` for this change. Sign out and back in once afterward; the dry run never prompts or changes the shell.
+The real dotfiles step asks for your Ubuntu password only when Ansible needs `sudo` to change this account's login shell. It first verifies the packaged `/usr/bin/zsh` and `/etc/shells`, never changes root, and never prompts during a dry run. Sign out and back in once afterward.
 
 ## Update an installed machine later
 
@@ -38,6 +38,16 @@ The Git pull updates this trusted setup first. The `dotfiles` command then
 verifies and fast-forwards the managed `~/.local/share/dotfiles` checkout,
 backs up replaced home files, and reapplies only `linux-desktop.sh`. It stops
 instead of overwriting local Git changes or an unexpected origin.
+
+For a dotfiles-only refresh, use the guarded updater inside that checkout:
+
+```bash
+cd ~/.local/share/dotfiles
+./update.sh --dry-run
+./update.sh
+```
+
+That updater also works from the normal dotfiles checkout on macOS. It requires the expected origin, `main`, and a clean worktree; fetches and merges only with `--ff-only`; applies only the current platform's reviewed desktop profile; and never commits or pushes.
 
 ## Start here
 
@@ -59,17 +69,20 @@ Then clone the setup:
 ```bash
 git clone https://github.com/nathanialhenniges/linux-setup.git
 cd linux-setup
+./setup.sh bootstrap
 ./setup.sh status
 ./setup.sh --dry-run base
 ```
 
-`--dry-run` never uses `sudo`, downloads a key, installs a package, or changes a file.
+`--dry-run` uses Ansible check mode. It never uses `sudo`, downloads a key, installs a package, or changes managed state. Ansible may create its ignored `.ansible/` temporary directory inside this checkout.
 
 ## What each command does
 
 | Command | Installs or changes | Does **not** do |
 |---|---|---|
+| `bootstrap` | Minimal `ansible-core`, Python APT bindings, and nothing else | No full Ansible collection bundle or workstation changes |
 | `status` | Nothing; shows a short table | No network or `sudo` |
+| `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
 | `apps` | GitHub CLI and VS Code from signed vendor APT repos; Ghostty from Ubuntu | Does not replace the default terminal |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
@@ -134,6 +147,8 @@ another installed terminal above `com.mitchellh.ghostty.desktop`.
 ```bash
 ./tests/test_setup.sh
 ```
+
+After the MBA is configured, `./setup.sh verify` must pass. A second dry run of each action should finish with `changed=0`; stop and review any reported drift before applying it.
 
 ## Official references
 
