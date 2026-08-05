@@ -1,0 +1,278 @@
+---
+- name: Show and verify the Ubuntu workstation state
+  hosts: workstation
+  connection: local
+  gather_facts: true
+  vars_files:
+    - vars.yml
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    strict_verify: false
+    workstation_user: "{{ ansible_facts.user_id }}"
+    workstation_home: "{{ ansible_facts.env.HOME }}"
+    dotfiles_dir: "{{ ansible_facts.env.HOME }}/.local/share/dotfiles"
+    oh_my_posh_path: "{{ ansible_facts.env.HOME }}/.local/bin/oh-my-posh"
+    font_dir: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove"
+    font_marker: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove/.nerd-font-{{ nerd_font.version }}"
+    required_packages: "{{ base_packages + core_app_packages }}"
+
+  tasks:
+    - name: Refuse a non-Ubuntu-desktop target
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version == '26.04'
+          - ansible_facts.architecture == 'x86_64'
+          - ansible_facts.user_uid | int != 0
+          - workstation_home.startswith('/')
+          - workstation_home != '/'
+          - workstation_home == ansible_facts.user_dir
+        fail_msg: "Supported target is Ubuntu Desktop 26.04 AMD64 run by its non-root desktop user."
+        quiet: true
+
+    - name: Inspect the home and Ubuntu desktop markers
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+      loop:
+        - "{{ workstation_home }}"
+        - /usr/share/wayland-sessions/ubuntu.desktop
+        - /usr/share/xsessions/ubuntu.desktop
+      register: verification_target_markers
+
+    - name: Require a real home and Ubuntu desktop installation
+      ansible.builtin.assert:
+        that:
+          - verification_target_markers.results[0].stat.isdir | default(false)
+          - not (verification_target_markers.results[0].stat.islnk | default(false))
+          - >-
+            ansible_facts.env.XDG_CURRENT_DESKTOP | default('') | length > 0 or
+            verification_target_markers.results[1].stat.exists | default(false) or
+            verification_target_markers.results[2].stat.exists | default(false)
+        fail_msg: "Ubuntu Desktop and a non-symlink home directory are required."
+        quiet: true
+
+    - name: Read installed packages
+      ansible.builtin.package_facts:
+        manager: apt
+
+    - name: Calculate missing required packages
+      ansible.builtin.set_fact:
+        missing_required_packages: "{{ required_packages | difference(ansible_facts.packages.keys() | list) }}"
+
+    - name: Inspect managed workstation files
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - "{{ oh_my_posh_path }}"
+        - "{{ font_marker }}"
+        - "{{ font_dir }}/CaskaydiaCoveNerdFontMono-Regular.ttf"
+        - "{{ font_dir }}/CaskaydiaCoveNerdFontMono-Bold.ttf"
+        - "{{ font_dir }}/CaskaydiaCoveNerdFontMono-Italic.ttf"
+        - "{{ font_dir }}/CaskaydiaCoveNerdFontMono-BoldItalic.ttf"
+        - "{{ workstation_home }}/.config/ubuntu-xdg-terminals.list"
+        - "{{ dotfiles_dir }}/.git"
+        - "{{ dotfiles_dir }}/linux-desktop.sh"
+        - /usr/bin/zsh
+      register: workstation_files
+
+    - name: Read the installed Nerd Font release marker
+      ansible.builtin.slurp:
+        src: "{{ font_marker }}"
+      register: verified_font_marker
+      failed_when: false
+      changed_when: false
+      when: workstation_files.results[1].stat.isreg | default(false)
+
+    - name: Read the Oh My Posh version
+      ansible.builtin.command:
+        argv: ["{{ oh_my_posh_path }}", version]
+      register: verified_oh_my_posh_version
+      changed_when: false
+      failed_when: false
+      when: workstation_files.results[0].stat.isreg | default(false)
+
+    - name: Resolve the configured Nerd Font family
+      ansible.builtin.command:
+        argv: [fc-match, --format, "%{family}\n", "CaskaydiaCove Nerd Font Mono"]
+      register: verified_font_family
+      changed_when: false
+      failed_when: false
+
+    - name: Read the first default-terminal entry
+      ansible.builtin.command:
+        argv: [head, -n, "1", "{{ workstation_home }}/.config/ubuntu-xdg-terminals.list"]
+      register: verified_terminal
+      changed_when: false
+      failed_when: false
+      when: workstation_files.results[6].stat.isreg | default(false)
+
+    - name: Read the account login shell
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ workstation_user }}"
+
+    - name: Read the dotfiles origin
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", remote, get-url, origin]
+      register: verified_dotfiles_origin
+      changed_when: false
+      failed_when: false
+      when: workstation_files.results[7].stat.isdir | default(false)
+
+    - name: Read the dotfiles branch
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", symbolic-ref, --quiet, --short, HEAD]
+      register: verified_dotfiles_branch
+      changed_when: false
+      failed_when: false
+      when: workstation_files.results[7].stat.isdir | default(false)
+
+    - name: Read dotfiles worktree changes
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", status, --porcelain]
+      register: verified_dotfiles_status
+      changed_when: false
+      failed_when: false
+      when: workstation_files.results[7].stat.isdir | default(false)
+
+    - name: Read dotfiles HEAD and origin main
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", rev-parse, HEAD, origin/main]
+      register: verified_dotfiles_revisions
+      changed_when: false
+      failed_when: false
+      when: workstation_files.results[7].stat.isdir | default(false)
+
+    - name: Preview the dedicated desktop dotfiles profile
+      ansible.builtin.command:
+        argv: [bash, "{{ dotfiles_dir }}/linux-desktop.sh", --dry-run]
+      register: verified_dotfiles_preview
+      changed_when: false
+      failed_when: false
+      when:
+        - workstation_files.results[8].stat.isreg | default(false)
+        - not (workstation_files.results[8].stat.islnk | default(false))
+
+    - name: Inspect verified core repository keys
+      ansible.builtin.stat:
+        path: "{{ item.key_path }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop: "{{ core_vendor_repositories }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: verified_core_keys
+
+    - name: Inspect verified core repository sources
+      ansible.builtin.stat:
+        path: "{{ item.source_path }}"
+        follow: false
+      loop: "{{ core_vendor_repositories }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: verified_core_sources
+
+    - name: Read verified core repository sources
+      ansible.builtin.slurp:
+        src: "{{ item.source_path }}"
+      loop: "{{ core_vendor_repositories }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: verified_core_source_content
+      failed_when: false
+      changed_when: false
+
+    - name: Initialize core repository readiness
+      ansible.builtin.set_fact:
+        core_sources_ready: true
+
+    - name: Verify each core repository file
+      ansible.builtin.set_fact:
+        core_sources_ready: >-
+          {{ core_sources_ready and
+             verified_core_keys.results[core_repo_index].stat.isreg | default(false) and
+             not (verified_core_keys.results[core_repo_index].stat.islnk | default(false)) and
+             verified_core_keys.results[core_repo_index].stat.checksum | default('') == item.key_sha256 and
+             verified_core_sources.results[core_repo_index].stat.isreg | default(false) and
+             not (verified_core_sources.results[core_repo_index].stat.islnk | default(false)) and
+             verified_core_source_content.results[core_repo_index].content | default('') | b64decode == item.source_content }}
+      loop: "{{ core_vendor_repositories }}"
+      loop_control:
+        label: "{{ item.name }}"
+        index_var: core_repo_index
+
+    - name: Detect Codex CLI without changing shell state
+      ansible.builtin.shell: command -v codex
+      register: verified_codex
+      changed_when: false
+      failed_when: false
+
+    - name: Calculate workstation readiness
+      ansible.builtin.set_fact:
+        prompt_ready: >-
+          {{ workstation_files.results[0].stat.isreg | default(false) and
+             workstation_files.results[0].stat.checksum | default('') == oh_my_posh.sha256 and
+             verified_oh_my_posh_version.stdout | default('') == oh_my_posh.version }}
+        font_ready: >-
+          {{ workstation_files.results[1].stat.isreg | default(false) and
+             not (workstation_files.results[1].stat.islnk | default(false)) and
+             workstation_files.results[2].stat.isreg | default(false) and
+             not (workstation_files.results[2].stat.islnk | default(false)) and
+             workstation_files.results[3].stat.isreg | default(false) and
+             not (workstation_files.results[3].stat.islnk | default(false)) and
+             workstation_files.results[4].stat.isreg | default(false) and
+             not (workstation_files.results[4].stat.islnk | default(false)) and
+             workstation_files.results[5].stat.isreg | default(false) and
+             not (workstation_files.results[5].stat.islnk | default(false)) and
+             verified_font_marker.content | default('') | b64decode | trim == nerd_font.version and
+             'CaskaydiaCove Nerd Font Mono' in (verified_font_family.stdout | default('')) }}
+        terminal_ready: >-
+          {{ verified_terminal.stdout | default('') == 'com.mitchellh.ghostty.desktop' }}
+        shell_ready: >-
+          {{ workstation_files.results[9].stat.isreg | default(false) and
+             not (workstation_files.results[9].stat.islnk | default(false)) and
+             workstation_files.results[9].stat.executable | default(false) and
+             ansible_facts.getent_passwd[workstation_user][-1] in ['/bin/zsh', '/usr/bin/zsh'] }}
+        dotfiles_ready: >-
+          {{ workstation_files.results[8].stat.isreg | default(false) and
+             not (workstation_files.results[8].stat.islnk | default(false)) and
+             verified_dotfiles_origin.stdout | default('') in dotfiles_allowed_origins and
+             verified_dotfiles_branch.stdout | default('') == 'main' and
+             verified_dotfiles_status.stdout | default('DIRTY') == '' and
+             verified_dotfiles_revisions.rc | default(1) == 0 and
+             verified_dotfiles_revisions.stdout_lines | default([]) | length == 2 and
+             verified_dotfiles_revisions.stdout_lines[0] == verified_dotfiles_revisions.stdout_lines[1] and
+             verified_dotfiles_preview.rc | default(1) == 0 and
+             'would apply ' not in (verified_dotfiles_preview.stdout | default('')) }}
+
+    - name: Show the ADHD-friendly workstation status board
+      ansible.builtin.debug:
+        msg:
+          - "REQUIRED PACKAGES  {{ 'ready' if missing_required_packages | length == 0 else 'missing: ' ~ (missing_required_packages | join(', ')) }}"
+          - "PERSONAL PROMPT    {{ 'ready' if prompt_ready else 'needs base action' }}"
+          - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
+          - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
+          - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"
+          - "DESKTOP DOTFILES   {{ 'ready' if dotfiles_ready else 'needs dotfiles action or review' }}"
+          - "1PASSWORD          {{ 'installed' if '1password' in ansible_facts.packages else 'not installed' }}"
+          - "CHROME             {{ 'installed' if 'google-chrome-stable' in ansible_facts.packages else 'not installed' }}"
+          - "CODEX CLI          {{ 'installed' if verified_codex.rc == 0 else 'not installed' }}"
+          - "CLAUDE DESKTOP     {{ 'installed' if 'claude-desktop' in ansible_facts.packages else 'optional' }}"
+          - "CLOUDFLARE WARP    {{ 'installed' if 'cloudflare-warp' in ansible_facts.packages else 'optional' }}"
+
+    - name: Require the completed core workstation state
+      ansible.builtin.assert:
+        that:
+          - missing_required_packages | length == 0
+          - prompt_ready
+          - font_ready
+          - terminal_ready
+          - shell_ready
+          - dotfiles_ready
+          - core_sources_ready
+        fail_msg: "Core setup is incomplete. Run the action named by the status board, then verify again."
+        success_msg: "Core Ubuntu workstation setup is verified."
+      when: strict_verify | bool

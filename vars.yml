@@ -1,0 +1,148 @@
+---
+supported_actions:
+  - base
+  - apps
+  - terminal
+  - dotfiles
+  - gnome
+  - optional
+
+base_packages:
+  - ca-certificates
+  - curl
+  - direnv
+  - eza
+  - fontconfig
+  - fonts-cascadia-code
+  - fzf
+  - git
+  - gnupg
+  - jq
+  - openssh-client
+  - rsync
+  - unzip
+  - xz-utils
+  - zip
+  - zsh
+  - zsh-autosuggestions
+  - zsh-syntax-highlighting
+
+core_app_packages:
+  - gh
+  - code
+  - ghostty
+
+optional_packages:
+  - claude-desktop
+  - cloudflare-warp
+
+oh_my_posh:
+  version: "30.5.0"
+  url: https://github.com/JanDeDobbeleer/oh-my-posh/releases/download/v30.5.0/posh-linux-amd64
+  sha256: 03bc5c288b6f2fc4ad9db4e11f191e970b31e93d3aa2e55ecc09bd7096226484
+
+nerd_font:
+  version: "3.5.0"
+  url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.5.0/CascadiaCode.tar.xz
+  sha256: f30f67f203f9da78df857ebe558321bdfd8fc313662c72fd9e9fef9d4f4c96e7
+  files:
+    - CaskaydiaCoveNerdFontMono-Regular.ttf
+    - CaskaydiaCoveNerdFontMono-Bold.ttf
+    - CaskaydiaCoveNerdFontMono-Italic.ttf
+    - CaskaydiaCoveNerdFontMono-BoldItalic.ttf
+
+dotfiles_repo: https://github.com/nathanialhenniges/dotfiles.git
+dotfiles_allowed_origins:
+  - https://github.com/nathanialhenniges/dotfiles
+  - https://github.com/nathanialhenniges/dotfiles.git
+  - git@github.com:nathanialhenniges/dotfiles
+  - git@github.com:nathanialhenniges/dotfiles.git
+
+core_vendor_repositories:
+  - name: github-cli
+    key_url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    key_sha256: 6084d5d7bd8e288441e0e94fc6275570895da18e6751f70f057485dc2d1a811b
+    fingerprints:
+      - 2C6106201985B60E6C7AC87323F3D4EA75716059
+      - 7F38BBB59D064DBCB3D84D725612B36462313325
+    key_path: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    source_path: /etc/apt/sources.list.d/github-cli.sources
+    uri: https://cli.github.com/packages
+    suite: stable
+    source_content: |
+      Types: deb
+      URIs: https://cli.github.com/packages
+      Suites: stable
+      Components: main
+      Architectures: amd64
+      Signed-By: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+  - name: microsoft-code
+    key_url: https://packages.microsoft.com/keys/microsoft.asc
+    key_sha256: 2fa9c05d591a1582a9aba276272478c262e95ad00acf60eaee1644d93941e3c6
+    fingerprints:
+      - BC528686B50D79E339D3721CEB3E94ADBE1229CF
+    key_path: /etc/apt/keyrings/microsoft.asc
+    source_path: /etc/apt/sources.list.d/vscode.sources
+    uri: https://packages.microsoft.com/repos/code
+    suite: stable
+    source_content: |
+      Types: deb
+      URIs: https://packages.microsoft.com/repos/code
+      Suites: stable
+      Components: main
+      Architectures: amd64
+      Signed-By: /etc/apt/keyrings/microsoft.asc
+
+optional_vendor_repositories:
+  - name: claude-desktop
+    key_url: https://downloads.claude.ai/claude-desktop/key.asc
+    key_sha256: bd70a5e4a268002704024ceba7f8446024114e94f3f0bdd11c23a9e592be81c6
+    fingerprints:
+      - 31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE
+    key_path: /etc/apt/keyrings/claude-desktop.asc
+    source_path: /etc/apt/sources.list.d/claude-desktop.sources
+    uri: https://downloads.claude.ai/claude-desktop/apt/stable
+    suite: stable
+    source_content: |
+      Types: deb
+      URIs: https://downloads.claude.ai/claude-desktop/apt/stable
+      Suites: stable
+      Components: main
+      Architectures: amd64
+      Signed-By: /etc/apt/keyrings/claude-desktop.asc
+  - name: cloudflare-warp
+    key_url: https://pkg.cloudflareclient.com/pubkey.gpg
+    key_sha256: 0f37fc298c98e88ee3c0ee68c95b69f1dba9eb477abe3167e13982105911264d
+    fingerprints:
+      - C068A2B5771775193CBE1F2F6E2DD2174FA1C3BA
+    key_path: /etc/apt/keyrings/cloudflare-warp.asc
+    source_path: /etc/apt/sources.list.d/cloudflare-client.sources
+    uri: https://pkg.cloudflareclient.com/
+    suite: resolute
+    source_content: |
+      Types: deb
+      URIs: https://pkg.cloudflareclient.com/
+      Suites: resolute
+      Components: main
+      Architectures: amd64
+      Signed-By: /etc/apt/keyrings/cloudflare-warp.asc
+
+gnome_settings:
+  - schema: org.gnome.desktop.interface
+    key: color-scheme
+    value: "'prefer-dark'"
+  - schema: org.gnome.desktop.interface
+    key: show-battery-percentage
+    value: "true"
+  - schema: org.gnome.desktop.interface
+    key: enable-hot-corners
+    value: "false"
+  - schema: org.gnome.shell.extensions.dash-to-dock
+    key: dock-position
+    value: "'BOTTOM'"
+  - schema: org.gnome.shell.extensions.dash-to-dock
+    key: extend-height
+    value: "false"
+  - schema: org.gnome.shell.extensions.dash-to-dock
+    key: dock-fixed
+    value: "false"

@@ -1,23 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 setup="$repo_dir/setup.sh"
 failures=0
 
 pass() { printf 'PASS: %s\n' "$1"; }
 fail() { printf 'FAIL: %s\n' "$1" >&2; failures=$((failures + 1)); }
-fake_tampered_curl() {
-  local output=''
-  while (($#)); do
-    if [[ "$1" == '--output' ]]; then
-      output="$2"
-      break
-    fi
-    shift
-  done
-  printf 'tampered\n' > "$output"
-}
 
 if bash -n "$setup"; then
   pass 'Bash syntax'
@@ -35,146 +24,22 @@ else
   printf 'SKIP: ShellCheck is not installed\n'
 fi
 
-if "$setup" --help | grep -Fq 'Ubuntu Desktop 26.04 workstation setup'; then
-  pass 'help works without target-system checks'
+if [[ -x "$setup" ]]; then
+  pass 'setup wrapper is executable'
+else
+  fail 'setup wrapper mode'
+fi
+
+if "$setup" --help | grep -Fq 'Ubuntu Desktop 26.04 local Ansible setup'; then
+  pass 'help works without target checks'
 else
   fail 'help output'
 fi
 
-if "$setup" --help | grep -Fq 'terminal  Make launch-tested Ghostty'; then
-  pass 'default-terminal command is documented'
+if "$setup" | grep -Fq './setup.sh bootstrap'; then
+  pass 'no command defaults to help'
 else
-  fail 'default-terminal command help'
-fi
-
-test_root="$(mktemp -d)"
-printf 'org.gnome.Terminal.desktop\ncom.mitchellh.ghostty.desktop\n' > "$test_root/terminals.list"
-# Resolved from this test's repository root.
-# shellcheck disable=SC1090,SC1091
-source "$setup"
-trap 'rm -rf "$test_root"' EXIT
-terminal_result="$(terminal_list_content com.mitchellh.ghostty.desktop "$test_root/terminals.list")"
-if [[ "$terminal_result" == $'com.mitchellh.ghostty.desktop\norg.gnome.Terminal.desktop' ]]; then
-  pass 'Ghostty becomes first without duplicating it'
-else
-  fail 'default-terminal list ordering'
-fi
-
-if (
-  HOME="$test_root/dry-run-home"
-  mkdir -p "$HOME"
-  DRY_RUN=true
-  TEMP_DIR=''
-  # shellcheck disable=SC2329 # install_oh_my_posh resolves this test double dynamically.
-  curl() { return 99; }
-  install_oh_my_posh >/dev/null
-  [[ ! -e "$HOME/.local/bin/oh-my-posh" ]]
-); then
-  pass 'Oh My Posh dry-run has no network or writes'
-else
-  fail 'Oh My Posh dry-run safety'
-fi
-
-mkdir -p "$test_root/checksum-home" "$test_root/checksum-temp"
-if (
-  HOME="$test_root/checksum-home"
-  # shellcheck disable=SC2034 # install_oh_my_posh reads the sourced globals dynamically.
-  DRY_RUN=false
-  # shellcheck disable=SC2034
-  TEMP_DIR="$test_root/checksum-temp"
-  # shellcheck disable=SC2329 # install_oh_my_posh resolves this test double dynamically.
-  curl() { fake_tampered_curl "$@"; }
-  install_oh_my_posh >/dev/null 2>&1
-); then
-  fail 'checksum mismatch must stop Oh My Posh installation'
-elif [[ ! -e "$test_root/checksum-home/.local/bin/oh-my-posh" ]]; then
-  pass 'checksum mismatch fails before Oh My Posh installation'
-else
-  fail 'checksum mismatch wrote the Oh My Posh target'
-fi
-
-if (
-  HOME="$test_root/font-dry-run-home"
-  mkdir -p "$HOME"
-  DRY_RUN=true
-  TEMP_DIR=''
-  # shellcheck disable=SC2329 # install_nerd_font resolves this test double dynamically.
-  curl() { return 99; }
-  install_nerd_font >/dev/null
-  [[ ! -e "$HOME/.local/share/fonts/CaskaydiaCove/.nerd-font-version" ]]
-); then
-  pass 'Nerd Font dry-run has no network or writes'
-else
-  fail 'Nerd Font dry-run safety'
-fi
-
-mkdir -p "$test_root/font-checksum-home" "$test_root/font-checksum-temp"
-if (
-  HOME="$test_root/font-checksum-home"
-  # shellcheck disable=SC2034 # install_nerd_font reads the sourced globals dynamically.
-  DRY_RUN=false
-  # shellcheck disable=SC2034
-  TEMP_DIR="$test_root/font-checksum-temp"
-  # shellcheck disable=SC2329 # install_nerd_font resolves these test doubles dynamically.
-  curl() { fake_tampered_curl "$@"; }
-  # shellcheck disable=SC2329
-  tar() { return 99; }
-  # shellcheck disable=SC2329
-  fc-cache() { return 99; }
-  install_nerd_font >/dev/null 2>&1
-); then
-  fail 'checksum mismatch must stop Nerd Font installation'
-elif [[ ! -e "$test_root/font-checksum-home/.local/share/fonts/CaskaydiaCove" ]]; then
-  pass 'checksum mismatch fails before Nerd Font installation'
-else
-  fail 'checksum mismatch wrote the Nerd Font target'
-fi
-
-if (
-  sequence=''
-  # shellcheck disable=SC2329 # main resolves these test doubles dynamically.
-  apply_dotfiles() { sequence="${sequence}dotfiles "; }
-  # shellcheck disable=SC2329
-  set_default_login_shell() { sequence="${sequence}shell"; }
-  main dotfiles
-  [[ "$sequence" == 'dotfiles shell' ]]
-); then
-  pass 'dotfiles apply before the login-shell change'
-else
-  fail 'dotfiles and login-shell ordering'
-fi
-
-if (
-  shell_change_called=false
-  # shellcheck disable=SC2329 # main resolves these test doubles dynamically.
-  apply_dotfiles() { return 7; }
-  # shellcheck disable=SC2329
-  set_default_login_shell() { shell_change_called=true; }
-  main dotfiles >/dev/null 2>&1 || true
-  [[ "$shell_change_called" == false ]]
-); then
-  pass 'failed dotfiles cannot change the login shell'
-else
-  fail 'dotfiles failure boundary'
-fi
-
-if (
-  # shellcheck disable=SC2329 # configured_login_shell resolves these test doubles dynamically.
-  id() { printf 'tester\n'; }
-  # shellcheck disable=SC2329
-  getent() { printf 'tester:x:1000:1000::/home/tester:/usr/bin/zsh\n'; }
-  [[ "$(configured_login_shell)" == '/usr/bin/zsh' ]]
-); then
-  pass 'configured login shell is read from the account record'
-else
-  fail 'configured login-shell lookup'
-fi
-
-# shellcheck disable=SC2016 # The literal source expression is the assertion target.
-if grep -Fq 'chsh -s "$zsh_path"' "$setup" && ! grep -Eq 'sudo[[:space:]]+chsh' "$setup"; then
-  pass 'Zsh login-shell change is current-user only'
-else
-  fail 'Zsh login-shell safety boundary'
+  fail 'default help behavior'
 fi
 
 if "$setup" definitely-not-a-command >/dev/null 2>&1; then
@@ -186,19 +51,120 @@ fi
 if "$setup" --help base >/dev/null 2>&1; then
   fail 'help mixed with a command must fail'
 else
-  pass 'help cannot trigger an install command'
+  pass 'multiple commands fail closed'
 fi
 
-if grep -En 'openssh-server|server-dev\.sh|config/(server|agent)|apt-key|trusted=yes|curl[^|]*\|[[:space:]]*(ba)?sh' "$setup"; then
-  fail 'forbidden server or unsafe repository pattern found'
+if "$setup" --dry-run >/dev/null 2>&1; then
+  fail 'dry-run without an action must fail'
 else
-  pass 'server and unsafe APT patterns absent'
+  pass 'dry-run requires one action'
 fi
 
-if grep -Fq 'linux-desktop.sh' "$setup" && ! grep -Eq 'bash .*install\.sh|/server\.sh' "$setup"; then
+if grep -Fq -- '--no-install-recommends ansible-core python3-apt python3-debian' "$setup"; then
+  pass 'bootstrap installs minimal ansible-core only'
+else
+  fail 'minimal Ansible bootstrap'
+fi
+
+if grep -Fq -- '--limit localhost' "$setup" &&
+   grep -Fq 'localhost ansible_connection=local' "$repo_dir/inventory.ini"; then
+  pass 'Ansible is locked to local localhost'
+else
+  fail 'localhost boundary'
+fi
+
+if grep -Fq 'setup_action is defined' "$repo_dir/site.yml" &&
+   grep -Fq "setup_action in supported_actions" "$repo_dir/site.yml" &&
+   ! grep -Eq '(^|[[:space:]-])all($|[[:space:]])' "$repo_dir/vars.yml"; then
+  pass 'one explicit action is required'
+else
+  fail 'explicit action boundary'
+fi
+
+scan_files=(
+  "$setup"
+  "$repo_dir/site.yml"
+  "$repo_dir/verify.yml"
+  "$repo_dir/vars.yml"
+  "$repo_dir/tasks/vendor_repositories.yml"
+)
+
+if grep -En 'openssh-server|server-dev\.sh|config/(server|agent)|apt-key|trusted[=:][[:space:]]*(yes|true)|curl[^|]*\|[[:space:]]*(ba)?sh' "${scan_files[@]}"; then
+  fail 'forbidden server, devbox, or unsafe repository pattern found'
+else
+  pass 'server/devbox and unsafe installer patterns are absent'
+fi
+
+if grep -Fq 'linux-desktop.sh' "$repo_dir/site.yml" &&
+   ! grep -Eq '(^|[/[:space:]])(install|server|server-dev)\.sh' "$repo_dir/site.yml"; then
   pass 'dotfiles entry point is desktop-only'
 else
   fail 'dotfiles boundary'
+fi
+
+for expected in \
+  '6084d5d7bd8e288441e0e94fc6275570895da18e6751f70f057485dc2d1a811b' \
+  '2fa9c05d591a1582a9aba276272478c262e95ad00acf60eaee1644d93941e3c6' \
+  'bd70a5e4a268002704024ceba7f8446024114e94f3f0bdd11c23a9e592be81c6' \
+  '0f37fc298c98e88ee3c0ee68c95b69f1dba9eb477abe3167e13982105911264d' \
+  '03bc5c288b6f2fc4ad9db4e11f191e970b31e93d3aa2e55ecc09bd7096226484' \
+  'f30f67f203f9da78df857ebe558321bdfd8fc313662c72fd9e9fef9d4f4c96e7'; do
+  if ! grep -Fq "$expected" "$repo_dir/vars.yml"; then
+    fail "missing reviewed checksum $expected"
+  fi
+done
+
+if grep -Fq 'checksum: "sha256:{{ item.key_sha256 }}"' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Read every primary signing-key fingerprint' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Preview vendor repository drift' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'content: "{{ item.source_content }}"' "$repo_dir/tasks/vendor_repositories.yml"; then
+  pass 'vendor keys and sources require integrity checks'
+else
+  fail 'vendor key verification gates'
+fi
+
+if grep -Fq 'not ansible_check_mode' "$repo_dir/site.yml" &&
+   grep -Fq 'command+=(--check --diff)' "$setup" &&
+   grep -A2 -F 'run_action() {' "$setup" | grep -Fq 'target_preflight'; then
+  pass 'dry-run uses check mode and gates mutators'
+else
+  fail 'Ansible dry-run boundary'
+fi
+
+if grep -Fq 'Preview the dedicated desktop dotfiles profile' "$repo_dir/verify.yml" &&
+   grep -Fq 'Read dotfiles HEAD and origin main' "$repo_dir/verify.yml" &&
+   grep -Fq "'would apply ' not in" "$repo_dir/verify.yml"; then
+  pass 'verification proves desktop dotfiles are applied'
+else
+  fail 'desktop dotfiles verification'
+fi
+
+if grep -Fq 'workstation_home == ansible_facts.user_dir' "$repo_dir/site.yml" &&
+   grep -Fq 'Require safe prompt path types' "$repo_dir/site.yml" &&
+   grep -Fq 'Require an executable packaged Zsh' "$repo_dir/site.yml"; then
+  pass 'home, prompt, and login-shell paths fail closed'
+else
+  fail 'managed path safety gates'
+fi
+
+if command -v ansible-playbook >/dev/null 2>&1; then
+  if (cd "$repo_dir" && ansible-playbook site.yml --syntax-check >/dev/null); then
+    pass 'site playbook syntax'
+  else
+    fail 'site playbook syntax'
+  fi
+  if (cd "$repo_dir" && ansible-playbook verify.yml --syntax-check >/dev/null); then
+    pass 'verification playbook syntax'
+  else
+    fail 'verification playbook syntax'
+  fi
+  if (cd "$repo_dir" && ansible-playbook site.yml --list-tasks --tags dotfiles -e setup_action=dotfiles >/dev/null); then
+    pass 'tagged task graph resolves'
+  else
+    fail 'tagged task graph'
+  fi
+else
+  printf 'SKIP: ansible-playbook is not installed; run ./setup.sh bootstrap on Ubuntu\n'
 fi
 
 if [[ "$failures" -ne 0 ]]; then
@@ -206,4 +172,4 @@ if [[ "$failures" -ne 0 ]]; then
   exit 1
 fi
 
-printf 'All setup safety checks passed.\n'
+printf 'All Ansible setup safety checks passed.\n'

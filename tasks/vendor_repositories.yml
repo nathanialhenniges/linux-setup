@@ -1,0 +1,178 @@
+---
+- name: Inspect the isolated APT keyring directory
+  ansible.builtin.stat:
+    path: /etc/apt/keyrings
+    follow: false
+  register: apt_keyring_directory
+
+- name: Require a safe isolated APT keyring directory
+  ansible.builtin.assert:
+    that:
+      - not (apt_keyring_directory.stat.islnk | default(false))
+      - >-
+        not (apt_keyring_directory.stat.exists | default(false)) or
+        apt_keyring_directory.stat.isdir | default(false)
+    fail_msg: "/etc/apt/keyrings must be absent or a real directory."
+    quiet: true
+
+- name: Inspect installed vendor signing keys
+  ansible.builtin.stat:
+    path: "{{ item.key_path }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop: "{{ vendor_repositories }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: installed_vendor_keys
+
+- name: Inspect installed vendor sources
+  ansible.builtin.stat:
+    path: "{{ item.source_path }}"
+    follow: false
+  loop: "{{ vendor_repositories }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: installed_vendor_sources
+
+- name: Read installed vendor source content
+  ansible.builtin.slurp:
+    src: "{{ item.source_path }}"
+  loop: "{{ vendor_repositories }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: installed_vendor_source_content
+  failed_when: false
+  changed_when: false
+
+- name: Refuse unsafe installed vendor signing-key paths
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - >-
+        not (item.stat.exists | default(false)) or
+        item.stat.isreg | default(false)
+    fail_msg: "Refusing unsafe vendor signing-key path: {{ item.item.key_path }}"
+    quiet: true
+  loop: "{{ installed_vendor_keys.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Refuse unsafe installed vendor source paths
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - >-
+        not (item.stat.exists | default(false)) or
+        item.stat.isreg | default(false)
+    fail_msg: "Refusing unsafe vendor source path: {{ item.item.source_path }}"
+    quiet: true
+  loop: "{{ installed_vendor_sources.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Preview vendor repository drift
+  ansible.builtin.debug:
+    msg: "Would verify and repair the {{ item.name }} signing key and source"
+  changed_when: true
+  loop: "{{ vendor_repositories }}"
+  loop_control:
+    label: "{{ item.name }}"
+    index_var: vendor_index
+  when:
+    - ansible_check_mode
+    - >-
+      not (installed_vendor_keys.results[vendor_index].stat.isreg | default(false)) or
+      installed_vendor_keys.results[vendor_index].stat.islnk | default(false) or
+      installed_vendor_keys.results[vendor_index].stat.checksum | default('') != item.key_sha256 or
+      not (installed_vendor_sources.results[vendor_index].stat.isreg | default(false)) or
+      installed_vendor_sources.results[vendor_index].stat.islnk | default(false) or
+      installed_vendor_source_content.results[vendor_index].content | default('') | b64decode != item.source_content
+
+- name: Ensure the isolated APT keyring directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when: not ansible_check_mode
+
+- name: Verify and install vendor repositories
+  block:
+    - name: Create a temporary key verification directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: linux-setup-keys
+      register: vendor_key_temp
+      changed_when: false
+
+    - name: Download pinned vendor signing keys
+      ansible.builtin.get_url:
+        url: "{{ item.key_url }}"
+        dest: "{{ vendor_key_temp.path }}/{{ item.name }}.key"
+        checksum: "sha256:{{ item.key_sha256 }}"
+        mode: "0600"
+        force: true
+      loop: "{{ vendor_repositories }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: vendor_key_downloads
+      changed_when: false
+
+    - name: Read every primary signing-key fingerprint
+      ansible.builtin.shell: >-
+        set -o pipefail;
+        gpg --batch --quiet --show-keys --with-colons {{ item.dest | quote }} |
+        awk -F: '$1 == "pub" { primary = 1; next }
+        primary && $1 == "fpr" { print toupper($10); primary = 0 }'
+      args:
+        executable: /bin/bash
+      loop: "{{ vendor_key_downloads.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      register: vendor_key_fingerprints
+      changed_when: false
+
+    - name: Reject undocumented vendor signing keys
+      ansible.builtin.assert:
+        that:
+          - item.stdout_lines | length > 0
+          - item.stdout_lines | difference(item.item.item.fingerprints) | length == 0
+        fail_msg: "{{ item.item.item.name }} returned an undocumented primary signing key"
+        quiet: true
+      loop: "{{ vendor_key_fingerprints.results }}"
+      loop_control:
+        label: "{{ item.item.item.name }}"
+
+    - name: Install verified vendor signing keys
+      ansible.builtin.copy:
+        src: "{{ item.dest }}"
+        dest: "{{ item.item.key_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      loop: "{{ vendor_key_downloads.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    - name: Install isolated deb822 vendor sources
+      ansible.builtin.copy:
+        dest: "{{ item.source_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: "{{ item.source_content }}"
+      become: true
+      loop: "{{ vendor_repositories }}"
+      loop_control:
+        label: "{{ item.name }}"
+  always:
+    - name: Remove temporary vendor keys
+      ansible.builtin.file:
+        path: "{{ vendor_key_temp.path }}"
+        state: absent
+      when: vendor_key_temp.path is defined
+      changed_when: false
+  when: not ansible_check_mode
