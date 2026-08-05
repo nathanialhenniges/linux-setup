@@ -1,0 +1,849 @@
+---
+- name: Configure Nathanial's Ubuntu desktop workstation
+  hosts: workstation
+  connection: local
+  gather_facts: true
+  vars_files:
+    - vars.yml
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+    workstation_user: "{{ ansible_facts.user_id }}"
+    workstation_home: "{{ ansible_facts.env.HOME }}"
+    dotfiles_dir: "{{ ansible_facts.env.HOME }}/.local/share/dotfiles"
+    oh_my_posh_path: "{{ ansible_facts.env.HOME }}/.local/bin/oh-my-posh"
+    font_dir: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove"
+    font_marker: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove/.nerd-font-{{ nerd_font.version }}"
+
+  pre_tasks:
+    - name: Require one explicit workstation action
+      ansible.builtin.assert:
+        that:
+          - setup_action is defined
+          - setup_action in supported_actions
+        fail_msg: "Pass exactly one setup_action: {{ supported_actions | join(', ') }}"
+        quiet: true
+      tags: always
+
+    - name: Refuse the wrong host before any mutation
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version == '26.04'
+          - ansible_facts.architecture == 'x86_64'
+          - ansible_facts.user_uid | int != 0
+          - workstation_home.startswith('/')
+          - workstation_home != '/'
+          - workstation_home == ansible_facts.user_dir
+        fail_msg: "Supported target is Ubuntu Desktop 26.04 AMD64 run by its non-root desktop user."
+        quiet: true
+      tags: always
+
+    - name: Inspect the home and Ubuntu desktop markers
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+      loop:
+        - "{{ workstation_home }}"
+        - /usr/share/wayland-sessions/ubuntu.desktop
+        - /usr/share/xsessions/ubuntu.desktop
+      register: target_markers
+      tags: always
+
+    - name: Require a real home and Ubuntu desktop installation
+      ansible.builtin.assert:
+        that:
+          - target_markers.results[0].stat.isdir | default(false)
+          - not (target_markers.results[0].stat.islnk | default(false))
+          - >-
+            ansible_facts.env.XDG_CURRENT_DESKTOP | default('') | length > 0 or
+            target_markers.results[1].stat.exists | default(false) or
+            target_markers.results[2].stat.exists | default(false)
+        fail_msg: "Ubuntu Desktop and a non-symlink home directory are required."
+        quiet: true
+      tags: always
+
+    - name: Warn when memory is below the comfortable target
+      ansible.builtin.debug:
+        msg: "Warning: {{ ansible_facts.memtotal_mb }} MB RAM is below the comfortable 6144 MB target."
+      when: ansible_facts.memtotal_mb | int < 6144
+      tags: always
+
+    - name: Read installed package state without using the network
+      ansible.builtin.package_facts:
+        manager: apt
+      tags: always
+
+  tasks:
+    - name: Calculate missing base packages
+      ansible.builtin.set_fact:
+        missing_base_packages: "{{ base_packages | difference(ansible_facts.packages.keys() | list) }}"
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Preview missing base packages
+      ansible.builtin.debug:
+        msg: "Would install: {{ missing_base_packages | join(', ') }}"
+      changed_when: true
+      when:
+        - setup_action == 'base'
+        - ansible_check_mode
+        - missing_base_packages | length > 0
+      tags: base
+
+    - name: Install base workstation packages
+      ansible.builtin.apt:
+        name: "{{ base_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+        fail_on_autoremove: true
+        allow_unauthenticated: false
+      become: true
+      when:
+        - setup_action == 'base'
+        - not ansible_check_mode
+      tags: base
+
+    - name: Inspect user-local prompt paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - "{{ workstation_home }}/.local"
+        - "{{ workstation_home }}/.local/bin"
+        - "{{ oh_my_posh_path }}"
+        - "{{ workstation_home }}/.local/share"
+        - "{{ workstation_home }}/.local/share/fonts"
+        - "{{ font_dir }}"
+      register: prompt_paths
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Refuse symbolic links in managed prompt paths
+      ansible.builtin.assert:
+        that:
+          - not (item.stat.islnk | default(false))
+        fail_msg: "Refusing symbolic link in managed prompt path: {{ item.item }}"
+        quiet: true
+      loop: "{{ prompt_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Require safe prompt path types
+      ansible.builtin.assert:
+        that:
+          - >-
+            not (prompt_paths.results[0].stat.exists | default(false)) or
+            prompt_paths.results[0].stat.isdir | default(false)
+          - >-
+            not (prompt_paths.results[1].stat.exists | default(false)) or
+            prompt_paths.results[1].stat.isdir | default(false)
+          - >-
+            not (prompt_paths.results[2].stat.exists | default(false)) or
+            prompt_paths.results[2].stat.isreg | default(false)
+          - >-
+            not (prompt_paths.results[3].stat.exists | default(false)) or
+            prompt_paths.results[3].stat.isdir | default(false)
+          - >-
+            not (prompt_paths.results[4].stat.exists | default(false)) or
+            prompt_paths.results[4].stat.isdir | default(false)
+          - >-
+            not (prompt_paths.results[5].stat.exists | default(false)) or
+            prompt_paths.results[5].stat.isdir | default(false)
+        fail_msg: "A managed prompt path has an unsafe file type."
+        quiet: true
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Ensure user-local prompt directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ workstation_home }}/.local/bin"
+        - "{{ workstation_home }}/.local/share/fonts"
+        - "{{ workstation_home }}/.cache/linux-setup"
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Record whether Oh My Posh is current
+      ansible.builtin.set_fact:
+        oh_my_posh_current: >-
+          {{ prompt_paths.results[2].stat.isreg | default(false) and
+             prompt_paths.results[2].stat.checksum | default('') == oh_my_posh.sha256 }}
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Preview the pinned Oh My Posh install
+      ansible.builtin.debug:
+        msg: "Would install verified Oh My Posh {{ oh_my_posh.version }} in {{ oh_my_posh_path }}"
+      changed_when: true
+      when:
+        - setup_action == 'base'
+        - ansible_check_mode
+        - not oh_my_posh_current
+      tags: base
+
+    - name: Install pinned Oh My Posh
+      ansible.builtin.get_url:
+        url: "{{ oh_my_posh.url }}"
+        dest: "{{ oh_my_posh_path }}"
+        checksum: "sha256:{{ oh_my_posh.sha256 }}"
+        mode: "0755"
+        force: false
+      when:
+        - setup_action == 'base'
+        - not ansible_check_mode
+      tags: base
+
+    - name: Verify the installed Oh My Posh version
+      ansible.builtin.command:
+        argv:
+          - "{{ oh_my_posh_path }}"
+          - version
+      register: oh_my_posh_version
+      changed_when: false
+      when:
+        - setup_action == 'base'
+        - not ansible_check_mode
+      tags: base
+
+    - name: Require the reviewed Oh My Posh version
+      ansible.builtin.assert:
+        that:
+          - oh_my_posh_version.stdout == oh_my_posh.version
+        fail_msg: "Installed Oh My Posh did not report {{ oh_my_posh.version }}"
+        quiet: true
+      when:
+        - setup_action == 'base'
+        - not ansible_check_mode
+      tags: base
+
+    - name: Inspect the four Nerd Font files and version marker
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+      loop: "{{ (nerd_font.files | map('regex_replace', '^', font_dir ~ '/') | list) + [font_marker] }}"
+      register: nerd_font_paths
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Refuse symbolic links in managed Nerd Font files
+      ansible.builtin.assert:
+        that:
+          - not (item.stat.islnk | default(false))
+        fail_msg: "Refusing symbolic-link Nerd Font target: {{ item.item }}"
+        quiet: true
+      loop: "{{ nerd_font_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Require regular Nerd Font targets
+      ansible.builtin.assert:
+        that:
+          - >-
+            not (item.stat.exists | default(false)) or
+            item.stat.isreg | default(false)
+        fail_msg: "Refusing non-file Nerd Font target: {{ item.item }}"
+        quiet: true
+      loop: "{{ nerd_font_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Read the installed Nerd Font release marker
+      ansible.builtin.slurp:
+        src: "{{ font_marker }}"
+      register: nerd_font_marker_content
+      failed_when: false
+      changed_when: false
+      when:
+        - setup_action == 'base'
+        - nerd_font_paths.results[4].stat.isreg | default(false)
+      tags: base
+
+    - name: Record whether the Nerd Font is current
+      ansible.builtin.set_fact:
+        nerd_font_current: >-
+          {{ nerd_font_paths.results[0].stat.isreg | default(false) and
+             nerd_font_paths.results[1].stat.isreg | default(false) and
+             nerd_font_paths.results[2].stat.isreg | default(false) and
+             nerd_font_paths.results[3].stat.isreg | default(false) and
+             nerd_font_paths.results[4].stat.isreg | default(false) and
+             nerd_font_marker_content.content | default('') | b64decode | trim == nerd_font.version }}
+      when: setup_action == 'base'
+      tags: base
+
+    - name: Preview the pinned Nerd Font install
+      ansible.builtin.debug:
+        msg: "Would install four verified CaskaydiaCove Nerd Font styles"
+      changed_when: true
+      when:
+        - setup_action == 'base'
+        - ansible_check_mode
+        - not nerd_font_current
+      tags: base
+
+    - name: Download the pinned Nerd Font archive
+      ansible.builtin.get_url:
+        url: "{{ nerd_font.url }}"
+        dest: "{{ workstation_home }}/.cache/linux-setup/CascadiaCode-{{ nerd_font.version }}.tar.xz"
+        checksum: "sha256:{{ nerd_font.sha256 }}"
+        mode: "0644"
+        force: false
+      when:
+        - setup_action == 'base'
+        - not ansible_check_mode
+        - not nerd_font_current
+      tags: base
+
+    - name: Ensure the Nerd Font destination exists
+      ansible.builtin.file:
+        path: "{{ font_dir }}"
+        state: directory
+        mode: "0755"
+      when:
+        - setup_action == 'base'
+        - not ansible_check_mode
+      tags: base
+
+    - name: Install the four CaskaydiaCove Nerd Font styles
+      ansible.builtin.unarchive:
+        src: "{{ workstation_home }}/.cache/linux-setup/CascadiaCode-{{ nerd_font.version }}.tar.xz"
+        dest: "{{ font_dir }}"
+        remote_src: true
+        include: "{{ nerd_font.files }}"
+      register: nerd_font_extract
+      when:
+        - setup_action == 'base'
+        - not ansible_check_mode
+        - not nerd_font_current
+      tags: base
+
+    - name: Record the installed Nerd Font release
+      ansible.builtin.copy:
+        dest: "{{ font_marker }}"
+        content: "{{ nerd_font.version }}\n"
+        mode: "0644"
+      when:
+        - setup_action == 'base'
+        - not ansible_check_mode
+        - not nerd_font_current
+      tags: base
+
+    - name: Refresh the user font cache only after a font change
+      ansible.builtin.command:
+        argv:
+          - fc-cache
+          - -f
+          - "{{ font_dir }}"
+      changed_when: true
+      when:
+        - setup_action == 'base'
+        - nerd_font_extract is changed
+      tags: base
+
+    - name: Configure verified core vendor repositories
+      ansible.builtin.include_tasks:
+        file: tasks/vendor_repositories.yml
+        apply:
+          tags: apps
+      vars:
+        vendor_repositories: "{{ core_vendor_repositories }}"
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Calculate missing core apps
+      ansible.builtin.set_fact:
+        missing_core_apps: "{{ core_app_packages | difference(ansible_facts.packages.keys() | list) }}"
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Preview missing core apps
+      ansible.builtin.debug:
+        msg: "Would verify vendor keys and install: {{ missing_core_apps | join(', ') }}"
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - ansible_check_mode
+        - missing_core_apps | length > 0
+      tags: apps
+
+    - name: Install GitHub CLI, VS Code, and Ghostty
+      ansible.builtin.apt:
+        name: "{{ core_app_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+        fail_on_autoremove: true
+        allow_unauthenticated: false
+      become: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Keep the Ghostty launch test manual
+      ansible.builtin.debug:
+        msg: "Launch-test Ghostty on Intel HD 6000 before running the terminal action."
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Inspect Ghostty and the default-terminal paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+      loop:
+        - /usr/share/applications/com.mitchellh.ghostty.desktop
+        - "{{ workstation_home }}/.config"
+        - "{{ workstation_home }}/.config/ubuntu-xdg-terminals.list"
+      register: terminal_paths
+      when: setup_action == 'terminal'
+      tags: terminal
+
+    - name: Require the launch-tested Ghostty package and safe paths
+      ansible.builtin.assert:
+        that:
+          - terminal_paths.results[0].stat.isreg | default(false)
+          - not (terminal_paths.results[1].stat.islnk | default(false))
+          - >-
+            not (terminal_paths.results[1].stat.exists | default(false)) or
+            terminal_paths.results[1].stat.isdir | default(false)
+          - not (terminal_paths.results[2].stat.islnk | default(false))
+          - >-
+            not (terminal_paths.results[2].stat.exists | default(false)) or
+            terminal_paths.results[2].stat.isreg | default(false)
+        fail_msg: "Ghostty must be installed and the default-terminal path must not contain symlinks."
+        quiet: true
+      when: setup_action == 'terminal'
+      tags: terminal
+
+    - name: Read the existing default-terminal list
+      ansible.builtin.slurp:
+        src: "{{ workstation_home }}/.config/ubuntu-xdg-terminals.list"
+      register: terminal_list
+      when:
+        - setup_action == 'terminal'
+        - terminal_paths.results[2].stat.exists | default(false)
+      tags: terminal
+
+    - name: Build the idempotent Ghostty-first terminal list
+      ansible.builtin.set_fact:
+        terminal_list_content: >-
+          {{ (['com.mitchellh.ghostty.desktop'] +
+              (((terminal_list.content | default('') | b64decode).splitlines()) |
+               reject('equalto', 'com.mitchellh.ghostty.desktop') | list)) |
+             join('\n') + '\n' }}
+      when: setup_action == 'terminal'
+      tags: terminal
+
+    - name: Ensure the user config directory exists
+      ansible.builtin.file:
+        path: "{{ workstation_home }}/.config"
+        state: directory
+        mode: "0755"
+      when: setup_action == 'terminal'
+      tags: terminal
+
+    - name: Make Ghostty the Ubuntu default terminal
+      ansible.builtin.copy:
+        dest: "{{ workstation_home }}/.config/ubuntu-xdg-terminals.list"
+        content: "{{ terminal_list_content }}"
+        mode: "0644"
+        backup: true
+      when:
+        - setup_action == 'terminal'
+        - >-
+          not ansible_check_mode or
+          terminal_paths.results[1].stat.isdir | default(false)
+      tags: terminal
+
+    - name: Inspect managed dotfiles checkout paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+      loop:
+        - "{{ workstation_home }}/.local"
+        - "{{ workstation_home }}/.local/share"
+        - "{{ dotfiles_dir }}"
+        - "{{ dotfiles_dir }}/.git"
+      register: dotfiles_paths
+      when: setup_action == 'dotfiles'
+      tags: dotfiles
+
+    - name: Refuse unsafe dotfiles checkout paths
+      ansible.builtin.assert:
+        that:
+          - not (item.stat.islnk | default(false))
+        fail_msg: "Refusing symbolic link in managed dotfiles checkout: {{ item.item }}"
+        quiet: true
+      loop: "{{ dotfiles_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: setup_action == 'dotfiles'
+      tags: dotfiles
+
+    - name: Require an existing dotfiles path to be a Git checkout
+      ansible.builtin.assert:
+        that:
+          - >-
+            not (dotfiles_paths.results[2].stat.exists | default(false)) or
+            dotfiles_paths.results[3].stat.isdir | default(false)
+        fail_msg: "The managed dotfiles path exists but is not a Git repository."
+        quiet: true
+      when: setup_action == 'dotfiles'
+      tags: dotfiles
+
+    - name: Ensure the managed dotfiles parent exists
+      ansible.builtin.file:
+        path: "{{ workstation_home }}/.local/share"
+        state: directory
+        mode: "0755"
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode
+      tags: dotfiles
+
+    - name: Read the existing dotfiles origin
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", remote, get-url, origin]
+      register: dotfiles_origin_before
+      changed_when: false
+      check_mode: false
+      when:
+        - setup_action == 'dotfiles'
+        - dotfiles_paths.results[3].stat.isdir | default(false)
+      tags: dotfiles
+
+    - name: Read the existing dotfiles branch
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", symbolic-ref, --quiet, --short, HEAD]
+      register: dotfiles_branch_before
+      changed_when: false
+      check_mode: false
+      when:
+        - setup_action == 'dotfiles'
+        - dotfiles_paths.results[3].stat.isdir | default(false)
+      tags: dotfiles
+
+    - name: Read existing dotfiles changes
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", status, --porcelain]
+      register: dotfiles_status_before
+      changed_when: false
+      check_mode: false
+      when:
+        - setup_action == 'dotfiles'
+        - dotfiles_paths.results[3].stat.isdir | default(false)
+      tags: dotfiles
+
+    - name: Refuse the wrong, detached, or dirty dotfiles checkout
+      ansible.builtin.assert:
+        that:
+          - dotfiles_origin_before.stdout in dotfiles_allowed_origins
+          - dotfiles_branch_before.stdout == 'main'
+          - dotfiles_status_before.stdout == ''
+        fail_msg: "Existing dotfiles must have the expected origin, main branch, and a clean worktree."
+        quiet: true
+      when:
+        - setup_action == 'dotfiles'
+        - dotfiles_paths.results[3].stat.isdir | default(false)
+      tags: dotfiles
+
+    - name: Preview a missing dotfiles checkout
+      ansible.builtin.debug:
+        msg: "Would clone the reviewed dotfiles main branch into {{ dotfiles_dir }}"
+      changed_when: true
+      when:
+        - setup_action == 'dotfiles'
+        - ansible_check_mode
+        - not (dotfiles_paths.results[2].stat.exists | default(false))
+      tags: dotfiles
+
+    - name: Clone the reviewed dotfiles checkout when missing
+      ansible.builtin.git:
+        repo: "{{ dotfiles_repo }}"
+        dest: "{{ dotfiles_dir }}"
+        version: main
+        update: false
+        force: false
+        recursive: false
+        single_branch: true
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode
+        - not (dotfiles_paths.results[2].stat.exists | default(false))
+      tags: dotfiles
+
+    - name: Fetch the reviewed dotfiles main branch
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", fetch, origin, main]
+      changed_when: false
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode
+        - dotfiles_paths.results[3].stat.isdir | default(false)
+      tags: dotfiles
+
+    - name: Fast-forward the reviewed dotfiles main branch only
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", merge, --ff-only, origin/main]
+      register: dotfiles_fast_forward
+      changed_when: "'Already up to date.' not in dotfiles_fast_forward.stdout"
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode
+        - dotfiles_paths.results[3].stat.isdir | default(false)
+      tags: dotfiles
+
+    - name: Read the applied dotfiles HEAD and origin/main
+      ansible.builtin.command:
+        argv: [git, -C, "{{ dotfiles_dir }}", rev-parse, HEAD, origin/main]
+      register: dotfiles_revisions
+      changed_when: false
+      check_mode: false
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode or (dotfiles_paths.results[3].stat.isdir | default(false))
+      tags: dotfiles
+
+    - name: Require dotfiles HEAD to exactly match origin/main
+      ansible.builtin.assert:
+        that:
+          - dotfiles_revisions.stdout_lines | length == 2
+          - dotfiles_revisions.stdout_lines[0] == dotfiles_revisions.stdout_lines[1]
+        fail_msg: "Dotfiles HEAD does not exactly match the verified local origin/main."
+        quiet: true
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode or (dotfiles_paths.results[3].stat.isdir | default(false))
+      tags: dotfiles
+
+    - name: Inspect the dedicated Ubuntu desktop dotfiles entry point
+      ansible.builtin.stat:
+        path: "{{ dotfiles_dir }}/linux-desktop.sh"
+        follow: false
+      register: dotfiles_desktop_entry
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode or (dotfiles_paths.results[3].stat.isdir | default(false))
+      tags: dotfiles
+
+    - name: Require the dedicated regular-file desktop entry point
+      ansible.builtin.assert:
+        that:
+          - dotfiles_desktop_entry.stat.isreg | default(false)
+          - not (dotfiles_desktop_entry.stat.islnk | default(false))
+        fail_msg: "Dedicated dotfiles/linux-desktop.sh is missing or unsafe."
+        quiet: true
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode or (dotfiles_paths.results[3].stat.isdir | default(false))
+      tags: dotfiles
+
+    - name: Preview the isolated Linux desktop dotfiles
+      ansible.builtin.command:
+        argv: [bash, "{{ dotfiles_dir }}/linux-desktop.sh", --dry-run]
+      register: dotfiles_preview
+      changed_when: "'would apply ' in dotfiles_preview.stdout"
+      check_mode: false
+      when:
+        - setup_action == 'dotfiles'
+        - ansible_check_mode
+        - dotfiles_paths.results[3].stat.isdir | default(false)
+      tags: dotfiles
+
+    - name: Apply only the isolated Linux desktop dotfiles
+      ansible.builtin.command:
+        argv: [bash, "{{ dotfiles_dir }}/linux-desktop.sh"]
+      register: dotfiles_apply
+      changed_when: "'Applied ' in dotfiles_apply.stdout"
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode
+      tags: dotfiles
+
+    - name: Inspect packaged Zsh
+      ansible.builtin.stat:
+        path: /usr/bin/zsh
+        follow: false
+      register: packaged_zsh
+      when: setup_action == 'dotfiles'
+      tags: dotfiles
+
+    - name: Require an executable packaged Zsh
+      ansible.builtin.assert:
+        that:
+          - packaged_zsh.stat.isreg | default(false)
+          - not (packaged_zsh.stat.islnk | default(false))
+          - packaged_zsh.stat.executable | default(false)
+        fail_msg: "Run the base action first: /usr/bin/zsh is missing or unsafe."
+        quiet: true
+      when: setup_action == 'dotfiles'
+      tags: dotfiles
+
+    - name: Verify packaged Zsh is an approved login shell
+      ansible.builtin.command:
+        argv: [grep, -Fx, /usr/bin/zsh, /etc/shells]
+      changed_when: false
+      check_mode: false
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode
+      tags: dotfiles
+
+    - name: Read the current account login shell
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ workstation_user }}"
+      when: setup_action == 'dotfiles'
+      tags: dotfiles
+
+    - name: Preview the current-user Zsh login-shell change
+      ansible.builtin.debug:
+        msg: "Would set only {{ workstation_user }}'s login shell to /usr/bin/zsh"
+      changed_when: true
+      when:
+        - setup_action == 'dotfiles'
+        - ansible_check_mode
+        - ansible_facts.getent_passwd[workstation_user][-1] not in ['/bin/zsh', '/usr/bin/zsh']
+      tags: dotfiles
+
+    - name: Make packaged Zsh the current desktop user's login shell
+      ansible.builtin.user:
+        name: "{{ workstation_user }}"
+        shell: /usr/bin/zsh
+      become: true
+      when:
+        - setup_action == 'dotfiles'
+        - not ansible_check_mode
+        - ansible_facts.getent_passwd[workstation_user][-1] not in ['/bin/zsh', '/usr/bin/zsh']
+      tags: dotfiles
+
+    - name: Require a live Ubuntu desktop session for GNOME settings
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.env.DBUS_SESSION_BUS_ADDRESS | default('') | length > 0
+          - ansible_facts.env.XDG_RUNTIME_DIR | default('') | length > 0
+          - >-
+            ansible_facts.env.WAYLAND_DISPLAY | default('') | length > 0 or
+            ansible_facts.env.DISPLAY | default('') | length > 0
+        fail_msg: "Run the gnome action from a terminal inside the logged-in Ubuntu desktop session."
+        quiet: true
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Read current GNOME values
+      ansible.builtin.command:
+        argv: [gsettings, get, "{{ item.schema }}", "{{ item.key }}"]
+      loop: "{{ gnome_settings }}"
+      loop_control:
+        label: "{{ item.schema }} {{ item.key }}"
+      register: current_gnome_settings
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Preview GNOME preference drift
+      ansible.builtin.debug:
+        msg: "Would set {{ item.item.schema }} {{ item.item.key }} to {{ item.item.value }}"
+      loop: "{{ current_gnome_settings.results }}"
+      loop_control:
+        label: "{{ item.item.schema }} {{ item.item.key }}"
+      changed_when: true
+      when:
+        - setup_action == 'gnome'
+        - ansible_check_mode
+        - item.rc == 0
+        - item.stdout != item.item.value
+      tags: gnome
+
+    - name: Apply macOS-friendly GNOME preferences
+      ansible.builtin.command:
+        argv: [gsettings, set, "{{ item.item.schema }}", "{{ item.item.key }}", "{{ item.item.value }}"]
+      loop: "{{ current_gnome_settings.results }}"
+      loop_control:
+        label: "{{ item.item.schema }} {{ item.item.key }}"
+      changed_when: true
+      when:
+        - setup_action == 'gnome'
+        - not ansible_check_mode
+        - item.rc == 0
+        - item.stdout != item.item.value
+      tags: gnome
+
+    - name: Explain skipped GNOME keys
+      ansible.builtin.debug:
+        msg: "Skipped unavailable GNOME key: {{ item.item.schema }} {{ item.item.key }}"
+      loop: "{{ current_gnome_settings.results }}"
+      loop_control:
+        label: "{{ item.item.schema }} {{ item.item.key }}"
+      when:
+        - setup_action == 'gnome'
+        - item.rc != 0
+      tags: gnome
+
+    - name: Keep native search and Toshy boundaries explicit
+      ansible.builtin.debug:
+        msg:
+          - "Super opens GNOME Overview search, the built-in Spotlight-style launcher."
+          - "Toshy remains a separate manual step with its own rollback."
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Configure verified optional vendor repositories
+      ansible.builtin.include_tasks:
+        file: tasks/vendor_repositories.yml
+        apply:
+          tags: optional
+      vars:
+        vendor_repositories: "{{ optional_vendor_repositories }}"
+      when: setup_action == 'optional'
+      tags: optional
+
+    - name: Calculate missing optional apps
+      ansible.builtin.set_fact:
+        missing_optional_apps: "{{ optional_packages | difference(ansible_facts.packages.keys() | list) }}"
+      when: setup_action == 'optional'
+      tags: optional
+
+    - name: Preview missing optional apps
+      ansible.builtin.debug:
+        msg: "Would verify vendor keys and install: {{ missing_optional_apps | join(', ') }}"
+      changed_when: true
+      when:
+        - setup_action == 'optional'
+        - ansible_check_mode
+        - missing_optional_apps | length > 0
+      tags: optional
+
+    - name: Install Claude Desktop and Cloudflare WARP only
+      ansible.builtin.apt:
+        name: "{{ optional_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+        fail_on_autoremove: true
+        allow_unauthenticated: false
+      become: true
+      when:
+        - setup_action == 'optional'
+        - not ansible_check_mode
+      tags: optional
+
+    - name: Keep optional account changes manual
+      ansible.builtin.debug:
+        msg:
+          - "WARP is installed only; enrollment and connection remain manual."
+          - "Claude Cowork stays disabled on this 8 GB laptop."
+      when: setup_action == 'optional'
+      tags: optional
