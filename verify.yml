@@ -228,6 +228,52 @@
       changed_when: false
       failed_when: false
 
+    - name: Inspect the installed Toshy configuration
+      ansible.builtin.stat:
+        path: "{{ workstation_home }}/.config/toshy/toshy_config.py"
+        follow: false
+      register: verified_toshy_config
+
+    - name: Inspect the Toshy status command target
+      ansible.builtin.stat:
+        path: "{{ workstation_home }}/.local/bin/toshy-services-status"
+        follow: true
+      register: verified_toshy_status_command
+
+    - name: Read enabled GNOME extensions
+      ansible.builtin.command: gnome-extensions list --enabled
+      register: verified_gnome_extensions
+      changed_when: false
+      failed_when: false
+
+    - name: Check whether Toshy user services are active
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - --user
+          - is-active
+          - "{{ item }}"
+      loop:
+        - toshy-config.service
+        - toshy-session-monitor.service
+      register: verified_toshy_active
+      changed_when: false
+      failed_when: false
+
+    - name: Check whether Toshy user services start at login
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - --user
+          - is-enabled
+          - "{{ item }}"
+      loop:
+        - toshy-config.service
+        - toshy-session-monitor.service
+      register: verified_toshy_enabled
+      changed_when: false
+      failed_when: false
+
     - name: Calculate workstation readiness
       ansible.builtin.set_fact:
         prompt_ready: >-
@@ -279,6 +325,18 @@
              not (verified_selected_cli_tools.results[2].stat.islnk | default(false)) and
              verified_selected_cli_tools.results[2].stat.executable | default(false) and
              verified_selected_cli_tools.results[2].stat.checksum | default('') == twitch_cli.binary_sha256 }}
+        macos_keys_ready: >-
+          {{ verified_toshy_config.stat.isreg | default(false) and
+             not (verified_toshy_config.stat.islnk | default(false)) and
+             verified_toshy_status_command.stat.isreg | default(false) and
+             verified_toshy_status_command.stat.executable | default(false) and
+             (not ((ansible_facts.env.XDG_SESSION_TYPE | default('', true)) == 'wayland' or
+                   (ansible_facts.env.WAYLAND_DISPLAY | default('', true) | length > 0)) or
+              'focused-window-dbus@flexagoon.com' in (verified_gnome_extensions.stdout_lines | default([]))) and
+             (verified_toshy_active.results | default([]) |
+              selectattr('rc', 'equalto', 0) | list | length) == 2 and
+             (verified_toshy_enabled.results | default([]) |
+              selectattr('rc', 'equalto', 0) | list | length) == 2 }}
 
     - name: Show the ADHD-friendly workstation status board
       ansible.builtin.debug:
@@ -288,6 +346,7 @@
           - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
           - "CORE APT SOURCES   {{ 'ready' if core_sources_ready else 'needs apps action' }}"
           - "SELECTED CLI TOOLS {{ 'ready' if selected_tools_ready else 'needs tools action' }}"
+          - "MACOS KEY SERVICES {{ 'ready; run manual checklist' if macos_keys_ready else 'needs Focused Window D-Bus + keybinds action' }}"
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
           - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"
           - "DESKTOP DOTFILES   {{ 'ready' if dotfiles_ready else 'needs dotfiles action or review' }}"
@@ -307,6 +366,7 @@
           - shell_ready
           - dotfiles_ready
           - core_sources_ready
+          - macos_keys_ready
         fail_msg: "Core setup is incomplete. Run the action named by the status board, then verify again."
         success_msg: "Core Ubuntu workstation setup is verified."
       when: strict_verify | bool

@@ -79,6 +79,33 @@ else
   fail 'guarded Toshy source boundary'
 fi
 
+if grep -Fq 'start_toshy_services' "$setup" &&
+   grep -Fq 'require_live_gnome_session' "$setup" &&
+   grep -Fq 'refuse_competing_keymappers' "$setup" &&
+   grep -Fq 'SSH_CONNECTION' "$setup" &&
+   grep -Fq 'SSH_TTY' "$setup" &&
+   grep -Fq 'DBUS_SESSION_BUS_ADDRESS' "$setup" &&
+   grep -Fq "\$HOME/.Xmodmap" "$setup" &&
+   grep -Fq 'XDG_SESSION_TYPE:-}" == wayland' "$setup" &&
+   grep -Fq 'toshy-services-enable' "$setup" &&
+   grep -Fq 'toshy-services-restart' "$setup" &&
+   grep -Fq 'for unit in toshy-config.service toshy-session-monitor.service' "$setup" &&
+   grep -Fq "systemctl --user is-enabled --quiet \"\$unit\"" "$setup" &&
+   grep -Fq "systemctl --user is-active --quiet \"\$unit\"" "$setup" &&
+   grep -Fq 'MAC MODE MANUAL CHECKLIST' "$setup" &&
+   grep -Fq 'toshy-config.service' "$repo_dir/verify.yml" &&
+   grep -Fq 'toshy-session-monitor.service' "$repo_dir/verify.yml" &&
+   grep -Fq 'verified_toshy_config.stat.isreg' "$repo_dir/verify.yml" &&
+   grep -Fq 'verified_toshy_active.results' "$repo_dir/verify.yml" &&
+   grep -Fq 'verified_toshy_enabled.results' "$repo_dir/verify.yml" &&
+   grep -Fq 'ansible_facts.env.WAYLAND_DISPLAY' "$repo_dir/verify.yml" &&
+   grep -Fq 'MACOS KEY SERVICES' "$repo_dir/verify.yml" &&
+   grep -A12 -F 'Require the completed core workstation state' "$repo_dir/verify.yml" | grep -Fq 'macos_keys_ready'; then
+  pass 'macOS key services are repaired, checked, and required'
+else
+  fail 'macOS key runtime boundary'
+fi
+
 if grep -Fq 'ansible_become_exe=/usr/bin/sudo.ws' "$repo_dir/inventory.ini" &&
    grep -Fq '[[ -x /usr/bin/sudo.ws ]]' "$setup" &&
    ! grep -Eq 'update-alternatives|NOPASSWD' "$setup" "$repo_dir/inventory.ini"; then

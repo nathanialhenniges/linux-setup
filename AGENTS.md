@@ -20,7 +20,7 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 - Pin non-APT artifacts to immutable upstream releases, verify reviewed SHA-256 values before installation, and keep them user-local when possible.
 - Keep account authentication and Cloudflare enrollment manual.
 - Use local `ansible-core` playbooks with builtin modules and task-level `become`; never add remote inventory or host management.
-- Keep Toshy in the explicit interactive `keybinds` action: pin and verify Toshy plus xwaykeyz, require the GNOME Wayland focus extension, and never run its installer through Ansible or as root.
+- Keep Toshy in the explicit interactive `keybinds` action: pin and verify Toshy plus xwaykeyz, require a live GNOME session and the Wayland focus extension, refuse competing global keymappers, and verify its user services. Toshy's full default config is the macOS mapping source of truth; do not duplicate it in Ghostty, Ansible, or dotfiles. Never run its installer through Ansible or as root.
 - Keep the selected CLI utilities in the explicit `tools` action. Use Ubuntu APT for the stable package set; pin, checksum, and install rclone, yt-dlp, and Twitch CLI user-locally. Never configure AWS, rclone, Twitch, scans, mirrors, credentials, or tokens.
 - Scope Ansible privilege escalation to `/usr/bin/sudo.ws` on Ubuntu 26.04; never switch the system-wide `sudo` alternative, store a password, or add `NOPASSWD`.
 - Keep every mutating action explicitly tagged and selected through `setup.sh`; never add a catch-all action.
