@@ -66,6 +66,18 @@ else
   fail 'minimal Ansible bootstrap'
 fi
 
+if grep -Fq 'Toshy_v26.08.0' "$setup" &&
+   grep -Fq 'c39ee06d8d7fa299a082034d75275e6da97e0275' "$setup" &&
+   grep -Fq 'dfa142bd53177d038098b9b6919c50f4904d3c37f4cbd33c6bad5e969c85ed57' "$setup" &&
+   grep -Fq '7d6904cf64dee3bb52f1cea75040ae943bc8fe32' "$setup" &&
+   grep -Fq 'ff312b70705b9bd63524223f4b48755605b6f0970c77c8e35303ce1f20841cab' "$setup" &&
+   grep -Fq 'focused-window-dbus@flexagoon.com' "$setup" &&
+   ! grep -Eq 'sudo[[:space:]].*setup_toshy' "$setup"; then
+  pass 'Toshy and its keymapper are pinned outside Ansible become'
+else
+  fail 'guarded Toshy source boundary'
+fi
+
 if grep -Fq 'ansible_become_exe=/usr/bin/sudo.ws' "$repo_dir/inventory.ini" &&
    grep -Fq '[[ -x /usr/bin/sudo.ws ]]' "$setup" &&
    ! grep -Eq 'update-alternatives|NOPASSWD' "$setup" "$repo_dir/inventory.ini"; then

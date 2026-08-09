@@ -15,8 +15,9 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 - [ ] 6. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
 - [ ] 7. Apply desktop-only dotfiles and make Zsh the login shell: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
 - [ ] 8. Apply the GNOME look and always-visible bottom dock: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
-- [ ] 9. Confirm the core workstation: `./setup.sh verify`
-- [ ] 10. Decide later: `./setup.sh --dry-run optional`
+- [ ] 9. Set up macOS keys: enable Focused Window D-Bus, then `./setup.sh --dry-run keybinds` and `./setup.sh keybinds`
+- [ ] 10. Confirm the core workstation: `./setup.sh verify`
+- [ ] 11. Decide later: `./setup.sh --dry-run optional`
 
 Stop after any failed box. Do not keep stacking fixes.
 
@@ -89,6 +90,7 @@ cd linux-setup
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
 | `gnome` | Dark mode, battery percent, no hot corners, bottom always-visible dock | No extensions or keyboard interception |
+| `keybinds` | Verifies and runs pinned Toshy + xwaykeyz sources interactively after Focused Window D-Bus is enabled | Never runs Toshy through Ansible, as root, or from an unverified checkout |
 | `optional` | Official Claude Desktop beta and Cloudflare WARP packages | No Claude Cowork, WARP enrollment, DNS/routing change, or tunnel |
 
 Chrome and 1Password are already installed on the target laptop. `status` detects them; this repo does not replace their working repositories or sign-ins.
@@ -115,17 +117,29 @@ The desktop entry point must exist as a regular file. An existing dotfiles check
 
 ## macOS muscle memory
 
-Press **Super/Command** to open GNOME Overview search; it is the built-in Spotlight-style launcher, so another launcher is unnecessary.
+Before Toshy, press **Super** to open GNOME Overview search. After Toshy, use **Command-Space**, matching macOS.
 
-For app-aware macOS shortcuts such as Command-C/V/W/Q, use [Toshy](https://github.com/RedBearAK/toshy) only after the base laptop is stable. Ubuntu 26.04 uses GNOME Wayland, where Toshy also needs a compatible GNOME Shell extension. Review Toshy's environment first, install from its downloaded source, and keep these rollback commands handy:
+On the MBA keyboard, the physical key beside Space is **Command** even though Linux calls it Super/Meta. Toshy maps physical **Command-C/V** to copy/paste while leaving physical **Option/Alt** as Option/Alt. Mapping literal Option/Alt-C/V would not match macOS and would break normal Alt shortcuts.
+
+For app-aware shortcuts, install [Focused Window D-Bus](https://extensions.gnome.org/extension/5592/focused-window-d-bus/), enable it, then run `./setup.sh keybinds`. The action pins Toshy v26.08.0 and xwaykeyz to exact commits, verifies their reviewed tree SHA-256 values, then invokes Toshy's interactive user installer. Toshy's tested matrix currently stops at Ubuntu 25.10, so Ubuntu 26.04 remains a guarded on-device acceptance test rather than an unattended Ansible task. Toshy's own Python dependency installation is not hermetic, so read its prompt before continuing.
+
+After signing out and back in, check:
+
+- Chrome or Files: Command-C/V/X/Z/A/F/W/Q.
+- Ghostty: Command-C/V copies and pastes; physical Control-C still interrupts.
+- GNOME: Command-Space opens search.
+
+Keep these rollback commands handy:
 
 ```bash
 toshy-services-status
 toshy-services-stop
+toshy-services-disable
+cd ~/.local/src/toshy-Toshy_v26.08.0
 ./setup_toshy.py uninstall
 ```
 
-Toshy is intentionally not auto-installed: it has its own package installer, user services, input permissions, and desktop-extension requirements.
+Do not combine Toshy with keyd, Input Remapper, xremap, or global modifier swaps.
 
 ## Roll back GNOME preferences
 
