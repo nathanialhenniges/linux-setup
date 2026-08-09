@@ -12,6 +12,7 @@
     workstation_home: "{{ ansible_facts.env.HOME }}"
     dotfiles_dir: "{{ ansible_facts.env.HOME }}/.local/share/dotfiles"
     oh_my_posh_path: "{{ ansible_facts.env.HOME }}/.local/bin/oh-my-posh"
+    tool_bin_dir: "{{ ansible_facts.env.HOME }}/.local/bin"
     font_dir: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove"
     font_marker: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove/.nerd-font-{{ nerd_font.version }}"
     required_packages: "{{ base_packages + core_app_packages }}"
@@ -59,6 +60,23 @@
     - name: Calculate missing required packages
       ansible.builtin.set_fact:
         missing_required_packages: "{{ required_packages | difference(ansible_facts.packages.keys() | list) }}"
+
+    - name: Calculate missing selected CLI packages
+      ansible.builtin.set_fact:
+        missing_selected_tool_packages: "{{ tool_packages | difference(ansible_facts.packages.keys() | list) }}"
+
+    - name: Inspect selected user-local CLI tools
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - { path: "{{ tool_bin_dir }}/rclone", sha256: "{{ rclone_cli.binary_sha256 }}" }
+        - { path: "{{ tool_bin_dir }}/yt-dlp", sha256: "{{ yt_dlp_cli.sha256 }}" }
+        - { path: "{{ tool_bin_dir }}/twitch", sha256: "{{ twitch_cli.binary_sha256 }}" }
+      register: verified_selected_cli_tools
+      loop_control:
+        label: "{{ item.path }}"
 
     - name: Inspect managed workstation files
       ansible.builtin.stat:
@@ -247,6 +265,20 @@
              verified_dotfiles_revisions.stdout_lines[0] == verified_dotfiles_revisions.stdout_lines[1] and
              verified_dotfiles_preview.rc | default(1) == 0 and
              'would apply ' not in (verified_dotfiles_preview.stdout | default('')) }}
+        selected_tools_ready: >-
+          {{ missing_selected_tool_packages | length == 0 and
+             verified_selected_cli_tools.results[0].stat.isreg | default(false) and
+             not (verified_selected_cli_tools.results[0].stat.islnk | default(false)) and
+             verified_selected_cli_tools.results[0].stat.executable | default(false) and
+             verified_selected_cli_tools.results[0].stat.checksum | default('') == rclone_cli.binary_sha256 and
+             verified_selected_cli_tools.results[1].stat.isreg | default(false) and
+             not (verified_selected_cli_tools.results[1].stat.islnk | default(false)) and
+             verified_selected_cli_tools.results[1].stat.executable | default(false) and
+             verified_selected_cli_tools.results[1].stat.checksum | default('') == yt_dlp_cli.sha256 and
+             verified_selected_cli_tools.results[2].stat.isreg | default(false) and
+             not (verified_selected_cli_tools.results[2].stat.islnk | default(false)) and
+             verified_selected_cli_tools.results[2].stat.executable | default(false) and
+             verified_selected_cli_tools.results[2].stat.checksum | default('') == twitch_cli.binary_sha256 }}
 
     - name: Show the ADHD-friendly workstation status board
       ansible.builtin.debug:
@@ -255,6 +287,7 @@
           - "PERSONAL PROMPT    {{ 'ready' if prompt_ready else 'needs base action' }}"
           - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
           - "CORE APT SOURCES   {{ 'ready' if core_sources_ready else 'needs apps action' }}"
+          - "SELECTED CLI TOOLS {{ 'ready' if selected_tools_ready else 'needs tools action' }}"
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
           - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"
           - "DESKTOP DOTFILES   {{ 'ready' if dotfiles_ready else 'needs dotfiles action or review' }}"

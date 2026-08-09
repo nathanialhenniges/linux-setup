@@ -28,6 +28,7 @@ Usage:
   ./setup.sh [--dry-run] verify
   ./setup.sh [--dry-run] base
   ./setup.sh [--dry-run] apps
+  ./setup.sh [--dry-run] tools
   ./setup.sh [--dry-run] terminal
   ./setup.sh [--dry-run] codex
   ./setup.sh [--dry-run] dotfiles
@@ -41,6 +42,7 @@ Commands:
   verify     Read-only state board that fails until the core setup is ready
   base       Core packages, Oh My Posh, and CaskaydiaCove Nerd Font
   apps       GitHub CLI, VS Code, and Ghostty
+  tools      Nine selected CLI tools; authentication remains manual
   terminal   Make launch-tested Ghostty the Ubuntu default
   codex      Show the official Codex CLI route; make no change
   dotfiles   Fast-forward and run only dotfiles/linux-desktop.sh; set user Zsh
@@ -68,7 +70,7 @@ parse_args() {
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="help"
         ;;
-      bootstrap | status | verify | base | apps | terminal | codex | dotfiles | gnome | keybinds | optional)
+      bootstrap | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds | optional)
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="$argument"
         ;;
@@ -224,7 +226,7 @@ run_action() {
     command+=(--check --diff)
   else
     case "$action" in
-      base | apps | optional)
+      base | apps | tools | optional)
         require_classic_sudo
         command+=(--ask-become-pass)
         ;;

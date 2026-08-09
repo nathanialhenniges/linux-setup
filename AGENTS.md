@@ -21,6 +21,7 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 - Keep account authentication and Cloudflare enrollment manual.
 - Use local `ansible-core` playbooks with builtin modules and task-level `become`; never add remote inventory or host management.
 - Keep Toshy in the explicit interactive `keybinds` action: pin and verify Toshy plus xwaykeyz, require the GNOME Wayland focus extension, and never run its installer through Ansible or as root.
+- Keep the selected CLI utilities in the explicit `tools` action. Use Ubuntu APT for the stable package set; pin, checksum, and install rclone, yt-dlp, and Twitch CLI user-locally. Never configure AWS, rclone, Twitch, scans, mirrors, credentials, or tokens.
 - Scope Ansible privilege escalation to `/usr/bin/sudo.ws` on Ubuntu 26.04; never switch the system-wide `sudo` alternative, store a password, or add `NOPASSWD`.
 - Keep every mutating action explicitly tagged and selected through `setup.sh`; never add a catch-all action.
 - Keep `--dry-run` free of sudo, network, and managed-state writes. Ansible's ignored local temporary directory is the only allowed side effect.
