@@ -16,7 +16,7 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 - [ ] 7. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
 - [ ] 8. Apply desktop-only dotfiles and make Zsh the login shell: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
 - [ ] 9. Apply the GNOME look and always-visible bottom dock: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
-- [ ] 10. Set up macOS keys: enable Focused Window D-Bus, then `./setup.sh --dry-run keybinds` and `./setup.sh keybinds`
+- [ ] 10. Set up Mac mode: enable Focused Window D-Bus, run `./setup.sh --dry-run keybinds` and `./setup.sh keybinds`, reboot only if Toshy says so, then rerun `keybinds`
 - [ ] 11. Confirm the core workstation: `./setup.sh verify`
 - [ ] 12. Decide later: `./setup.sh --dry-run optional`
 
@@ -92,7 +92,7 @@ cd linux-setup
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
 | `gnome` | Dark mode, battery percent, no hot corners, bottom always-visible dock | No extensions or keyboard interception |
-| `keybinds` | Verifies and runs pinned Toshy + xwaykeyz sources interactively after Focused Window D-Bus is enabled | Never runs Toshy through Ansible, as root, or from an unverified checkout |
+| `keybinds` | Installs or repairs pinned Toshy, starts its user services, and prints the Mac-mode check board | Requires live GNOME; refuses competing remappers and unverified sources |
 | `optional` | Official Claude Desktop beta and Cloudflare WARP packages | No Claude Cowork, WARP enrollment, DNS/routing change, or tunnel |
 
 Chrome and 1Password are already installed on the target laptop. `status` detects them; this repo does not replace their working repositories or sign-ins.
@@ -135,17 +135,35 @@ The desktop entry point must exist as a regular file. An existing dotfiles check
 
 ## macOS muscle memory
 
-Before Toshy, press **Super** to open GNOME Overview search. After Toshy, use **Command-Space**, matching macOS.
+Use the physical **Command** key beside Space for Mac shortcuts. Linux calls that key Super/Meta; physical **Option** remains Option/Alt. Copy and paste are Command-C/V, not Option-C/V.
 
-On the MBA keyboard, the physical key beside Space is **Command** even though Linux calls it Super/Meta. Toshy maps physical **Command-C/V** to copy/paste while leaving physical **Option/Alt** as Option/Alt. Mapping literal Option/Alt-C/V would not match macOS and would break normal Alt shortcuts.
+Pinned Toshy v26.08.0 is the single Mac-mode keymap. Its default config already recognizes Ghostty and handles GUI, terminal, GNOME, browser, editor, and text-navigation differences. Do not add a second global remapper or duplicate these bindings in Ghostty.
 
-The `base` action installs Ubuntu's native Extension Manager. Open it, find and enable [Focused Window D-Bus](https://extensions.gnome.org/extension/5592/focused-window-d-bus/), then run `./setup.sh keybinds`. The action pins Toshy v26.08.0 and xwaykeyz to exact commits, verifies their reviewed tree SHA-256 values, then invokes Toshy's interactive user installer. Toshy's tested matrix currently stops at Ubuntu 25.10, so Ubuntu 26.04 remains a guarded on-device acceptance test rather than an unattended Ansible task. Toshy's own Python dependency installation is not hermetic, so read its prompt before continuing.
+| Muscle memory | Ubuntu result |
+|---|---|
+| Command-C/V/X/Z/Shift-Z/A/S/F/N/T/W/Q | Normal Mac-style editing and app commands |
+| Command-Space | GNOME Overview search, like Spotlight |
+| Command-Tab / Command-Shift-Tab | Next or previous application |
+| Command-grave | Cycle windows of the current application |
+| Control-Left/Right | Previous or next workspace |
+| Control-Command-Q | Lock the desktop |
+| Option-Left/Right and Option-Delete | Move or delete by word |
+| Command-Left/Right/Up/Down | Line or document boundaries |
+| Command-Shift-3/4/5 | Full-screen, window, or interactive screenshot |
+| Ghostty Command-C/V/T/W/D/Shift-D/K | Copy, paste, tabs, splits, and clear screen |
+| Ghostty physical Control-C | Still sends the terminal interrupt; Toshy does not steal it |
 
-After signing out and back in, check:
+One-time setup:
 
-- Chrome or Files: Command-C/V/X/Z/A/F/W/Q.
-- Ghostty: Command-C/V copies and pastes; physical Control-C still interrupts.
-- GNOME: Command-Space opens search.
+1. Run `./setup.sh gnome` so the built-in dock/search preferences are known.
+2. Open Ubuntu's **Extension Manager**, install **Focused Window D-Bus**, and enable it. [Version 11 supports GNOME 49 and 50](https://extensions.gnome.org/extension/5592/focused-window-d-bus/).
+3. In Ghostty—not SSH or a text console—run `./setup.sh --dry-run keybinds`, then `./setup.sh keybinds`.
+4. If Toshy's installer shows its large **REBOOT** banner, reboot. Then rerun `./setup.sh keybinds` once; it verifies the pinned sources, enables and restarts the user services, and prints the shortcut check board.
+5. Run `./setup.sh status`, then `./setup.sh verify`. `MACOS KEY SERVICES ready` means the config, focus extension, autostart, and both Toshy services passed. It cannot prove what a physical key emitted, so finish the printed manual shortcut checklist before calling Mac mode done.
+
+The action refuses SSH/TTY installs, missing GNOME session state, `~/.Xmodmap`, and active keyd, xremap, or Input Remapper services. Toshy's app-specific maps cover known applications; if one unusual app behaves differently, run `toshy-debug` and add only that app class upstream or in Toshy's editable user slice.
+
+Toshy's tested Ubuntu list currently stops at 25.10, so Ubuntu 26.04 remains an on-device acceptance test. Toshy's Python dependency installation is not hermetic; read its prompt before continuing.
 
 Keep these rollback commands handy:
 
