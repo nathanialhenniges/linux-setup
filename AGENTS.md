@@ -20,6 +20,7 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 - Pin non-APT artifacts to immutable upstream releases, verify reviewed SHA-256 values before installation, and keep them user-local when possible.
 - Keep account authentication and Cloudflare enrollment manual.
 - Use local `ansible-core` playbooks with builtin modules and task-level `become`; never add remote inventory or host management.
+- Scope Ansible privilege escalation to `/usr/bin/sudo.ws` on Ubuntu 26.04; never switch the system-wide `sudo` alternative, store a password, or add `NOPASSWD`.
 - Keep every mutating action explicitly tagged and selected through `setup.sh`; never add a catch-all action.
 - Keep `--dry-run` free of sudo, network, and managed-state writes. Ansible's ignored local temporary directory is the only allowed side effect.
 

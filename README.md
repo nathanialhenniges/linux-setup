@@ -20,7 +20,7 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 
 Stop after any failed box. Do not keep stacking fixes.
 
-The real dotfiles step asks for your Ubuntu password only when Ansible needs `sudo` to change this account's login shell. It first verifies the packaged `/usr/bin/zsh` and `/etc/shells`, never changes root, and never prompts during a dry run. Sign out and back in once afterward.
+Real actions ask for your Ubuntu login password only when Ansible needs administrator access. Ubuntu 26.04 defaults to `sudo-rs`, whose different prompt is not handled by the packaged Ansible release, so this repo scopes Ansible to Ubuntu's supported `/usr/bin/sudo.ws`. It does not change the system-wide `sudo` default, store your password, or add passwordless access. The dotfiles action never changes root and never prompts during a dry run. Sign out and back in once after it changes your login shell.
 
 ## Update an installed machine later
 
@@ -80,7 +80,7 @@ cd linux-setup
 
 | Command | Installs or changes | Does **not** do |
 |---|---|---|
-| `bootstrap` | Minimal `ansible-core`, Python APT bindings, and nothing else | No full Ansible collection bundle or workstation changes |
+| `bootstrap` | Minimal `ansible-core`, Python APT bindings, and Ubuntu's supported classic `sudo.ws` provider | No full Ansible collection bundle, global `sudo` switch, or workstation changes |
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
