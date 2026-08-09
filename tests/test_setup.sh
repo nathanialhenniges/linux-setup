@@ -89,6 +89,12 @@ else
   fail 'explicit action boundary'
 fi
 
+if grep -A1 -F 'key: dock-fixed' "$repo_dir/vars.yml" | grep -Fq 'value: "true"'; then
+  pass 'Ubuntu Dock stays visible'
+else
+  fail 'Ubuntu Dock visibility preference'
+fi
+
 scan_files=(
   "$setup"
   "$repo_dir/site.yml"

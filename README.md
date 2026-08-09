@@ -14,7 +14,7 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 - [ ] 5. After Ghostty launch-tests successfully: `./setup.sh terminal`
 - [ ] 6. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
 - [ ] 7. Apply desktop-only dotfiles and make Zsh the login shell: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
-- [ ] 8. Apply the GNOME look: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
+- [ ] 8. Apply the GNOME look and always-visible bottom dock: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
 - [ ] 9. Confirm the core workstation: `./setup.sh verify`
 - [ ] 10. Decide later: `./setup.sh --dry-run optional`
 
@@ -88,7 +88,7 @@ cd linux-setup
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
-| `gnome` | Dark mode, battery percent, no hot corners, bottom auto-hiding dock | No extensions or keyboard interception |
+| `gnome` | Dark mode, battery percent, no hot corners, bottom always-visible dock | No extensions or keyboard interception |
 | `optional` | Official Claude Desktop beta and Cloudflare WARP packages | No Claude Cowork, WARP enrollment, DNS/routing change, or tunnel |
 
 Chrome and 1Password are already installed on the target laptop. `status` detects them; this repo does not replace their working repositories or sign-ins.

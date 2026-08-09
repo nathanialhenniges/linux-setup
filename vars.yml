@@ -145,4 +145,4 @@ gnome_settings:
     value: "false"
   - schema: org.gnome.shell.extensions.dash-to-dock
     key: dock-fixed
-    value: "false"
+    value: "true"
