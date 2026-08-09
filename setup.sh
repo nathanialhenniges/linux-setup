@@ -4,6 +4,14 @@ set -Eeuo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 dry_run=false
 action="help"
+readonly toshy_tag="Toshy_v26.08.0"
+readonly toshy_commit="c39ee06d8d7fa299a082034d75275e6da97e0275"
+readonly toshy_tree_sha256="dfa142bd53177d038098b9b6919c50f4904d3c37f4cbd33c6bad5e969c85ed57"
+readonly xwaykeyz_commit="7d6904cf64dee3bb52f1cea75040ae943bc8fe32"
+readonly xwaykeyz_tree_sha256="ff312b70705b9bd63524223f4b48755605b6f0970c77c8e35303ce1f20841cab"
+readonly toshy_repo="https://github.com/RedBearAK/toshy.git"
+readonly xwaykeyz_repo="https://github.com/RedBearAK/xwaykeyz.git"
+readonly focus_extension="focused-window-dbus@flexagoon.com"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -24,6 +32,7 @@ Usage:
   ./setup.sh [--dry-run] codex
   ./setup.sh [--dry-run] dotfiles
   ./setup.sh [--dry-run] gnome
+  ./setup.sh [--dry-run] keybinds
   ./setup.sh [--dry-run] optional
 
 Commands:
@@ -36,10 +45,11 @@ Commands:
   codex      Show the official Codex CLI route; make no change
   dotfiles   Fast-forward and run only dotfiles/linux-desktop.sh; set user Zsh
   gnome      Small, reversible macOS-friendly GNOME preferences
+  keybinds   Guarded interactive Toshy install for physical Command shortcuts
   optional   Claude Desktop beta and Cloudflare WARP packages only
 
---dry-run uses Ansible check mode. Network, sudo, downloads, and managed-state
-writes are skipped; Ansible may create its ignored local temporary directory.
+--dry-run previews without network, sudo, downloads, or managed-state writes.
+Ansible actions may create their ignored local temporary directory.
 
 This repository never configures a server/devbox, sshd, Docker, credentials,
 SSH keys, Cloudflare enrollment, or a tunnel.
@@ -58,7 +68,7 @@ parse_args() {
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="help"
         ;;
-      bootstrap | status | verify | base | apps | terminal | codex | dotfiles | gnome | optional)
+      bootstrap | status | verify | base | apps | terminal | codex | dotfiles | gnome | keybinds | optional)
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="$argument"
         ;;
@@ -132,6 +142,78 @@ run_status() {
   exec ansible-playbook verify.yml --limit localhost -e "strict_verify=$strict"
 }
 
+verify_git_source() {
+  local source_dir="$1" expected_repo="$2" expected_commit="$3" expected_tree_sha256="$4"
+  local origin head tree_sha256
+
+  [[ -d "$source_dir/.git" && ! -L "$source_dir" ]] ||
+    die "$source_dir is not a safe Git checkout"
+  origin="$(git -C "$source_dir" remote get-url origin)"
+  [[ "$origin" == "$expected_repo" ]] || die "unexpected source origin: $origin"
+  [[ -z "$(git -C "$source_dir" status --porcelain)" ]] ||
+    die "source checkout is not clean: $source_dir"
+  head="$(git -C "$source_dir" rev-parse HEAD)"
+  [[ "$head" == "$expected_commit" ]] ||
+    die "source commit verification failed: expected $expected_commit, found $head"
+  tree_sha256="$(git -C "$source_dir" ls-tree -r --full-tree HEAD | sha256sum | awk '{print $1}')"
+  [[ "$tree_sha256" == "$expected_tree_sha256" ]] ||
+    die "source tree SHA-256 verification failed for $source_dir"
+}
+
+install_keybinds() {
+  (( EUID != 0 )) || die "run keybinds as the desktop user, not root"
+  [[ "$HOME" == /* && "$HOME" != "/" ]] || die "HOME must be a safe absolute path"
+  target_preflight
+  local source_parent="$HOME/.local/src"
+  local source_dir="$source_parent/toshy-$toshy_tag"
+  local keymapper_dir="$source_parent/xwaykeyz-$xwaykeyz_commit"
+  local answer
+
+  if [[ "$dry_run" == true ]]; then
+    printf '%s\n' "[dry-run] require enabled GNOME extension: $focus_extension"
+    printf '%s\n' "[dry-run] clone $toshy_repo tag $toshy_tag"
+    printf '%s\n' "[dry-run] verify Toshy commit and tree SHA-256: $toshy_commit"
+    printf '%s\n' "[dry-run] verify xwaykeyz commit and tree SHA-256: $xwaykeyz_commit"
+    printf '%s\n' "[dry-run] run the pinned interactive Toshy user installer"
+    return
+  fi
+
+  [[ -t 0 && -t 1 ]] || die "keybinds must run in an interactive desktop terminal"
+  command -v git >/dev/null 2>&1 || die "git is missing. Run: ./setup.sh base"
+  command -v gnome-extensions >/dev/null 2>&1 || die "gnome-extensions is missing"
+  gnome-extensions list --enabled | grep -Fxq "$focus_extension" ||
+    die "enable Focused Window D-Bus first: https://extensions.gnome.org/extension/5592/focused-window-d-bus/"
+
+  printf '%s\n' "Toshy does not yet list Ubuntu 26.04 in its tested matrix."
+  printf '%s\n' "This runs Toshy's pinned interactive user installer; it may ask for sudo."
+  read -r -p "Continue with the guarded trial? [y/N] " answer
+  [[ "$answer" == "y" || "$answer" == "Y" ]] || die "keybinds install cancelled"
+
+  mkdir -p "$source_parent"
+  if [[ -e "$source_dir" ]]; then
+    [[ -d "$source_dir" ]] || die "$source_dir exists but is not a directory"
+  else
+    git clone --depth 1 --branch "$toshy_tag" --single-branch "$toshy_repo" "$source_dir"
+  fi
+  verify_git_source "$source_dir" "$toshy_repo" "$toshy_commit" "$toshy_tree_sha256"
+
+  if [[ -e "$keymapper_dir" ]]; then
+    [[ -d "$keymapper_dir" ]] || die "$keymapper_dir exists but is not a directory"
+  else
+    git init "$keymapper_dir"
+    git -C "$keymapper_dir" remote add origin "$xwaykeyz_repo"
+    git -C "$keymapper_dir" fetch --depth 1 origin "$xwaykeyz_commit"
+    git -C "$keymapper_dir" checkout --detach FETCH_HEAD
+  fi
+  verify_git_source "$keymapper_dir" "$xwaykeyz_repo" "$xwaykeyz_commit" "$xwaykeyz_tree_sha256"
+
+  printf '%s\n' "Verified Toshy $toshy_tag and xwaykeyz source trees"
+  (cd "$source_dir" && ./setup_toshy.py install --dev-keymapper "$xwaykeyz_commit")
+
+  printf '%s\n' "Sign out and back in, then run: toshy-services-status"
+  printf '%s\n' "The MBA keyboard must use physical Command+C/V; Option/Alt stays Option/Alt."
+}
+
 run_action() {
   target_preflight
   require_ansible_files
@@ -170,6 +252,7 @@ main() {
       printf '%s\n' 'https://github.com/openai/codex#quickstart'
       printf '%s\n' 'Then run codex and choose Sign in with ChatGPT.'
       ;;
+    keybinds) install_keybinds ;;
     *) run_action ;;
   esac
 }

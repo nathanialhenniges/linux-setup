@@ -795,8 +795,9 @@
     - name: Keep native search and Toshy boundaries explicit
       ansible.builtin.debug:
         msg:
-          - "Super opens GNOME Overview search, the built-in Spotlight-style launcher."
-          - "Toshy remains a separate manual step with its own rollback."
+          - "Before Toshy, Super opens GNOME Overview search."
+          - "After the guarded Toshy step, physical Command+C/V maps to copy/paste and Command+Space opens search; Option/Alt stays Option/Alt."
+          - "Toshy remains a separate interactive step with its own rollback."
       when: setup_action == 'gnome'
       tags: gnome
 
