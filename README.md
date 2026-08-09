@@ -121,7 +121,7 @@ Before Toshy, press **Super** to open GNOME Overview search. After Toshy, use **
 
 On the MBA keyboard, the physical key beside Space is **Command** even though Linux calls it Super/Meta. Toshy maps physical **Command-C/V** to copy/paste while leaving physical **Option/Alt** as Option/Alt. Mapping literal Option/Alt-C/V would not match macOS and would break normal Alt shortcuts.
 
-For app-aware shortcuts, install [Focused Window D-Bus](https://extensions.gnome.org/extension/5592/focused-window-d-bus/), enable it, then run `./setup.sh keybinds`. The action pins Toshy v26.08.0 and xwaykeyz to exact commits, verifies their reviewed tree SHA-256 values, then invokes Toshy's interactive user installer. Toshy's tested matrix currently stops at Ubuntu 25.10, so Ubuntu 26.04 remains a guarded on-device acceptance test rather than an unattended Ansible task. Toshy's own Python dependency installation is not hermetic, so read its prompt before continuing.
+The `base` action installs Ubuntu's native Extension Manager. Open it, find and enable [Focused Window D-Bus](https://extensions.gnome.org/extension/5592/focused-window-d-bus/), then run `./setup.sh keybinds`. The action pins Toshy v26.08.0 and xwaykeyz to exact commits, verifies their reviewed tree SHA-256 values, then invokes Toshy's interactive user installer. Toshy's tested matrix currently stops at Ubuntu 25.10, so Ubuntu 26.04 remains a guarded on-device acceptance test rather than an unattended Ansible task. Toshy's own Python dependency installation is not hermetic, so read its prompt before continuing.
 
 After signing out and back in, check:
 

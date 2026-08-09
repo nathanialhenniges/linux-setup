@@ -16,6 +16,7 @@ base_packages:
   - fonts-cascadia-code
   - fzf
   - git
+  - gnome-shell-extension-manager
   - gnupg
   - jq
   - openssh-client

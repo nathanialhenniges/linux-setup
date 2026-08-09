@@ -72,6 +72,7 @@ if grep -Fq 'Toshy_v26.08.0' "$setup" &&
    grep -Fq '7d6904cf64dee3bb52f1cea75040ae943bc8fe32' "$setup" &&
    grep -Fq 'ff312b70705b9bd63524223f4b48755605b6f0970c77c8e35303ce1f20841cab' "$setup" &&
    grep -Fq 'focused-window-dbus@flexagoon.com' "$setup" &&
+   grep -Fq '  - gnome-shell-extension-manager' "$repo_dir/vars.yml" &&
    ! grep -Eq 'sudo[[:space:]].*setup_toshy' "$setup"; then
   pass 'Toshy and its keymapper are pinned outside Ansible become'
 else
