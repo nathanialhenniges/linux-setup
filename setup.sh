@@ -95,11 +95,11 @@ bootstrap_ansible() {
   target_preflight
   if [[ "$dry_run" == true ]]; then
     printf '%s\n' '[dry-run] sudo apt-get update'
-    printf '%s\n' '[dry-run] sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian'
+    printf '%s\n' '[dry-run] sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian sudo'
     return
   fi
   sudo apt-get update
-  sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian
+  sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian sudo
   ansible-playbook --version | sed -n '1p'
 }
 
@@ -120,6 +120,11 @@ dotfiles_needs_become() {
   esac
 }
 
+require_classic_sudo() {
+  [[ -x /usr/bin/sudo.ws ]] ||
+    die "Ubuntu's /usr/bin/sudo.ws is required for Ansible. Run: ./setup.sh bootstrap"
+}
+
 run_status() {
   local strict="$1"
   require_ansible_files
@@ -137,8 +142,16 @@ run_action() {
     command+=(--check --diff)
   else
     case "$action" in
-      base | apps | optional) command+=(--ask-become-pass) ;;
-      dotfiles) dotfiles_needs_become && command+=(--ask-become-pass) ;;
+      base | apps | optional)
+        require_classic_sudo
+        command+=(--ask-become-pass)
+        ;;
+      dotfiles)
+        if dotfiles_needs_become; then
+          require_classic_sudo
+          command+=(--ask-become-pass)
+        fi
+        ;;
     esac
   fi
   exec "${command[@]}"

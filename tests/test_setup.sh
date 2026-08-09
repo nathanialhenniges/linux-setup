@@ -60,10 +60,18 @@ else
   pass 'dry-run requires one action'
 fi
 
-if grep -Fq -- '--no-install-recommends ansible-core python3-apt python3-debian' "$setup"; then
-  pass 'bootstrap installs minimal ansible-core only'
+if grep -Fq -- '--no-install-recommends ansible-core python3-apt python3-debian sudo' "$setup"; then
+  pass 'bootstrap installs minimal Ansible prerequisites'
 else
   fail 'minimal Ansible bootstrap'
+fi
+
+if grep -Fq 'ansible_become_exe=/usr/bin/sudo.ws' "$repo_dir/inventory.ini" &&
+   grep -Fq '[[ -x /usr/bin/sudo.ws ]]' "$setup" &&
+   ! grep -Eq 'update-alternatives|NOPASSWD' "$setup" "$repo_dir/inventory.ini"; then
+  pass 'Ansible uses scoped Ubuntu classic sudo'
+else
+  fail 'Ubuntu 26.04 sudo-rs compatibility boundary'
 fi
 
 if grep -Fq -- '--limit localhost' "$setup" &&
