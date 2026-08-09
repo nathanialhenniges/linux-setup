@@ -162,6 +162,73 @@ verify_git_source() {
     die "source tree SHA-256 verification failed for $source_dir"
 }
 
+show_macos_key_checklist() {
+  printf '%s\n' \
+    "MAC MODE MANUAL CHECKLIST" \
+    "  GUI:      Command+C/V/X/Z/Shift+Z/A/S/F/N/T/W/Q" \
+    "  SEARCH:   Command+Space" \
+    "  WINDOWS:  Command+Tab, Command+Shift+Tab, Command+grave" \
+    "  DESKTOP:  Control+Left/Right changes workspace; Control+Command+Q locks" \
+    "  TEXT:     Option+Left/Right, Option+Delete, Command+arrows" \
+    "  CAPTURE:  Command+Shift+3/4/5" \
+    "  GHOSTTY:  Command+C/V/T/W/D/Shift+D/K; physical Control+C still interrupts" \
+    "If one group fails, run: toshy-debug"
+}
+
+require_live_gnome_session() {
+  local desktop="${XDG_CURRENT_DESKTOP:-}"
+
+  [[ -z "${SSH_CONNECTION:-}${SSH_TTY:-}" ]] ||
+    die "keybinds must run in Ghostty on the MacBook Air, not through SSH"
+  [[ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]] ||
+    die "keybinds must run inside the logged-in Ubuntu desktop, not SSH or a TTY"
+  [[ "${XDG_RUNTIME_DIR:-}" == /* && -d "${XDG_RUNTIME_DIR:-}" ]] ||
+    die "the desktop runtime directory is unavailable; open Ghostty from Ubuntu and retry"
+  [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] ||
+    die "no live Wayland or X11 display was detected"
+  [[ "${desktop,,}" == *gnome* || "${desktop,,}" == *ubuntu* ]] ||
+    die "keybinds supports the Ubuntu GNOME desktop only; detected: ${desktop:-unknown}"
+}
+
+refuse_competing_keymappers() {
+  local unit
+
+  [[ ! -e "$HOME/.Xmodmap" ]] ||
+    die "move ~/.Xmodmap aside before using Toshy; two global keymaps will conflict"
+
+  for unit in xremap.service input-remapper.service input-remapper-daemon.service; do
+    systemctl --user is-active --quiet "$unit" 2>/dev/null &&
+      die "stop and disable the competing user service before Toshy: $unit"
+  done
+  for unit in keyd.service input-remapper-daemon.service; do
+    systemctl is-active --quiet "$unit" 2>/dev/null &&
+      die "stop and disable the competing system service before Toshy: $unit"
+  done
+}
+
+start_toshy_services() {
+  local bin_dir="$HOME/.local/bin"
+  local command_name
+  local unit
+
+  for command_name in toshy-services-enable toshy-services-restart toshy-services-status; do
+    [[ -x "$bin_dir/$command_name" ]] ||
+      die "Toshy command is missing: $bin_dir/$command_name"
+  done
+
+  "$bin_dir/toshy-services-enable" || die "Toshy could not enable its user services"
+  "$bin_dir/toshy-services-restart" ||
+    die "Toshy is installed but cannot start in this login. Reboot, then rerun: ./setup.sh keybinds"
+  for unit in toshy-config.service toshy-session-monitor.service; do
+    systemctl --user is-enabled --quiet "$unit" ||
+      die "Toshy user service is not enabled at login: $unit"
+    systemctl --user is-active --quiet "$unit" ||
+      die "Toshy user service is not healthy: $unit. Reboot, then rerun: ./setup.sh keybinds"
+  done
+  "$bin_dir/toshy-services-status"
+  show_macos_key_checklist
+}
+
 install_keybinds() {
   (( EUID != 0 )) || die "run keybinds as the desktop user, not root"
   [[ "$HOME" == /* && "$HOME" != "/" ]] || die "HOME must be a safe absolute path"
@@ -173,18 +240,37 @@ install_keybinds() {
 
   if [[ "$dry_run" == true ]]; then
     printf '%s\n' "[dry-run] require enabled GNOME extension: $focus_extension"
+    printf '%s\n' "[dry-run] require a live Ubuntu GNOME session and refuse competing keymappers"
     printf '%s\n' "[dry-run] clone $toshy_repo tag $toshy_tag"
     printf '%s\n' "[dry-run] verify Toshy commit and tree SHA-256: $toshy_commit"
     printf '%s\n' "[dry-run] verify xwaykeyz commit and tree SHA-256: $xwaykeyz_commit"
     printf '%s\n' "[dry-run] run the pinned interactive Toshy user installer"
+    printf '%s\n' "[dry-run] enable, restart, and check Toshy's user services"
+    show_macos_key_checklist
     return
   fi
 
   [[ -t 0 && -t 1 ]] || die "keybinds must run in an interactive desktop terminal"
   command -v git >/dev/null 2>&1 || die "git is missing. Run: ./setup.sh base"
-  command -v gnome-extensions >/dev/null 2>&1 || die "gnome-extensions is missing"
-  gnome-extensions list --enabled | grep -Fxq "$focus_extension" ||
-    die "enable Focused Window D-Bus first: https://extensions.gnome.org/extension/5592/focused-window-d-bus/"
+  command -v systemctl >/dev/null 2>&1 || die "systemctl is missing"
+  require_live_gnome_session
+  refuse_competing_keymappers
+
+  if [[ "${XDG_SESSION_TYPE:-}" == wayland || -n "${WAYLAND_DISPLAY:-}" ]]; then
+    command -v gnome-extensions >/dev/null 2>&1 || die "gnome-extensions is missing"
+    gnome-extensions list --enabled | grep -Fxq "$focus_extension" ||
+      die "enable Focused Window D-Bus first: https://extensions.gnome.org/extension/5592/focused-window-d-bus/"
+  fi
+
+  if [[ -f "$HOME/.config/toshy/toshy_config.py" &&
+        ! -L "$HOME/.config/toshy/toshy_config.py" &&
+        -d "$source_dir/.git" && -d "$keymapper_dir/.git" ]]; then
+    verify_git_source "$source_dir" "$toshy_repo" "$toshy_commit" "$toshy_tree_sha256"
+    verify_git_source "$keymapper_dir" "$xwaykeyz_repo" "$xwaykeyz_commit" "$xwaykeyz_tree_sha256"
+    printf '%s\n' "Verified the existing pinned Toshy installation"
+    start_toshy_services
+    return
+  fi
 
   printf '%s\n' "Toshy does not yet list Ubuntu 26.04 in its tested matrix."
   printf '%s\n' "This runs Toshy's pinned interactive user installer; it may ask for sudo."
@@ -212,8 +298,8 @@ install_keybinds() {
   printf '%s\n' "Verified Toshy $toshy_tag and xwaykeyz source trees"
   (cd "$source_dir" && ./setup_toshy.py install --dev-keymapper "$xwaykeyz_commit")
 
-  printf '%s\n' "Sign out and back in, then run: toshy-services-status"
-  printf '%s\n' "The MBA keyboard must use physical Command+C/V; Option/Alt stays Option/Alt."
+  start_toshy_services
+  printf '%s\n' "If the installer showed its REBOOT banner, reboot before judging any shortcut."
 }
 
 run_action() {
