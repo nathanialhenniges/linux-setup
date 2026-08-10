@@ -3,90 +3,43 @@
   ansible.builtin.set_fact:
     missing_tool_packages: "{{ tool_packages | difference(ansible_facts.packages.keys() | list) }}"
 
-- name: Inspect CLI tool parent paths
-  ansible.builtin.stat:
-    path: "{{ item }}"
-    follow: false
-  loop:
-    - "{{ workstation_home }}/.local"
-    - "{{ tool_bin_dir }}"
-    - "{{ workstation_home }}/.cache"
-    - "{{ tool_cache_dir }}"
-  register: tool_parent_paths
-
-- name: Refuse unsafe CLI tool parent paths
-  ansible.builtin.assert:
-    that:
-      - not (item.stat.islnk | default(false))
-      - not (item.stat.exists | default(false)) or item.stat.isdir | default(false)
-    fail_msg: "Refusing unsafe CLI tool directory: {{ item.item }}"
-    quiet: true
-  loop: "{{ tool_parent_paths.results }}"
-  loop_control:
-    label: "{{ item.item }}"
-
-- name: Inspect managed CLI tool paths
+- name: Inspect legacy user-local APT shadows
   ansible.builtin.stat:
     path: "{{ item.path }}"
     follow: false
     checksum_algorithm: sha256
-  loop:
-    - { path: "{{ tool_bin_dir }}/rclone", kind: file }
-    - { path: "{{ tool_bin_dir }}/yt-dlp", kind: file }
-    - { path: "{{ tool_bin_dir }}/twitch", kind: file }
-    - { path: "{{ tool_cache_dir }}/rclone-{{ rclone_cli.version }}.zip", kind: file }
-    - { path: "{{ tool_cache_dir }}/rclone-v{{ rclone_cli.version }}-linux-amd64", kind: directory }
-    - { path: "{{ tool_cache_dir }}/{{ rclone_cli.member }}", kind: file }
-    - { path: "{{ tool_cache_dir }}/twitch-cli-{{ twitch_cli.version }}.tar.gz", kind: file }
-    - { path: "{{ tool_cache_dir }}/twitch-cli_{{ twitch_cli.version }}_Linux_x86_64", kind: directory }
-    - { path: "{{ tool_cache_dir }}/{{ twitch_cli.member }}", kind: file }
-  register: managed_tool_paths
+  loop: "{{ legacy_user_tool_files }}"
+  register: legacy_user_tool_paths
   loop_control:
     label: "{{ item.path }}"
 
-- name: Refuse unsafe managed CLI tool paths
+- name: Refuse unknown user-local APT shadows
   ansible.builtin.assert:
     that:
-      - not (item.stat.islnk | default(false))
-      - >-
-        not (item.stat.exists | default(false)) or
-        (item.item.kind == 'file' and item.stat.isreg | default(false)) or
-        (item.item.kind == 'directory' and item.stat.isdir | default(false))
-    fail_msg: "Refusing unsafe managed CLI tool path: {{ item.item.path }}"
+      - not (item.stat.exists | default(false)) or item.stat.isreg | default(false)
+      - not (item.stat.exists | default(false)) or not (item.stat.islnk | default(false))
+      - not (item.stat.exists | default(false)) or item.stat.checksum | default('') == item.item.sha256
+    fail_msg: >-
+      {{ item.item.path }} is not the reviewed legacy linux-setup file. Move or remove it manually,
+      then rerun the tools action so Ubuntu's package can own this command.
     quiet: true
-  loop: "{{ managed_tool_paths.results }}"
+  loop: "{{ legacy_user_tool_paths.results }}"
   loop_control:
     label: "{{ item.item.path }}"
 
-- name: Record current user-local CLI tools
-  ansible.builtin.set_fact:
-    rclone_current: >-
-      {{ managed_tool_paths.results[0].stat.isreg | default(false) and
-         managed_tool_paths.results[0].stat.executable | default(false) and
-         managed_tool_paths.results[0].stat.checksum | default('') == rclone_cli.binary_sha256 }}
-    yt_dlp_current: >-
-      {{ managed_tool_paths.results[1].stat.isreg | default(false) and
-         managed_tool_paths.results[1].stat.executable | default(false) and
-         managed_tool_paths.results[1].stat.checksum | default('') == yt_dlp_cli.sha256 }}
-    twitch_current: >-
-      {{ managed_tool_paths.results[2].stat.isreg | default(false) and
-         managed_tool_paths.results[2].stat.executable | default(false) and
-         managed_tool_paths.results[2].stat.checksum | default('') == twitch_cli.binary_sha256 }}
-
-- name: Preview the selected CLI tool install
+- name: Preview the selected APT tool install
   ansible.builtin.debug:
     msg:
       - "Would install Ubuntu packages: {{ missing_tool_packages | join(', ') if missing_tool_packages | length > 0 else 'none' }}"
-      - "Would install rclone {{ rclone_cli.version }}: {{ not rclone_current }}"
-      - "Would install yt-dlp {{ yt_dlp_cli.version }}: {{ not yt_dlp_current }}"
-      - "Would install Twitch CLI {{ twitch_cli.version }}: {{ not twitch_current }}"
-      - "Would not configure accounts, credentials, scans, mirrors, or tokens."
+      - "Would remove reviewed user-local rclone or yt-dlp files only after their Ubuntu packages install successfully."
+      - "Twitch CLI is unavailable from Ubuntu APT and will not be installed."
+      - "Would not configure accounts, credentials, scans, mirrors, SMART tests, or tokens."
   changed_when: >-
     missing_tool_packages | length > 0 or
-    not rclone_current or not yt_dlp_current or not twitch_current
+    (legacy_user_tool_paths.results | selectattr('stat.exists') | list | length > 0)
   when: ansible_check_mode
 
-- name: Install selected Ubuntu CLI packages
+- name: Install all selected tools from Ubuntu APT
   ansible.builtin.apt:
     name: "{{ tool_packages }}"
     state: present
@@ -98,165 +51,32 @@
   become: true
   when: not ansible_check_mode
 
-- name: Ensure user-local CLI tool directories exist
+- name: Refresh package facts after the APT install
+  ansible.builtin.package_facts:
+    manager: apt
+  when: not ansible_check_mode
+
+- name: Require every selected Ubuntu package
+  ansible.builtin.assert:
+    that:
+      - tool_packages | difference(ansible_facts.packages.keys() | list) | length == 0
+    fail_msg: "One or more selected Ubuntu CLI packages did not install."
+    quiet: true
+  when: not ansible_check_mode
+
+- name: Remove reviewed user-local files that shadow APT
   ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0755"
-  loop:
-    - "{{ tool_bin_dir }}"
-    - "{{ tool_cache_dir }}"
-  when: not ansible_check_mode
-
-- name: Download pinned rclone archive
-  ansible.builtin.get_url:
-    url: "{{ rclone_cli.url }}"
-    dest: "{{ tool_cache_dir }}/rclone-{{ rclone_cli.version }}.zip"
-    checksum: "sha256:{{ rclone_cli.archive_sha256 }}"
-    mode: "0644"
-    force: false
-  when:
-    - not ansible_check_mode
-    - not rclone_current
-
-- name: Extract the pinned rclone binary
-  ansible.builtin.unarchive:
-    src: "{{ tool_cache_dir }}/rclone-{{ rclone_cli.version }}.zip"
-    dest: "{{ tool_cache_dir }}"
-    remote_src: true
-    include:
-      - "{{ rclone_cli.member }}"
-  when:
-    - not ansible_check_mode
-    - not rclone_current
-
-- name: Inspect the extracted rclone binary
-  ansible.builtin.stat:
-    path: "{{ tool_cache_dir }}/{{ rclone_cli.member }}"
-    follow: false
-    checksum_algorithm: sha256
-  register: extracted_rclone
-  when:
-    - not ansible_check_mode
-    - not rclone_current
-
-- name: Require the reviewed rclone binary
-  ansible.builtin.assert:
-    that:
-      - extracted_rclone.stat.isreg | default(false)
-      - not (extracted_rclone.stat.islnk | default(false))
-      - extracted_rclone.stat.checksum | default('') == rclone_cli.binary_sha256
-    fail_msg: "Extracted rclone did not match the reviewed SHA-256."
-    quiet: true
-  when:
-    - not ansible_check_mode
-    - not rclone_current
-
-- name: Install pinned rclone user-locally
-  ansible.builtin.copy:
-    src: "{{ tool_cache_dir }}/{{ rclone_cli.member }}"
-    dest: "{{ tool_bin_dir }}/rclone"
-    remote_src: true
-    mode: "0755"
-  when:
-    - not ansible_check_mode
-    - not rclone_current
-
-- name: Install pinned yt-dlp user-locally
-  ansible.builtin.get_url:
-    url: "{{ yt_dlp_cli.url }}"
-    dest: "{{ tool_bin_dir }}/yt-dlp"
-    checksum: "sha256:{{ yt_dlp_cli.sha256 }}"
-    mode: "0755"
-    force: false
-  when:
-    - not ansible_check_mode
-    - not yt_dlp_current
-
-- name: Download pinned Twitch CLI archive
-  ansible.builtin.get_url:
-    url: "{{ twitch_cli.url }}"
-    dest: "{{ tool_cache_dir }}/twitch-cli-{{ twitch_cli.version }}.tar.gz"
-    checksum: "sha256:{{ twitch_cli.archive_sha256 }}"
-    mode: "0644"
-    force: false
-  when:
-    - not ansible_check_mode
-    - not twitch_current
-
-- name: Extract the pinned Twitch CLI binary
-  ansible.builtin.unarchive:
-    src: "{{ tool_cache_dir }}/twitch-cli-{{ twitch_cli.version }}.tar.gz"
-    dest: "{{ tool_cache_dir }}"
-    remote_src: true
-    include:
-      - "{{ twitch_cli.member }}"
-  when:
-    - not ansible_check_mode
-    - not twitch_current
-
-- name: Inspect the extracted Twitch CLI binary
-  ansible.builtin.stat:
-    path: "{{ tool_cache_dir }}/{{ twitch_cli.member }}"
-    follow: false
-    checksum_algorithm: sha256
-  register: extracted_twitch
-  when:
-    - not ansible_check_mode
-    - not twitch_current
-
-- name: Require the reviewed Twitch CLI binary
-  ansible.builtin.assert:
-    that:
-      - extracted_twitch.stat.isreg | default(false)
-      - not (extracted_twitch.stat.islnk | default(false))
-      - extracted_twitch.stat.checksum | default('') == twitch_cli.binary_sha256
-    fail_msg: "Extracted Twitch CLI did not match the reviewed SHA-256."
-    quiet: true
-  when:
-    - not ansible_check_mode
-    - not twitch_current
-
-- name: Install pinned Twitch CLI user-locally
-  ansible.builtin.copy:
-    src: "{{ tool_cache_dir }}/{{ twitch_cli.member }}"
-    dest: "{{ tool_bin_dir }}/twitch"
-    remote_src: true
-    mode: "0755"
-  when:
-    - not ansible_check_mode
-    - not twitch_current
-
-- name: Verify installed user-local CLI tool checksums
-  ansible.builtin.stat:
-    path: "{{ item.path }}"
-    follow: false
-    checksum_algorithm: sha256
-  loop:
-    - { path: "{{ tool_bin_dir }}/rclone", sha256: "{{ rclone_cli.binary_sha256 }}" }
-    - { path: "{{ tool_bin_dir }}/yt-dlp", sha256: "{{ yt_dlp_cli.sha256 }}" }
-    - { path: "{{ tool_bin_dir }}/twitch", sha256: "{{ twitch_cli.binary_sha256 }}" }
-  register: installed_user_cli_tools
-  when: not ansible_check_mode
-  loop_control:
-    label: "{{ item.path }}"
-
-- name: Require the selected user-local CLI tools
-  ansible.builtin.assert:
-    that:
-      - item.stat.isreg | default(false)
-      - not (item.stat.islnk | default(false))
-      - item.stat.executable | default(false)
-      - item.stat.checksum | default('') == item.item.sha256
-    fail_msg: "Installed CLI tool failed verification: {{ item.item.path }}"
-    quiet: true
-  loop: "{{ installed_user_cli_tools.results }}"
-  when: not ansible_check_mode
+    path: "{{ item.item.path }}"
+    state: absent
+  loop: "{{ legacy_user_tool_paths.results }}"
   loop_control:
     label: "{{ item.item.path }}"
+  when:
+    - not ansible_check_mode
+    - item.stat.exists | default(false)
 
 - name: Keep CLI account setup and active operations manual
   ansible.builtin.debug:
     msg: >-
-      {{ "Previewed selected CLI tools only" if ansible_check_mode else "Installed selected CLI tools only" }}.
-      AWS, rclone, Twitch, scans, mirrors, SMART tests, and credentials remain untouched.
+      {{ "Previewed selected CLI tools only" if ansible_check_mode else "Installed selected CLI tools from Ubuntu APT only" }}.
+      AWS, rclone, scans, mirrors, SMART tests, and credentials remain untouched.

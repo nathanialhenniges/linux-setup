@@ -11,7 +11,7 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 - [ ] 2. See what is already ready: `./setup.sh status`
 - [ ] 3. Preview/install the base: `./setup.sh --dry-run base`, then `./setup.sh base`
 - [ ] 4. Preview/install core apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
-- [ ] 5. Preview/install the nine selected CLI tools: `./setup.sh --dry-run tools`, then `./setup.sh tools`
+- [ ] 5. Preview/install the eight selected Ubuntu APT tools: `./setup.sh --dry-run tools`, then `./setup.sh tools`
 - [ ] 6. After Ghostty launch-tests successfully: `./setup.sh terminal`
 - [ ] 7. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
 - [ ] 8. Apply desktop-only dotfiles and make Zsh the login shell: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
@@ -87,7 +87,7 @@ cd linux-setup
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
 | `apps` | GitHub CLI and VS Code from signed vendor APT repos; Ghostty from Ubuntu | Does not replace the default terminal |
-| `tools` | Six Ubuntu packages plus pinned user-local rclone, yt-dlp, and Twitch CLI | No account setup, credentials, scans, mirrors, SMART tests, or tokens |
+| `tools` | Eight Ubuntu APT packages; safely removes only the old reviewed rclone/yt-dlp files that would shadow APT | No Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
@@ -97,7 +97,7 @@ cd linux-setup
 
 Chrome and 1Password are already installed on the target laptop. `status` detects them; this repo does not replace their working repositories or sign-ins.
 
-## Nine selected CLI tools
+## Eight selected Ubuntu APT tools
 
 | Tool | Install route | Purpose |
 |---|---|---|
@@ -107,15 +107,14 @@ Chrome and 1Password are already installed on the target laptop. `status` detect
 | `aws` | Ubuntu `awscli` package | AWS command-line client; sign-in remains manual |
 | `nmap` | Ubuntu APT | Inspect only networks and systems you are authorized to test |
 | `smartctl` | Ubuntu `smartmontools` package | Read available SSD health data; device access may need `sudo` |
-| `rclone` | Pinned official v1.75.0 AMD64 archive | Current cloud-file transfers without the stale Ubuntu build |
-| `yt-dlp` | Pinned official 2026.07.04 executable | Current security/site fixes; FFmpeg is not silently added |
-| `twitch` | Pinned official Twitch CLI v1.1.24 AMD64 archive | Twitch developer API and EventSub work; configuration remains manual |
+| `rclone` | Ubuntu APT | Cloud-file transfers; no remote is configured |
+| `yt-dlp` | Ubuntu APT | Video downloader; FFmpeg is not silently added |
 
-The three user-local binaries live in `~/.local/bin`. Open a new terminal if that directory was created during this run. Add FFmpeg later only if yt-dlp merging or post-processing actually needs it.
+Twitch CLI is not available from Ubuntu 26.04 APT, so the APT-only action leaves it out. Add FFmpeg later only if yt-dlp merging or post-processing actually needs it.
 
 ## Safety boundary
 
-The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh, the CaskaydiaCove Nerd Font, rclone, yt-dlp, and Twitch CLI come from pinned immutable upstream releases and must pass reviewed SHA-256 values before their user-local files are installed.
+The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from pinned immutable upstream releases and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT.
 
 It never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens.
 
@@ -211,8 +210,8 @@ After the MBA is configured, `./setup.sh verify` must pass. A second dry run of 
 - [Cloudflare WARP for Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)
 - [OpenAI Codex](https://github.com/openai/codex)
 - [Toshy](https://github.com/RedBearAK/toshy)
-- [rclone downloads and signed checksums](https://rclone.org/downloads/)
-- [yt-dlp 2026.07.04](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.07.04)
-- [Twitch CLI installation](https://dev.twitch.tv/docs/cli/)
+- [Ubuntu 26.04 rclone package](https://packages.ubuntu.com/resolute/rclone)
+- [Ubuntu 26.04 yt-dlp package](https://packages.ubuntu.com/resolute/yt-dlp)
+- [Ubuntu 26.04 package index](https://packages.ubuntu.com/resolute/allpackages)
 
 No license has been selected. Public visibility permits review, not automatic reuse.

@@ -134,7 +134,7 @@ tool_package_manifest="$(awk '
   capture && /^[[:alnum:]_]+:/ { exit }
   capture && /^  - / { sub(/^  - /, ""); print }
 ' "$repo_dir/vars.yml")"
-expected_tool_packages=$'awscli\nbtop\nfastfetch\nhttrack\nnmap\nsmartmontools'
+expected_tool_packages=$'awscli\nbtop\nfastfetch\nhttrack\nnmap\nrclone\nsmartmontools\nyt-dlp'
 if [[ "$tool_package_manifest" == "$expected_tool_packages" ]]; then
   pass 'selected Ubuntu CLI package manifest is exact'
 else
@@ -176,25 +176,24 @@ for expected in \
   '0f37fc298c98e88ee3c0ee68c95b69f1dba9eb477abe3167e13982105911264d' \
   '03bc5c288b6f2fc4ad9db4e11f191e970b31e93d3aa2e55ecc09bd7096226484' \
   'f30f67f203f9da78df857ebe558321bdfd8fc313662c72fd9e9fef9d4f4c96e7' \
-  'aa2804e08f48250e71009c727124b6341cd0288465804a9a09d14663cabafbaa' \
   'f3f9aff817f9766029e50adf9a7963c169e475b8f10c7927823568a0d9443db7' \
-  '495be29ff4d9d4e9be7eabdfef225221e5d5282e77f2f505abc6dca80349f3fd' \
-  '9cae4e9cd52e66fb4dda6b633b3276a4450a28a83dea7a4651a42a67372eed8f' \
-  '40958ae7aed8a58f58bd9f32dec98cdd326741e5f9c1c6e6da9f7ae1df599240'; do
+  '495be29ff4d9d4e9be7eabdfef225221e5d5282e77f2f505abc6dca80349f3fd'; do
   if ! grep -Fq "$expected" "$repo_dir/vars.yml"; then
     fail "missing reviewed checksum $expected"
   fi
 done
 
-if grep -Fq 'checksum: "sha256:{{ rclone_cli.archive_sha256 }}"' "$repo_dir/tasks/cli_tools.yml" &&
-   grep -Fq 'checksum: "sha256:{{ yt_dlp_cli.sha256 }}"' "$repo_dir/tasks/cli_tools.yml" &&
-   grep -Fq 'checksum: "sha256:{{ twitch_cli.archive_sha256 }}"' "$repo_dir/tasks/cli_tools.yml" &&
-   [[ "$(grep -Fc 'stat.executable | default(false)' "$repo_dir/tasks/cli_tools.yml")" -ge 4 ]] &&
+if grep -Fq 'ansible.builtin.apt:' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq 'name: "{{ tool_packages }}"' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq 'legacy_user_tool_files' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq 'state: absent' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq 'verified_legacy_user_tool_paths.results' "$repo_dir/verify.yml" &&
+   grep -Fq 'Twitch CLI is unavailable from Ubuntu APT' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'install_recommends: false' "$repo_dir/tasks/cli_tools.yml" &&
-   ! grep -Eq 'aws[[:space:]]+configure|rclone[[:space:]]+config|twitch[[:space:]]+configure' "$repo_dir/tasks/cli_tools.yml"; then
-  pass 'selected CLI artifacts and account boundaries are verified'
+   ! grep -Eq 'ansible\.builtin\.(get_url|unarchive)|rclone_cli|yt_dlp_cli|twitch_cli|aws[[:space:]]+configure|rclone[[:space:]]+config|twitch[[:space:]]+configure' "$repo_dir/tasks/cli_tools.yml" "$repo_dir/vars.yml"; then
+  pass 'selected CLI tools use Ubuntu APT with safe legacy cleanup'
 else
-  fail 'selected CLI tool integrity boundary'
+  fail 'selected CLI APT boundary'
 fi
 
 if grep -Fq 'checksum: "sha256:{{ item.key_sha256 }}"' "$repo_dir/tasks/vendor_repositories.yml" &&

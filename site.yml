@@ -11,8 +11,6 @@
     workstation_home: "{{ ansible_facts.env.HOME }}"
     dotfiles_dir: "{{ ansible_facts.env.HOME }}/.local/share/dotfiles"
     oh_my_posh_path: "{{ ansible_facts.env.HOME }}/.local/bin/oh-my-posh"
-    tool_bin_dir: "{{ ansible_facts.env.HOME }}/.local/bin"
-    tool_cache_dir: "{{ ansible_facts.env.HOME }}/.cache/linux-setup"
     font_dir: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove"
     font_marker: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove/.nerd-font-{{ nerd_font.version }}"
 
