@@ -64,14 +64,68 @@
       ansible.builtin.set_fact:
         missing_selected_tool_packages: "{{ tool_packages | difference(ansible_facts.packages.keys() | list) }}"
 
-    - name: Inspect legacy user-local APT shadows
+    - name: Inspect local commands that would shadow APT
       ansible.builtin.stat:
-        path: "{{ item.path }}"
+        path: "{{ item.1.path }}/{{ item.0.command }}"
         follow: false
-      loop: "{{ legacy_user_tool_files }}"
-      register: verified_legacy_user_tool_paths
+      loop: "{{ apt_tool_commands | product(apt_tool_shadow_dirs) | list }}"
+      register: verified_apt_tool_shadows
       loop_control:
-        label: "{{ item.path }}"
+        label: "{{ item.1.path }}/{{ item.0.command }}"
+
+    - name: Resolve selected commands to their canonical executables
+      ansible.builtin.command:
+        argv:
+          - /bin/sh
+          - -c
+          - 'resolved=$(command -v "$1") && /usr/bin/realpath --canonicalize-existing -- "$resolved"'
+          - sh
+          - "{{ item.command }}"
+      environment:
+        PATH: >-
+          {{ workstation_home }}/.local/bin:{{ workstation_home }}/bin:/usr/local/bin:{{ ansible_facts.env.PATH | default('/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', true) }}
+      loop: "{{ apt_tool_commands }}"
+      register: verified_apt_tool_commands
+      changed_when: false
+      failed_when: false
+      loop_control:
+        label: "{{ item.command }}"
+
+    - name: Record selected commands that do not use Ubuntu APT
+      ansible.builtin.set_fact:
+        selected_tool_resolution_errors: >-
+          {{ (selected_tool_resolution_errors | default([])) +
+             ([item.item.command] if
+              (item.rc != 0 or item.stdout != item.item.apt_path) else []) }}
+      loop: "{{ verified_apt_tool_commands.results }}"
+      loop_control:
+        label: "{{ item.item.command }}"
+
+    - name: Read the APT owner of every selected command path
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/dpkg-query
+          - --search
+          - "{{ item.apt_path }}"
+      loop: "{{ apt_tool_commands }}"
+      register: verified_apt_tool_owners
+      changed_when: false
+      failed_when: false
+      loop_control:
+        label: "{{ item.apt_path }}"
+
+    - name: Record selected command paths not owned by APT
+      ansible.builtin.set_fact:
+        selected_tool_ownership_errors: >-
+          {{ (selected_tool_ownership_errors | default([])) +
+             ([item.item.command] if
+              (item.rc != 0 or
+               (item.stdout_lines |
+                select('match', '^' ~ item.item.package ~ '(:[^: ]+)?[:] ' ~ item.item.apt_path ~ '$') |
+                list | length == 0)) else []) }}
+      loop: "{{ verified_apt_tool_owners.results }}"
+      loop_control:
+        label: "{{ item.item.command }}"
 
     - name: Inspect managed workstation files
       ansible.builtin.stat:
@@ -308,8 +362,10 @@
              'would apply ' not in (verified_dotfiles_preview.stdout | default('')) }}
         selected_tools_ready: >-
           {{ missing_selected_tool_packages | length == 0 and
-             (verified_legacy_user_tool_paths.results |
-              selectattr('stat.exists') | list | length) == 0 }}
+             (verified_apt_tool_shadows.results |
+              selectattr('stat.exists') | list | length) == 0 and
+             selected_tool_resolution_errors | length == 0 and
+             selected_tool_ownership_errors | length == 0 }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and

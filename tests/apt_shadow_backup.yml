@@ -1,0 +1,42 @@
+---
+- name: Exercise recoverable APT shadow backup
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars:
+    test_dir: "{{ lookup('ansible.builtin.env', 'APT_SHADOW_TEST_DIR') }}"
+    test_source: "{{ test_dir }}/demo-tool"
+    test_backup: "{{ test_source }}.pre-linux-setup-apt-{{ ansible_facts.date_time.iso8601_basic_short }}"
+    apt_shadow:
+      item:
+        - { command: demo-tool }
+        - { path: "{{ test_dir }}", privileged: false }
+  tasks:
+    - name: Require a narrow temporary test directory
+      ansible.builtin.assert:
+        that:
+          - test_dir.startswith('/var/') or test_dir.startswith('/tmp/') or test_dir.startswith('/private/var/')
+          - test_dir | length > 10
+        quiet: true
+
+    - name: Run the production backup task
+      ansible.builtin.include_tasks: ../tasks/backup_apt_shadow.yml
+
+    - name: Inspect the source after the backup attempt
+      ansible.builtin.stat:
+        path: "{{ test_source }}"
+        follow: false
+      register: tested_shadow_source
+
+    - name: Inspect the recoverable backup
+      ansible.builtin.stat:
+        path: "{{ test_backup }}"
+        follow: false
+      register: tested_shadow_backup
+
+    - name: Require apply to move and check mode to preserve
+      ansible.builtin.assert:
+        that:
+          - tested_shadow_source.stat.exists == ansible_check_mode
+          - tested_shadow_backup.stat.exists != ansible_check_mode
+        quiet: true

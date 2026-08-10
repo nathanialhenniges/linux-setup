@@ -1,0 +1,10 @@
+---
+- name: Back up one local command shadow
+  ansible.builtin.command:
+    argv:
+      - /bin/mv
+      - -n
+      - --
+      - "{{ apt_shadow.item.1.path }}/{{ apt_shadow.item.0.command }}"
+      - "{{ apt_shadow.item.1.path }}/{{ apt_shadow.item.0.command }}.pre-linux-setup-apt-{{ ansible_facts.date_time.iso8601_basic_short }}"
+  become: "{{ apt_shadow.item.1.privileged }}"
