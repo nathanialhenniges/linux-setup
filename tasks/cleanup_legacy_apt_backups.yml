@@ -1,0 +1,46 @@
+---
+- name: Find obsolete user-local APT backups
+  ansible.builtin.find:
+    paths: "{{ apt_user_local_bin }}"
+    patterns: "{{ item.command }}.pre-linux-setup-apt-*"
+    file_type: any
+    recurse: false
+    follow: false
+  loop: "{{ apt_tool_commands }}"
+  register: legacy_apt_backup_search
+  loop_control:
+    label: "{{ item.command }}"
+
+- name: Collect obsolete user-local APT backups
+  ansible.builtin.set_fact:
+    legacy_apt_backup_paths: >-
+      {{ legacy_apt_backup_search.results |
+         map(attribute='files') | flatten }}
+
+- name: Refuse unsafe obsolete APT backup paths
+  ansible.builtin.assert:
+    that:
+      - item.isreg | default(false) or item.islnk | default(false)
+    fail_msg: "{{ item.path }} is not a regular file or symlink; remove it manually."
+    quiet: true
+  loop: "{{ legacy_apt_backup_paths }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Preview obsolete user-local APT backup cleanup
+  ansible.builtin.debug:
+    msg: "Would permanently remove {{ legacy_apt_backup_paths | length }} obsolete ~/.local/bin APT backup(s)."
+  changed_when: legacy_apt_backup_paths | length > 0
+  when: ansible_check_mode
+
+- name: Remove obsolete user-local APT backups
+  ansible.builtin.command:
+    argv:
+      - /bin/rm
+      - -f
+      - --
+      - "{{ item.path }}"
+  loop: "{{ legacy_apt_backup_paths }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: not ansible_check_mode

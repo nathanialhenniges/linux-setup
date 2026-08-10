@@ -120,6 +120,9 @@
     label: "{{ item.item.apt_path }}"
   when: not ansible_check_mode
 
+- name: Clean obsolete user-local backups from the previous migration policy
+  ansible.builtin.include_tasks: cleanup_legacy_apt_backups.yml
+
 - name: Replace local command shadows after APT verification
   ansible.builtin.include_tasks: migrate_apt_shadow.yml
   loop: "{{ apt_tool_shadow_paths.results }}"

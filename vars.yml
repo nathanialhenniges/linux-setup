@@ -54,8 +54,10 @@ apt_tool_commands:
   - { package: smartmontools, command: smartctl, apt_path: /usr/sbin/smartctl }
   - { package: yt-dlp, command: yt-dlp, apt_path: /usr/bin/yt-dlp }
 
+apt_user_local_bin: "{{ ansible_facts.env.HOME }}/.local/bin"
+
 apt_tool_shadow_dirs:
-  - { path: "{{ ansible_facts.env.HOME }}/.local/bin", privileged: false, migration: remove }
+  - { path: "{{ apt_user_local_bin }}", privileged: false, migration: remove }
   - { path: "{{ ansible_facts.env.HOME }}/bin", privileged: false, migration: backup }
   - { path: /usr/local/bin, privileged: true, migration: backup }
 

@@ -152,6 +152,7 @@ scan_files=(
   "$repo_dir/site.yml"
   "$repo_dir/verify.yml"
   "$repo_dir/vars.yml"
+  "$repo_dir/tasks/cleanup_legacy_apt_backups.yml"
   "$repo_dir/tasks/migrate_apt_shadow.yml"
   "$repo_dir/tasks/cli_tools.yml"
   "$repo_dir/tasks/vendor_repositories.yml"
@@ -204,13 +205,17 @@ if [[ "$tool_command_manifest_ok" == true ]] &&
    grep -Fq 'ansible.builtin.apt:' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'name: "{{ tool_packages }}"' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'apt_tool_commands | product(apt_tool_shadow_dirs)' "$repo_dir/tasks/cli_tools.yml" &&
-   grep -Fq 'HOME }}/.local/bin", privileged: false, migration: remove' "$repo_dir/vars.yml" &&
+   grep -Fq 'apt_user_local_bin: "{{ ansible_facts.env.HOME }}/.local/bin"' "$repo_dir/vars.yml" &&
+   grep -Fq 'path: "{{ apt_user_local_bin }}", privileged: false, migration: remove' "$repo_dir/vars.yml" &&
    grep -Fq '/usr/local/bin, privileged: true, migration: backup' "$repo_dir/vars.yml" &&
    grep -Fq -- '- /bin/rm' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
    grep -Fq -- '- -f' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
    grep -Fq -- '- /bin/mv' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
    grep -Fq -- '- -n' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
    grep -Fq '.pre-linux-setup-apt-' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
+   grep -Fq 'file_type: any' "$repo_dir/tasks/cleanup_legacy_apt_backups.yml" &&
+   grep -Fq 'item.isreg | default(false) or item.islnk | default(false)' "$repo_dir/tasks/cleanup_legacy_apt_backups.yml" &&
+   grep -Fq 'Clean obsolete user-local backups from the previous migration policy' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'realpath --canonicalize-existing' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq '/usr/bin/dpkg-query' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'apt_tool_path_owners.results' "$repo_dir/tasks/cli_tools.yml" &&
@@ -286,13 +291,17 @@ if command -v ansible-playbook >/dev/null 2>&1; then
 
   mkdir -p "$shadow_test_root/remove" "$shadow_test_root/backup" "$shadow_test_root/check"
   printf 'old local command\n' > "$shadow_test_root/remove/demo-tool"
+  printf 'obsolete backup\n' > "$shadow_test_root/remove/demo-tool.pre-linux-setup-apt-old"
   printf 'old local command\n' > "$shadow_test_root/backup/demo-tool"
   printf 'old local command\n' > "$shadow_test_root/check/demo-tool"
-  chmod 0755 "$shadow_test_root/remove/demo-tool" "$shadow_test_root/backup/demo-tool" "$shadow_test_root/check/demo-tool"
+  printf 'obsolete backup\n' > "$shadow_test_root/check/demo-tool.pre-linux-setup-apt-old"
+  chmod 0755 "$shadow_test_root/remove/demo-tool" "$shadow_test_root/remove/demo-tool.pre-linux-setup-apt-old" \
+    "$shadow_test_root/backup/demo-tool" "$shadow_test_root/check/demo-tool" \
+    "$shadow_test_root/check/demo-tool.pre-linux-setup-apt-old"
 
   if APT_SHADOW_TEST_DIR="$shadow_test_root/remove" APT_SHADOW_TEST_POLICY=remove \
        ansible-playbook "$repo_dir/tests/apt_shadow_migration.yml" >/dev/null; then
-    pass 'user-local command shadow is removed after the APT gate'
+    pass 'user-local command shadow and obsolete backup are removed after the APT gate'
   else
     fail 'user-local command shadow removal'
   fi
