@@ -3,11 +3,14 @@
   ansible.builtin.set_fact:
     missing_tool_packages: "{{ tool_packages | difference(ansible_facts.packages.keys() | list) }}"
 
+- name: Inspect local command directory boundaries
+  ansible.builtin.include_tasks: inspect_apt_shadow_dirs.yml
+
 - name: Inspect local commands that would shadow APT
   ansible.builtin.stat:
     path: "{{ item.1.path }}/{{ item.0.command }}"
     follow: false
-  loop: "{{ apt_tool_commands | product(apt_tool_shadow_dirs) | list }}"
+  loop: "{{ apt_tool_commands | product(existing_apt_tool_shadow_dirs) | list }}"
   register: apt_tool_shadow_paths
   loop_control:
     label: "{{ item.1.path }}/{{ item.0.command }}"

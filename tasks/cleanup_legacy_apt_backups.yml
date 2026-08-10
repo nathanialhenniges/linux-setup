@@ -6,7 +6,7 @@
     file_type: any
     recurse: false
     follow: false
-  loop: "{{ apt_tool_commands | product(apt_tool_shadow_dirs) | list }}"
+  loop: "{{ apt_tool_commands | product(existing_apt_tool_shadow_dirs) | list }}"
   register: legacy_apt_backup_search
   loop_control:
     label: "{{ item.1.path }}/{{ item.0.command }}"

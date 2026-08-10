@@ -1,0 +1,33 @@
+---
+- name: Inspect local command directories
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    follow: false
+  loop: "{{ apt_tool_shadow_dirs }}"
+  register: apt_tool_shadow_directory_status
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Refuse unsafe local command directories
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (item.stat.exists | default(false)) or
+        ((item.stat.isdir | default(false)) and not (item.stat.islnk | default(false)))
+    fail_msg: "{{ item.item.path }} exists but is not a real directory."
+    quiet: true
+  loop: "{{ apt_tool_shadow_directory_status.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+
+- name: Reset existing local command directories
+  ansible.builtin.set_fact:
+    existing_apt_tool_shadow_dirs: []
+
+- name: Collect existing local command directories
+  ansible.builtin.set_fact:
+    existing_apt_tool_shadow_dirs: "{{ existing_apt_tool_shadow_dirs + [item.item] }}"
+  loop: "{{ apt_tool_shadow_directory_status.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+  when: item.stat.isdir | default(false)

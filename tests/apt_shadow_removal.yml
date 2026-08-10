@@ -11,6 +11,7 @@
       - { command: demo-tool }
     apt_tool_shadow_dirs:
       - { path: "{{ test_dir }}", privileged: false }
+      - { path: "{{ test_dir }}/missing-bin", privileged: false }
     apt_shadow:
       item:
         - { command: demo-tool }
@@ -21,6 +22,16 @@
         that:
           - test_dir.startswith('/var/') or test_dir.startswith('/tmp/') or test_dir.startswith('/private/var/')
           - test_dir | length > 10
+        quiet: true
+
+    - name: Run the production directory inspection task
+      ansible.builtin.include_tasks: ../tasks/inspect_apt_shadow_dirs.yml
+
+    - name: Require the missing directory to be skipped
+      ansible.builtin.assert:
+        that:
+          - existing_apt_tool_shadow_dirs | length == 1
+          - existing_apt_tool_shadow_dirs[0].path == test_dir
         quiet: true
 
     - name: Run the production legacy cleanup task
