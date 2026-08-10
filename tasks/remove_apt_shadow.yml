@@ -1,0 +1,9 @@
+---
+- name: Remove one local command shadow
+  ansible.builtin.command:
+    argv:
+      - /bin/rm
+      - -f
+      - --
+      - "{{ apt_shadow.item.1.path }}/{{ apt_shadow.item.0.command }}"
+  become: "{{ apt_shadow.item.1.privileged }}"

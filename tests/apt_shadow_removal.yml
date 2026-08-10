@@ -1,0 +1,49 @@
+---
+- name: Exercise APT shadow removal
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars:
+    test_dir: "{{ lookup('ansible.builtin.env', 'APT_SHADOW_TEST_DIR') }}"
+    test_source: "{{ test_dir }}/demo-tool"
+    test_legacy_backup: "{{ test_source }}.pre-linux-setup-apt-old"
+    apt_tool_commands:
+      - { command: demo-tool }
+    apt_tool_shadow_dirs:
+      - { path: "{{ test_dir }}", privileged: false }
+    apt_shadow:
+      item:
+        - { command: demo-tool }
+        - { path: "{{ test_dir }}", privileged: false }
+  tasks:
+    - name: Require a narrow temporary test directory
+      ansible.builtin.assert:
+        that:
+          - test_dir.startswith('/var/') or test_dir.startswith('/tmp/') or test_dir.startswith('/private/var/')
+          - test_dir | length > 10
+        quiet: true
+
+    - name: Run the production legacy cleanup task
+      ansible.builtin.include_tasks: ../tasks/cleanup_legacy_apt_backups.yml
+
+    - name: Run the production shadow removal task
+      ansible.builtin.include_tasks: ../tasks/remove_apt_shadow.yml
+
+    - name: Inspect the current shadow after removal
+      ansible.builtin.stat:
+        path: "{{ test_source }}"
+        follow: false
+      register: tested_shadow_source
+
+    - name: Inspect the obsolete setup backup after removal
+      ansible.builtin.stat:
+        path: "{{ test_legacy_backup }}"
+        follow: false
+      register: tested_legacy_backup
+
+    - name: Require apply to remove and check mode to preserve
+      ansible.builtin.assert:
+        that:
+          - tested_shadow_source.stat.exists == ansible_check_mode
+          - tested_legacy_backup.stat.exists == ansible_check_mode
+        quiet: true

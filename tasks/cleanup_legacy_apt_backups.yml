@@ -1,46 +1,49 @@
 ---
-- name: Find obsolete user-local APT backups
+- name: Find obsolete local APT backups
   ansible.builtin.find:
-    paths: "{{ apt_user_local_bin }}"
-    patterns: "{{ item.command }}.pre-linux-setup-apt-*"
+    paths: "{{ item.1.path }}"
+    patterns: "{{ item.0.command }}.pre-linux-setup-apt-*"
     file_type: any
     recurse: false
     follow: false
-  loop: "{{ apt_tool_commands }}"
+  loop: "{{ apt_tool_commands | product(apt_tool_shadow_dirs) | list }}"
   register: legacy_apt_backup_search
   loop_control:
-    label: "{{ item.command }}"
+    label: "{{ item.1.path }}/{{ item.0.command }}"
 
-- name: Collect obsolete user-local APT backups
+- name: Count obsolete local APT backups
   ansible.builtin.set_fact:
-    legacy_apt_backup_paths: >-
+    legacy_apt_backup_count: >-
       {{ legacy_apt_backup_search.results |
-         map(attribute='files') | flatten }}
+         map(attribute='matched') | sum }}
 
 - name: Refuse unsafe obsolete APT backup paths
   ansible.builtin.assert:
     that:
-      - item.isreg | default(false) or item.islnk | default(false)
-    fail_msg: "{{ item.path }} is not a regular file or symlink; remove it manually."
+      - item.1.isreg | default(false) or item.1.islnk | default(false)
+    fail_msg: "{{ item.1.path }} is not a regular file or symlink; remove it manually."
     quiet: true
-  loop: "{{ legacy_apt_backup_paths }}"
+  loop: "{{ legacy_apt_backup_search.results | subelements('files') }}"
   loop_control:
-    label: "{{ item.path }}"
+    label: "{{ item.1.path }}"
 
-- name: Preview obsolete user-local APT backup cleanup
+- name: Preview obsolete local APT backup cleanup
   ansible.builtin.debug:
-    msg: "Would permanently remove {{ legacy_apt_backup_paths | length }} obsolete ~/.local/bin APT backup(s)."
-  changed_when: legacy_apt_backup_paths | length > 0
+    msg: >-
+      Would permanently remove {{ legacy_apt_backup_count }} obsolete APT backup(s)
+      from ~/.local/bin, ~/bin, or /usr/local/bin.
+  changed_when: legacy_apt_backup_count | int > 0
   when: ansible_check_mode
 
-- name: Remove obsolete user-local APT backups
+- name: Remove obsolete local APT backups
   ansible.builtin.command:
     argv:
       - /bin/rm
       - -f
       - --
-      - "{{ item.path }}"
-  loop: "{{ legacy_apt_backup_paths }}"
+      - "{{ item.1.path }}"
+  become: "{{ item.0.item.1.privileged }}"
+  loop: "{{ legacy_apt_backup_search.results | subelements('files') }}"
   loop_control:
-    label: "{{ item.path }}"
+    label: "{{ item.1.path }}"
   when: not ansible_check_mode
