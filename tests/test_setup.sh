@@ -152,6 +152,7 @@ scan_files=(
   "$repo_dir/site.yml"
   "$repo_dir/verify.yml"
   "$repo_dir/vars.yml"
+  "$repo_dir/tasks/backup_apt_shadow.yml"
   "$repo_dir/tasks/cli_tools.yml"
   "$repo_dir/tasks/vendor_repositories.yml"
 )
@@ -175,23 +176,51 @@ for expected in \
   'bd70a5e4a268002704024ceba7f8446024114e94f3f0bdd11c23a9e592be81c6' \
   '0f37fc298c98e88ee3c0ee68c95b69f1dba9eb477abe3167e13982105911264d' \
   '03bc5c288b6f2fc4ad9db4e11f191e970b31e93d3aa2e55ecc09bd7096226484' \
-  'f30f67f203f9da78df857ebe558321bdfd8fc313662c72fd9e9fef9d4f4c96e7' \
-  'f3f9aff817f9766029e50adf9a7963c169e475b8f10c7927823568a0d9443db7' \
-  '495be29ff4d9d4e9be7eabdfef225221e5d5282e77f2f505abc6dca80349f3fd'; do
+  'f30f67f203f9da78df857ebe558321bdfd8fc313662c72fd9e9fef9d4f4c96e7'; do
   if ! grep -Fq "$expected" "$repo_dir/vars.yml"; then
     fail "missing reviewed checksum $expected"
   fi
 done
 
-if grep -Fq 'ansible.builtin.apt:' "$repo_dir/tasks/cli_tools.yml" &&
+tool_command_mappings=(
+  '{ package: awscli, command: aws, apt_path: /usr/bin/aws }'
+  '{ package: btop, command: btop, apt_path: /usr/bin/btop }'
+  '{ package: fastfetch, command: fastfetch, apt_path: /usr/bin/fastfetch }'
+  '{ package: httrack, command: httrack, apt_path: /usr/bin/httrack }'
+  '{ package: nmap, command: nmap, apt_path: /usr/bin/nmap }'
+  '{ package: rclone, command: rclone, apt_path: /usr/bin/rclone }'
+  '{ package: smartmontools, command: smartctl, apt_path: /usr/sbin/smartctl }'
+  '{ package: yt-dlp, command: yt-dlp, apt_path: /usr/bin/yt-dlp }'
+)
+
+tool_command_manifest_ok=true
+for mapping in "${tool_command_mappings[@]}"; do
+  if ! grep -Fq -- "$mapping" "$repo_dir/vars.yml"; then
+    tool_command_manifest_ok=false
+  fi
+done
+
+if [[ "$tool_command_manifest_ok" == true ]] &&
+   grep -Fq 'ansible.builtin.apt:' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'name: "{{ tool_packages }}"' "$repo_dir/tasks/cli_tools.yml" &&
-   grep -Fq 'legacy_user_tool_files' "$repo_dir/tasks/cli_tools.yml" &&
-   grep -Fq 'state: absent' "$repo_dir/tasks/cli_tools.yml" &&
-   grep -Fq 'verified_legacy_user_tool_paths.results' "$repo_dir/verify.yml" &&
+   grep -Fq 'apt_tool_commands | product(apt_tool_shadow_dirs)' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq '/usr/local/bin' "$repo_dir/vars.yml" &&
+   grep -Fq -- '- /bin/mv' "$repo_dir/tasks/backup_apt_shadow.yml" &&
+   grep -Fq -- '- -n' "$repo_dir/tasks/backup_apt_shadow.yml" &&
+   grep -Fq '.pre-linux-setup-apt-' "$repo_dir/tasks/backup_apt_shadow.yml" &&
+   grep -Fq 'realpath --canonicalize-existing' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq '/usr/bin/dpkg-query' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq 'apt_tool_path_owners.results' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq 'apt_tool_path_files.results' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq 'item.stat.executable | default(false)' "$repo_dir/tasks/cli_tools.yml" &&
+   grep -Fq 'verified_apt_tool_shadows.results' "$repo_dir/verify.yml" &&
+   grep -Fq 'selected_tool_resolution_errors' "$repo_dir/verify.yml" &&
+   grep -Fq 'selected_tool_ownership_errors' "$repo_dir/verify.yml" &&
    grep -Fq 'Twitch CLI is unavailable from Ubuntu APT' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'install_recommends: false' "$repo_dir/tasks/cli_tools.yml" &&
-   ! grep -Eq 'ansible\.builtin\.(get_url|unarchive)|rclone_cli|yt_dlp_cli|twitch_cli|aws[[:space:]]+configure|rclone[[:space:]]+config|twitch[[:space:]]+configure' "$repo_dir/tasks/cli_tools.yml" "$repo_dir/vars.yml"; then
-  pass 'selected CLI tools use Ubuntu APT with safe legacy cleanup'
+   ! grep -Fq 'state: absent' "$repo_dir/tasks/cli_tools.yml" &&
+   ! grep -Eq 'ansible\.builtin\.(get_url|unarchive)|legacy_user_tool_files|rclone_cli|yt_dlp_cli|twitch_cli|aws[[:space:]]+configure|rclone[[:space:]]+config|twitch[[:space:]]+configure' "$repo_dir/tasks/cli_tools.yml" "$repo_dir/verify.yml" "$repo_dir/vars.yml"; then
+  pass 'selected CLI tools use Ubuntu APT with recoverable local-shadow migration'
 else
   fail 'selected CLI APT boundary'
 fi
@@ -247,6 +276,28 @@ if command -v ansible-playbook >/dev/null 2>&1; then
     pass 'tagged task graph resolves'
   else
     fail 'tagged task graph'
+  fi
+
+  shadow_test_root="$(mktemp -d "${TMPDIR:-/tmp}/linux-setup-shadow.XXXXXX")"
+  trap 'rm -rf -- "$shadow_test_root"' EXIT
+
+  mkdir -p "$shadow_test_root/apply" "$shadow_test_root/check"
+  printf 'old local command\n' > "$shadow_test_root/apply/demo-tool"
+  printf 'old local command\n' > "$shadow_test_root/check/demo-tool"
+  chmod 0755 "$shadow_test_root/apply/demo-tool" "$shadow_test_root/check/demo-tool"
+
+  if APT_SHADOW_TEST_DIR="$shadow_test_root/apply" \
+       ansible-playbook "$repo_dir/tests/apt_shadow_backup.yml" >/dev/null; then
+    pass 'local command shadow moves to a recoverable backup'
+  else
+    fail 'local command shadow backup'
+  fi
+
+  if APT_SHADOW_TEST_DIR="$shadow_test_root/check" \
+       ansible-playbook --check "$repo_dir/tests/apt_shadow_backup.yml" >/dev/null; then
+    pass 'check mode leaves local command shadows untouched'
+  else
+    fail 'check-mode local shadow safety'
   fi
 else
   printf 'SKIP: ansible-playbook is not installed; run ./setup.sh bootstrap on Ubuntu\n'

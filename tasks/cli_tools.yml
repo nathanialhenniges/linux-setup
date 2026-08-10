@@ -3,40 +3,41 @@
   ansible.builtin.set_fact:
     missing_tool_packages: "{{ tool_packages | difference(ansible_facts.packages.keys() | list) }}"
 
-- name: Inspect legacy user-local APT shadows
+- name: Inspect local commands that would shadow APT
   ansible.builtin.stat:
-    path: "{{ item.path }}"
+    path: "{{ item.1.path }}/{{ item.0.command }}"
     follow: false
-    checksum_algorithm: sha256
-  loop: "{{ legacy_user_tool_files }}"
-  register: legacy_user_tool_paths
+  loop: "{{ apt_tool_commands | product(apt_tool_shadow_dirs) | list }}"
+  register: apt_tool_shadow_paths
   loop_control:
-    label: "{{ item.path }}"
+    label: "{{ item.1.path }}/{{ item.0.command }}"
 
-- name: Refuse unknown user-local APT shadows
+- name: Refuse unsafe local command shadows
   ansible.builtin.assert:
     that:
-      - not (item.stat.exists | default(false)) or item.stat.isreg | default(false)
-      - not (item.stat.exists | default(false)) or not (item.stat.islnk | default(false))
-      - not (item.stat.exists | default(false)) or item.stat.checksum | default('') == item.item.sha256
+      - >-
+        not (item.stat.exists | default(false)) or
+        item.stat.isreg | default(false) or
+        item.stat.islnk | default(false)
     fail_msg: >-
-      {{ item.item.path }} is not the reviewed legacy linux-setup file. Move or remove it manually,
-      then rerun the tools action so Ubuntu's package can own this command.
+      {{ item.item.1.path }}/{{ item.item.0.command }} is not a regular file or symlink.
+      Move it manually before replacing this command with Ubuntu APT.
     quiet: true
-  loop: "{{ legacy_user_tool_paths.results }}"
+  loop: "{{ apt_tool_shadow_paths.results }}"
   loop_control:
-    label: "{{ item.item.path }}"
+    label: "{{ item.item.1.path }}/{{ item.item.0.command }}"
 
 - name: Preview the selected APT tool install
   ansible.builtin.debug:
     msg:
       - "Would install Ubuntu packages: {{ missing_tool_packages | join(', ') if missing_tool_packages | length > 0 else 'none' }}"
-      - "Would remove reviewed user-local rclone or yt-dlp files only after their Ubuntu packages install successfully."
+      - "Would rename matching commands in ~/.local/bin, ~/bin, or /usr/local/bin to timestamped .pre-linux-setup-apt backups."
+      - "Would then require every command to resolve to its Ubuntu APT path."
       - "Twitch CLI is unavailable from Ubuntu APT and will not be installed."
       - "Would not configure accounts, credentials, scans, mirrors, SMART tests, or tokens."
   changed_when: >-
     missing_tool_packages | length > 0 or
-    (legacy_user_tool_paths.results | selectattr('stat.exists') | list | length > 0)
+    (apt_tool_shadow_paths.results | selectattr('stat.exists') | list | length > 0)
   when: ansible_check_mode
 
 - name: Install all selected tools from Ubuntu APT
@@ -56,24 +57,110 @@
     manager: apt
   when: not ansible_check_mode
 
-- name: Require every selected Ubuntu package
+- name: Require every selected Ubuntu package before moving shadows
   ansible.builtin.assert:
     that:
       - tool_packages | difference(ansible_facts.packages.keys() | list) | length == 0
-    fail_msg: "One or more selected Ubuntu CLI packages did not install."
+    fail_msg: "One or more selected Ubuntu CLI packages did not install; local commands were left untouched."
     quiet: true
   when: not ansible_check_mode
 
-- name: Remove reviewed user-local files that shadow APT
-  ansible.builtin.file:
-    path: "{{ item.item.path }}"
-    state: absent
-  loop: "{{ legacy_user_tool_paths.results }}"
+- name: Read the APT owner of every selected command path
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/dpkg-query
+      - --search
+      - "{{ item.apt_path }}"
+  loop: "{{ apt_tool_commands }}"
+  register: apt_tool_path_owners
+  changed_when: false
+  failed_when: false
   loop_control:
-    label: "{{ item.item.path }}"
+    label: "{{ item.apt_path }}"
+  when: not ansible_check_mode
+
+- name: Inspect every selected APT command path
+  ansible.builtin.stat:
+    path: "{{ item.apt_path }}"
+    follow: true
+  loop: "{{ apt_tool_commands }}"
+  register: apt_tool_path_files
+  loop_control:
+    label: "{{ item.apt_path }}"
+  when: not ansible_check_mode
+
+- name: Require APT ownership before moving local shadows
+  ansible.builtin.assert:
+    that:
+      - item.rc == 0
+      - >-
+        item.stdout_lines |
+        select('match', '^' ~ item.item.package ~ '(:[^: ]+)?[:] ' ~ item.item.apt_path ~ '$') |
+        list | length > 0
+    fail_msg: >-
+      {{ item.item.apt_path }} is not owned by Ubuntu package {{ item.item.package }};
+      local commands were left untouched.
+    quiet: true
+  loop: "{{ apt_tool_path_owners.results }}"
+  loop_control:
+    label: "{{ item.item.apt_path }}"
+  when: not ansible_check_mode
+
+- name: Require working APT commands before moving local shadows
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+      - item.stat.executable | default(false)
+    fail_msg: >-
+      {{ item.item.apt_path }} is not a working executable; local commands were left untouched.
+    quiet: true
+  loop: "{{ apt_tool_path_files.results }}"
+  loop_control:
+    label: "{{ item.item.apt_path }}"
+  when: not ansible_check_mode
+
+- name: Move local command shadows to recoverable backups
+  ansible.builtin.include_tasks: backup_apt_shadow.yml
+  loop: "{{ apt_tool_shadow_paths.results }}"
+  loop_control:
+    loop_var: apt_shadow
+    label: "{{ apt_shadow.item.1.path }}/{{ apt_shadow.item.0.command }}"
   when:
     - not ansible_check_mode
-    - item.stat.exists | default(false)
+    - apt_shadow.stat.exists | default(false)
+
+- name: Resolve every selected command after migration
+  ansible.builtin.command:
+    argv:
+      - /bin/sh
+      - -c
+      - 'resolved=$(command -v "$1") && /usr/bin/realpath --canonicalize-existing -- "$resolved"'
+      - sh
+      - "{{ item.command }}"
+  environment:
+    PATH: >-
+      {{ ansible_facts.env.HOME }}/.local/bin:{{ ansible_facts.env.HOME }}/bin:/usr/local/bin:{{ ansible_facts.env.PATH | default('/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', true) }}
+  loop: "{{ apt_tool_commands }}"
+  register: resolved_apt_tool_commands
+  changed_when: false
+  failed_when: false
+  loop_control:
+    label: "{{ item.command }}"
+  when: not ansible_check_mode
+
+- name: Require every selected command to use Ubuntu APT
+  ansible.builtin.assert:
+    that:
+      - item.rc == 0
+      - item.stdout == item.item.apt_path
+    fail_msg: >-
+      {{ item.item.command }} resolves to {{ item.stdout | default('nothing', true) }}, not
+      {{ item.item.apt_path }}. Remove it with its original package manager, then rerun tools.
+    quiet: true
+  loop: "{{ resolved_apt_tool_commands.results }}"
+  loop_control:
+    label: "{{ item.item.command }}"
+  when: not ansible_check_mode
 
 - name: Keep CLI account setup and active operations manual
   ansible.builtin.debug:

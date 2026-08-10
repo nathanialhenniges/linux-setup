@@ -44,11 +44,20 @@ tool_packages:
   - smartmontools
   - yt-dlp
 
-legacy_user_tool_files:
-  - path: "{{ ansible_facts.env.HOME }}/.local/bin/rclone"
-    sha256: f3f9aff817f9766029e50adf9a7963c169e475b8f10c7927823568a0d9443db7
-  - path: "{{ ansible_facts.env.HOME }}/.local/bin/yt-dlp"
-    sha256: 495be29ff4d9d4e9be7eabdfef225221e5d5282e77f2f505abc6dca80349f3fd
+apt_tool_commands:
+  - { package: awscli, command: aws, apt_path: /usr/bin/aws }
+  - { package: btop, command: btop, apt_path: /usr/bin/btop }
+  - { package: fastfetch, command: fastfetch, apt_path: /usr/bin/fastfetch }
+  - { package: httrack, command: httrack, apt_path: /usr/bin/httrack }
+  - { package: nmap, command: nmap, apt_path: /usr/bin/nmap }
+  - { package: rclone, command: rclone, apt_path: /usr/bin/rclone }
+  - { package: smartmontools, command: smartctl, apt_path: /usr/sbin/smartctl }
+  - { package: yt-dlp, command: yt-dlp, apt_path: /usr/bin/yt-dlp }
+
+apt_tool_shadow_dirs:
+  - { path: "{{ ansible_facts.env.HOME }}/.local/bin", privileged: false }
+  - { path: "{{ ansible_facts.env.HOME }}/bin", privileged: false }
+  - { path: /usr/local/bin, privileged: true }
 
 optional_packages:
   - claude-desktop
