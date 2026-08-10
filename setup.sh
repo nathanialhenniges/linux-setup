@@ -34,21 +34,19 @@ Usage:
   ./setup.sh [--dry-run] dotfiles
   ./setup.sh [--dry-run] gnome
   ./setup.sh [--dry-run] keybinds
-  ./setup.sh [--dry-run] optional
 
 Commands:
   bootstrap  Install minimal Ubuntu ansible-core prerequisites
   status     Read-only ADHD-friendly state board; missing items are allowed
   verify     Read-only state board that fails until the core setup is ready
   base       Core packages, Oh My Posh, and CaskaydiaCove Nerd Font
-  apps       GitHub CLI, VS Code, and Ghostty
+  apps       Approved desktop apps from APT plus Postman's official Snap
   tools      Eight Ubuntu APT tools; removes local command shadows
   terminal   Make launch-tested Ghostty the Ubuntu default
   codex      Show the official Codex CLI route; make no change
   dotfiles   Fast-forward and run only dotfiles/linux-desktop.sh; set user Zsh
   gnome      Small, reversible macOS-friendly GNOME preferences
   keybinds   Guarded interactive Toshy install for physical Command shortcuts
-  optional   Claude Desktop beta and Cloudflare WARP packages only
 
 --dry-run previews without network, sudo, downloads, or managed-state writes.
 Ansible actions may create their ignored local temporary directory.
@@ -70,7 +68,7 @@ parse_args() {
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="help"
         ;;
-      bootstrap | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds | optional)
+      bootstrap | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="$argument"
         ;;
@@ -312,7 +310,7 @@ run_action() {
     command+=(--check --diff)
   else
     case "$action" in
-      base | apps | tools | optional)
+      base | apps | tools)
         require_classic_sudo
         command+=(--ask-become-pass)
         ;;

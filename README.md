@@ -10,7 +10,7 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 - [ ] 1. Install the small Ansible runtime: `./setup.sh bootstrap`
 - [ ] 2. See what is already ready: `./setup.sh status`
 - [ ] 3. Preview/install the base: `./setup.sh --dry-run base`, then `./setup.sh base`
-- [ ] 4. Preview/install core apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
+- [ ] 4. Preview/install the approved desktop apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
 - [ ] 5. Preview/install the eight selected Ubuntu APT tools: `./setup.sh --dry-run tools`, then `./setup.sh tools`
 - [ ] 6. After Ghostty launch-tests successfully: `./setup.sh terminal`
 - [ ] 7. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
@@ -18,7 +18,23 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 - [ ] 9. Apply the GNOME look and always-visible bottom dock: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
 - [ ] 10. Set up Mac mode: enable Focused Window D-Bus, run `./setup.sh --dry-run keybinds` and `./setup.sh keybinds`, reboot only if Toshy says so, then rerun `keybinds`
 - [ ] 11. Confirm the core workstation: `./setup.sh verify`
-- [ ] 12. Decide later: `./setup.sh --dry-run optional`
+- [ ] 12. Manually add Discord's official `.deb` and the Plex Chrome app
+
+## If you only see VS Code and Ghostty
+
+That was the complete result of the early `apps` action: GitHub CLI has no launcher, so it produced only those two visible apps. Pull the expanded manifest and rerun the same action:
+
+```bash
+cd ~/linux-setup
+git switch main
+git pull --ff-only
+./setup.sh --dry-run apps
+./setup.sh apps
+```
+
+The updated action adds Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, and Postman. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
+
+Discord remains a manual official `.deb` because its download URL changes without a stable published checksum. Plex remains a manual Chrome site app. The action prints both steps when it finishes.
 
 Stop after any failed box. Do not keep stacking fixes.
 
@@ -85,15 +101,14 @@ cd linux-setup
 | `bootstrap` | Minimal `ansible-core`, Python APT bindings, and Ubuntu's supported classic `sudo.ws` provider | No full Ansible collection bundle, global `sudo` switch, or workstation changes |
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
-| `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
-| `apps` | GitHub CLI and VS Code from signed vendor APT repos; Ghostty from Ubuntu | Does not replace the default terminal |
+| `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
+| `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, and OBS from Ubuntu; Postman's publisher-supported Snap | No sign-ins, WARP enrollment, Discord download, Plex PWA, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
 | `gnome` | Dark mode, battery percent, no hot corners, bottom always-visible dock | No extensions or keyboard interception |
 | `keybinds` | Installs or repairs pinned Toshy, starts its user services, and prints the Mac-mode check board | Requires live GNOME; refuses competing remappers and unverified sources |
-| `optional` | Official Claude Desktop beta and Cloudflare WARP packages | No Claude Cowork, WARP enrollment, DNS/routing change, or tunnel |
 
 Chrome and 1Password are already installed on the target laptop. `status` detects them; this repo does not replace their working repositories or sign-ins.
 
@@ -118,7 +133,7 @@ The action does not run another package manager's uninstall command. If Linuxbre
 
 ## Safety boundary
 
-The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from pinned immutable upstream releases and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path.
+The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from pinned immutable upstream releases and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account.
 
 It never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens.
 
@@ -133,7 +148,7 @@ The desktop entry point must exist as a regular file. An existing dotfiles check
 ## Codex and Claude on Linux
 
 - **Codex:** `./setup.sh codex` points to the official Linux instructions without executing remote code. The supported Linux experience is Codex CLI or the official VS Code extension. The macOS/Windows Codex desktop app is not installed through Wine or an unofficial port.
-- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta, installed only by `optional`.
+- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta; `apps` installs its APT package without signing in.
 - **Remote Codex on the MBP:** keep that as a separate remote-access workflow. This repo does not alter the existing devbox or Cloudflare tunnel setup.
 
 ## macOS muscle memory
@@ -210,6 +225,10 @@ After the MBA is configured, `./setup.sh verify` must pass. A second dry run of 
 - [GitHub CLI Linux packages](https://github.com/cli/cli/blob/trunk/docs/install_linux.md)
 - [VS Code on Linux](https://code.visualstudio.com/docs/setup/linux)
 - [Ghostty in Ubuntu 26.04](https://packages.ubuntu.com/resolute/ghostty)
+- [GNOME Extension Manager in Ubuntu 26.04](https://packages.ubuntu.com/resolute/gnome-shell-extension-manager)
+- [OBS Studio in Ubuntu 26.04](https://packages.ubuntu.com/resolute/obs-studio)
+- [Postman on Linux](https://learning.postman.com/docs/getting-started/installation/install-app/)
+- [Discord's official Linux installation](https://support.discord.com/hc/en-us/articles/360034561191-Desktop-Installation-Guide)
 - [Claude Desktop for Linux](https://support.claude.com/en/articles/10065433-install-claude-desktop)
 - [Cloudflare WARP for Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)
 - [OpenAI Codex](https://github.com/openai/codex)

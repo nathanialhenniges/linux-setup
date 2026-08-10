@@ -384,7 +384,7 @@
         - missing_core_apps | length > 0
       tags: apps
 
-    - name: Install GitHub CLI, VS Code, and Ghostty
+    - name: Install the approved APT application packages
       ansible.builtin.apt:
         name: "{{ core_app_packages }}"
         state: present
@@ -396,6 +396,75 @@
       when:
         - setup_action == 'apps'
         - not ansible_check_mode
+      tags: apps
+
+    - name: Inspect the Snap executable
+      ansible.builtin.stat:
+        path: /usr/bin/snap
+        follow: false
+      register: core_snap_executable
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Require Ubuntu's packaged Snap client
+      ansible.builtin.assert:
+        that:
+          - core_snap_executable.stat.isreg | default(false)
+          - not (core_snap_executable.stat.islnk | default(false))
+          - core_snap_executable.stat.executable | default(false)
+        fail_msg: "Ubuntu's packaged Snap client is required. Run ./setup.sh base, then retry apps."
+        quiet: true
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Read installed approved Snap applications
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/snap
+          - list
+          - "{{ item }}"
+      loop: "{{ core_snap_packages }}"
+      register: installed_core_snaps
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Preview missing approved Snap applications
+      ansible.builtin.debug:
+        msg: "Would install the publisher-supported Snap: {{ item.item }}"
+      loop: "{{ installed_core_snaps.results }}"
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - ansible_check_mode
+        - item.rc | default(1) != 0
+      tags: apps
+
+    - name: Install missing approved Snap applications
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/snap
+          - install
+          - "{{ item.item }}"
+      loop: "{{ installed_core_snaps.results }}"
+      changed_when: true
+      become: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - item.rc | default(1) != 0
+      tags: apps
+
+    - name: Show the two remaining manual application steps
+      ansible.builtin.debug:
+        msg:
+          - "Extension Manager launch command: extension-manager"
+          - "Discord stays manual: download its official .deb from https://discord.com/download and open it with App Center."
+          - "Plex stays manual: open https://app.plex.tv in Chrome and install the page as an app."
+          - "Account sign-ins and Cloudflare enrollment remain manual."
+      when: setup_action == 'apps'
       tags: apps
 
     - name: Keep the Ghostty launch test manual
@@ -808,51 +877,3 @@
           - "Toshy remains a separate interactive step with its own rollback."
       when: setup_action == 'gnome'
       tags: gnome
-
-    - name: Configure verified optional vendor repositories
-      ansible.builtin.include_tasks:
-        file: tasks/vendor_repositories.yml
-        apply:
-          tags: optional
-      vars:
-        vendor_repositories: "{{ optional_vendor_repositories }}"
-      when: setup_action == 'optional'
-      tags: optional
-
-    - name: Calculate missing optional apps
-      ansible.builtin.set_fact:
-        missing_optional_apps: "{{ optional_packages | difference(ansible_facts.packages.keys() | list) }}"
-      when: setup_action == 'optional'
-      tags: optional
-
-    - name: Preview missing optional apps
-      ansible.builtin.debug:
-        msg: "Would verify vendor keys and install: {{ missing_optional_apps | join(', ') }}"
-      changed_when: true
-      when:
-        - setup_action == 'optional'
-        - ansible_check_mode
-        - missing_optional_apps | length > 0
-      tags: optional
-
-    - name: Install Claude Desktop and Cloudflare WARP only
-      ansible.builtin.apt:
-        name: "{{ optional_packages }}"
-        state: present
-        update_cache: true
-        cache_valid_time: 3600
-        fail_on_autoremove: true
-        allow_unauthenticated: false
-      become: true
-      when:
-        - setup_action == 'optional'
-        - not ansible_check_mode
-      tags: optional
-
-    - name: Keep optional account changes manual
-      ansible.builtin.debug:
-        msg:
-          - "WARP is installed only; enrollment and connection remain manual."
-          - "Claude Cowork stays disabled on this 8 GB laptop."
-      when: setup_action == 'optional'
-      tags: optional
