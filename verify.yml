@@ -59,6 +59,27 @@
     - name: Calculate missing required packages
       ansible.builtin.set_fact:
         missing_required_packages: "{{ required_packages | difference(ansible_facts.packages.keys() | list) }}"
+        missing_base_packages: "{{ base_packages | difference(ansible_facts.packages.keys() | list) }}"
+        missing_core_app_packages: "{{ core_app_packages | difference(ansible_facts.packages.keys() | list) }}"
+
+    - name: Inspect the Snap executable
+      ansible.builtin.stat:
+        path: /usr/bin/snap
+        follow: false
+      register: verified_snap_executable
+
+    - name: Check whether Postman is installed from Snap
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/snap
+          - list
+          - postman
+      register: verified_postman_snap
+      changed_when: false
+      failed_when: false
+      when:
+        - verified_snap_executable.stat.isreg | default(false)
+        - verified_snap_executable.stat.executable | default(false)
 
     - name: Calculate missing selected CLI packages
       ansible.builtin.set_fact:
@@ -368,7 +389,8 @@
              (verified_apt_tool_shadows.results |
               selectattr('stat.exists') | list | length) == 0 and
              selected_tool_resolution_errors | length == 0 and
-             selected_tool_ownership_errors | length == 0 }}
+              selected_tool_ownership_errors | length == 0 }}
+        postman_ready: "{{ verified_postman_snap.rc | default(1) == 0 }}"
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and
@@ -385,7 +407,9 @@
     - name: Show the ADHD-friendly workstation status board
       ansible.builtin.debug:
         msg:
-          - "REQUIRED PACKAGES  {{ 'ready' if missing_required_packages | length == 0 else 'missing: ' ~ (missing_required_packages | join(', ')) }}"
+          - "BASE PACKAGES      {{ 'ready' if missing_base_packages | length == 0 else 'missing: ' ~ (missing_base_packages | join(', ')) }}"
+          - "APT APP PACKAGES   {{ 'ready' if missing_core_app_packages | length == 0 else 'missing: ' ~ (missing_core_app_packages | join(', ')) }}"
+          - "POSTMAN            {{ 'installed' if postman_ready else 'needs apps action' }}"
           - "PERSONAL PROMPT    {{ 'ready' if prompt_ready else 'needs base action' }}"
           - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
           - "CORE APT SOURCES   {{ 'ready' if core_sources_ready else 'needs apps action' }}"
@@ -397,13 +421,18 @@
           - "1PASSWORD          {{ 'installed' if '1password' in ansible_facts.packages else 'not installed' }}"
           - "CHROME             {{ 'installed' if 'google-chrome-stable' in ansible_facts.packages else 'not installed' }}"
           - "CODEX CLI          {{ 'installed' if verified_codex.rc == 0 else 'not installed' }}"
-          - "CLAUDE DESKTOP     {{ 'installed' if 'claude-desktop' in ansible_facts.packages else 'optional' }}"
-          - "CLOUDFLARE WARP    {{ 'installed' if 'cloudflare-warp' in ansible_facts.packages else 'optional' }}"
+          - "EXTENSION MANAGER  {{ 'installed' if 'gnome-shell-extension-manager' in ansible_facts.packages else 'needs apps action' }}"
+          - "OBS STUDIO         {{ 'installed' if 'obs-studio' in ansible_facts.packages else 'needs apps action' }}"
+          - "CLAUDE DESKTOP     {{ 'installed' if 'claude-desktop' in ansible_facts.packages else 'needs apps action' }}"
+          - "CLOUDFLARE WARP    {{ 'installed; enrollment manual' if 'cloudflare-warp' in ansible_facts.packages else 'needs apps action' }}"
+          - "DISCORD            {{ 'installed' if 'discord' in ansible_facts.packages else 'manual official .deb' }}"
+          - "PLEX WEB APP       manual Chrome step"
 
     - name: Require the completed core workstation state
       ansible.builtin.assert:
         that:
           - missing_required_packages | length == 0
+          - postman_ready
           - prompt_ready
           - font_ready
           - terminal_ready

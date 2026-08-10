@@ -141,6 +141,21 @@ else
   fail 'selected Ubuntu CLI package manifest'
 fi
 
+app_package_manifest="$(awk '
+  /^core_app_packages:/ { capture=1; next }
+  capture && /^[[:alnum:]_]+:/ { exit }
+  capture && /^  - / { sub(/^  - /, ""); print }
+' "$repo_dir/vars.yml")"
+expected_app_packages=$'claude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nobs-studio'
+if [[ "$app_package_manifest" == "$expected_app_packages" ]] &&
+   grep -A1 -F 'core_snap_packages:' "$repo_dir/vars.yml" | grep -Fq '  - postman' &&
+   ! grep -Fq '  - optional' "$repo_dir/vars.yml" &&
+   ! grep -Fq 'keybinds | optional' "$setup"; then
+  pass 'approved desktop application manifests are exact'
+else
+  fail 'approved desktop application manifests'
+fi
+
 if grep -A1 -F 'key: dock-fixed' "$repo_dir/vars.yml" | grep -Fq 'value: "true"'; then
   pass 'Ubuntu Dock stays visible'
 else
@@ -247,6 +262,11 @@ else
 fi
 
 if grep -Fq 'not ansible_check_mode' "$repo_dir/site.yml" &&
+   grep -A16 -F 'Install missing approved Snap applications' "$repo_dir/site.yml" | grep -Fq 'not ansible_check_mode' &&
+   grep -A16 -F 'Install missing approved Snap applications' "$repo_dir/site.yml" | grep -Fq 'become: true' &&
+   grep -A16 -F 'Read installed approved Snap applications' "$repo_dir/site.yml" | grep -Fq 'check_mode: false' &&
+   grep -A8 -F 'Read installed approved Snap applications' "$repo_dir/site.yml" | grep -Fq -- '- list' &&
+   grep -A8 -F 'Install missing approved Snap applications' "$repo_dir/site.yml" | grep -Fq -- '- install' &&
    grep -Fq '"Previewed selected CLI tools only" if ansible_check_mode' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'command+=(--check --diff)' "$setup" &&
    grep -A2 -F 'run_action() {' "$setup" | grep -Fq 'target_preflight'; then
@@ -284,6 +304,7 @@ if command -v ansible-playbook >/dev/null 2>&1; then
   fi
   if (cd "$repo_dir" &&
       ansible-playbook site.yml --list-tasks --tags dotfiles -e setup_action=dotfiles >/dev/null &&
+      ansible-playbook site.yml --list-tasks --tags apps -e setup_action=apps >/dev/null &&
       ansible-playbook site.yml --list-tasks --tags tools -e setup_action=tools >/dev/null); then
     pass 'tagged task graph resolves'
   else

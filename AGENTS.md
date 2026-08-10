@@ -15,6 +15,7 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 ## Package rules
 
 - Prefer Ubuntu packages.
+- Keep Postman as the exact `postman` Snap documented by Postman and published by its verified Snap Store account. Read local Snap state before installation; do not add other Snaps without an explicit reviewed decision.
 - For vendor APT repos, use deb822 `.sources`, isolated `/etc/apt/keyrings` files, `Signed-By`, and a full documented fingerprint check.
 - Never use `apt-key`, `trusted=yes`, PPAs, or `curl | sh`.
 - Pin non-APT artifacts to immutable upstream releases, verify reviewed SHA-256 values before installation, and keep them user-local when possible.
