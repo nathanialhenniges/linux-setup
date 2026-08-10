@@ -8,6 +8,10 @@
     test_policy: "{{ lookup('ansible.builtin.env', 'APT_SHADOW_TEST_POLICY') }}"
     test_source: "{{ test_dir }}/demo-tool"
     test_backup: "{{ test_source }}.pre-linux-setup-apt-{{ ansible_facts.date_time.iso8601_basic_short }}"
+    test_legacy_backup: "{{ test_source }}.pre-linux-setup-apt-old"
+    apt_user_local_bin: "{{ test_dir }}"
+    apt_tool_commands:
+      - { command: demo-tool }
     apt_shadow:
       item:
         - { command: demo-tool }
@@ -20,6 +24,10 @@
           - test_dir | length > 10
           - test_policy in ['remove', 'backup']
         quiet: true
+
+    - name: Run the production legacy cleanup task
+      ansible.builtin.include_tasks: ../tasks/cleanup_legacy_apt_backups.yml
+      when: test_policy == 'remove'
 
     - name: Run the production migration task
       ansible.builtin.include_tasks: ../tasks/migrate_apt_shadow.yml
@@ -36,6 +44,12 @@
         follow: false
       register: tested_shadow_backup
 
+    - name: Inspect the obsolete user-local backup
+      ansible.builtin.stat:
+        path: "{{ test_legacy_backup }}"
+        follow: false
+      register: tested_legacy_backup
+
     - name: Require the selected migration policy
       ansible.builtin.assert:
         that:
@@ -43,4 +57,7 @@
           - >-
             tested_shadow_backup.stat.exists ==
             ((not ansible_check_mode) and test_policy == 'backup')
+          - >-
+            test_policy == 'backup' or
+            tested_legacy_backup.stat.exists == ansible_check_mode
         quiet: true
