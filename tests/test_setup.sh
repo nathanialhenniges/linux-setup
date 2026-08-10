@@ -152,7 +152,7 @@ scan_files=(
   "$repo_dir/site.yml"
   "$repo_dir/verify.yml"
   "$repo_dir/vars.yml"
-  "$repo_dir/tasks/backup_apt_shadow.yml"
+  "$repo_dir/tasks/migrate_apt_shadow.yml"
   "$repo_dir/tasks/cli_tools.yml"
   "$repo_dir/tasks/vendor_repositories.yml"
 )
@@ -204,10 +204,13 @@ if [[ "$tool_command_manifest_ok" == true ]] &&
    grep -Fq 'ansible.builtin.apt:' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'name: "{{ tool_packages }}"' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'apt_tool_commands | product(apt_tool_shadow_dirs)' "$repo_dir/tasks/cli_tools.yml" &&
-   grep -Fq '/usr/local/bin' "$repo_dir/vars.yml" &&
-   grep -Fq -- '- /bin/mv' "$repo_dir/tasks/backup_apt_shadow.yml" &&
-   grep -Fq -- '- -n' "$repo_dir/tasks/backup_apt_shadow.yml" &&
-   grep -Fq '.pre-linux-setup-apt-' "$repo_dir/tasks/backup_apt_shadow.yml" &&
+   grep -Fq 'HOME }}/.local/bin", privileged: false, migration: remove' "$repo_dir/vars.yml" &&
+   grep -Fq '/usr/local/bin, privileged: true, migration: backup' "$repo_dir/vars.yml" &&
+   grep -Fq -- '- /bin/rm' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
+   grep -Fq -- '- -f' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
+   grep -Fq -- '- /bin/mv' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
+   grep -Fq -- '- -n' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
+   grep -Fq '.pre-linux-setup-apt-' "$repo_dir/tasks/migrate_apt_shadow.yml" &&
    grep -Fq 'realpath --canonicalize-existing' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq '/usr/bin/dpkg-query' "$repo_dir/tasks/cli_tools.yml" &&
    grep -Fq 'apt_tool_path_owners.results' "$repo_dir/tasks/cli_tools.yml" &&
@@ -220,7 +223,7 @@ if [[ "$tool_command_manifest_ok" == true ]] &&
    grep -Fq 'install_recommends: false' "$repo_dir/tasks/cli_tools.yml" &&
    ! grep -Fq 'state: absent' "$repo_dir/tasks/cli_tools.yml" &&
    ! grep -Eq 'ansible\.builtin\.(get_url|unarchive)|legacy_user_tool_files|rclone_cli|yt_dlp_cli|twitch_cli|aws[[:space:]]+configure|rclone[[:space:]]+config|twitch[[:space:]]+configure' "$repo_dir/tasks/cli_tools.yml" "$repo_dir/verify.yml" "$repo_dir/vars.yml"; then
-  pass 'selected CLI tools use Ubuntu APT with recoverable local-shadow migration'
+  pass 'selected CLI tools use Ubuntu APT with explicit local-shadow policies'
 else
   fail 'selected CLI APT boundary'
 fi
@@ -281,20 +284,28 @@ if command -v ansible-playbook >/dev/null 2>&1; then
   shadow_test_root="$(mktemp -d "${TMPDIR:-/tmp}/linux-setup-shadow.XXXXXX")"
   trap 'rm -rf -- "$shadow_test_root"' EXIT
 
-  mkdir -p "$shadow_test_root/apply" "$shadow_test_root/check"
-  printf 'old local command\n' > "$shadow_test_root/apply/demo-tool"
+  mkdir -p "$shadow_test_root/remove" "$shadow_test_root/backup" "$shadow_test_root/check"
+  printf 'old local command\n' > "$shadow_test_root/remove/demo-tool"
+  printf 'old local command\n' > "$shadow_test_root/backup/demo-tool"
   printf 'old local command\n' > "$shadow_test_root/check/demo-tool"
-  chmod 0755 "$shadow_test_root/apply/demo-tool" "$shadow_test_root/check/demo-tool"
+  chmod 0755 "$shadow_test_root/remove/demo-tool" "$shadow_test_root/backup/demo-tool" "$shadow_test_root/check/demo-tool"
 
-  if APT_SHADOW_TEST_DIR="$shadow_test_root/apply" \
-       ansible-playbook "$repo_dir/tests/apt_shadow_backup.yml" >/dev/null; then
-    pass 'local command shadow moves to a recoverable backup'
+  if APT_SHADOW_TEST_DIR="$shadow_test_root/remove" APT_SHADOW_TEST_POLICY=remove \
+       ansible-playbook "$repo_dir/tests/apt_shadow_migration.yml" >/dev/null; then
+    pass 'user-local command shadow is removed after the APT gate'
   else
-    fail 'local command shadow backup'
+    fail 'user-local command shadow removal'
   fi
 
-  if APT_SHADOW_TEST_DIR="$shadow_test_root/check" \
-       ansible-playbook --check "$repo_dir/tests/apt_shadow_backup.yml" >/dev/null; then
+  if APT_SHADOW_TEST_DIR="$shadow_test_root/backup" APT_SHADOW_TEST_POLICY=backup \
+       ansible-playbook "$repo_dir/tests/apt_shadow_migration.yml" >/dev/null; then
+    pass 'manual command shadow moves to a recoverable backup'
+  else
+    fail 'manual command shadow backup'
+  fi
+
+  if APT_SHADOW_TEST_DIR="$shadow_test_root/check" APT_SHADOW_TEST_POLICY=remove \
+       ansible-playbook --check "$repo_dir/tests/apt_shadow_migration.yml" >/dev/null; then
     pass 'check mode leaves local command shadows untouched'
   else
     fail 'check-mode local shadow safety'

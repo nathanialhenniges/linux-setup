@@ -31,7 +31,8 @@
   ansible.builtin.debug:
     msg:
       - "Would install Ubuntu packages: {{ missing_tool_packages | join(', ') if missing_tool_packages | length > 0 else 'none' }}"
-      - "Would rename matching commands in ~/.local/bin, ~/bin, or /usr/local/bin to timestamped .pre-linux-setup-apt backups."
+      - "Would remove matching commands from ~/.local/bin after APT verification."
+      - "Would rename matches in ~/bin or /usr/local/bin to timestamped .pre-linux-setup-apt backups."
       - "Would then require every command to resolve to its Ubuntu APT path."
       - "Twitch CLI is unavailable from Ubuntu APT and will not be installed."
       - "Would not configure accounts, credentials, scans, mirrors, SMART tests, or tokens."
@@ -89,7 +90,7 @@
     label: "{{ item.apt_path }}"
   when: not ansible_check_mode
 
-- name: Require APT ownership before moving local shadows
+- name: Require APT ownership before replacing local shadows
   ansible.builtin.assert:
     that:
       - item.rc == 0
@@ -106,7 +107,7 @@
     label: "{{ item.item.apt_path }}"
   when: not ansible_check_mode
 
-- name: Require working APT commands before moving local shadows
+- name: Require working APT commands before replacing local shadows
   ansible.builtin.assert:
     that:
       - item.stat.isreg | default(false)
@@ -119,8 +120,8 @@
     label: "{{ item.item.apt_path }}"
   when: not ansible_check_mode
 
-- name: Move local command shadows to recoverable backups
-  ansible.builtin.include_tasks: backup_apt_shadow.yml
+- name: Replace local command shadows after APT verification
+  ansible.builtin.include_tasks: migrate_apt_shadow.yml
   loop: "{{ apt_tool_shadow_paths.results }}"
   loop_control:
     loop_var: apt_shadow
