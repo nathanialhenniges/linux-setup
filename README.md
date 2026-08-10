@@ -112,7 +112,7 @@ Chrome and 1Password are already installed on the target laptop. `status` detect
 
 Twitch CLI is not available from Ubuntu 26.04 APT, so the APT-only action leaves it out. Add FFmpeg later only if yt-dlp merging or post-processing actually needs it.
 
-Before changing anything, `tools` checks all eight command names in `~/.local/bin`, `~/bin`, and `/usr/local/bin`. It installs and verifies the Ubuntu packages first. It then permanently removes exact matching files or symlinks from all three directories, plus matching `.pre-linux-setup-apt-*` files or symlinks left by the older backup policy. Directories are refused. Finally, it resolves every command to its canonical `/usr/bin` or `/usr/sbin` APT path.
+Before changing anything, `tools` checks all eight command names in `~/.local/bin`, `~/bin`, and `/usr/local/bin`. A missing directory such as `~/bin` is normal and silently skipped; an existing path that is not a real directory is refused. It installs and verifies the Ubuntu packages first. It then permanently removes exact matching files or symlinks from all three directories, plus matching `.pre-linux-setup-apt-*` files or symlinks left by the older backup policy. Directories are refused. Finally, it resolves every command to its canonical `/usr/bin` or `/usr/sbin` APT path.
 
 The action does not run another package manager's uninstall command. If Linuxbrew, Snap, Cargo, npm, mise, asdf, or another provider elsewhere still wins in `PATH`, the action stops and prints that path so it can be removed with its own package manager.
 
