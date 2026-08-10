@@ -55,9 +55,9 @@ apt_tool_commands:
   - { package: yt-dlp, command: yt-dlp, apt_path: /usr/bin/yt-dlp }
 
 apt_tool_shadow_dirs:
-  - { path: "{{ ansible_facts.env.HOME }}/.local/bin", privileged: false }
-  - { path: "{{ ansible_facts.env.HOME }}/bin", privileged: false }
-  - { path: /usr/local/bin, privileged: true }
+  - { path: "{{ ansible_facts.env.HOME }}/.local/bin", privileged: false, migration: remove }
+  - { path: "{{ ansible_facts.env.HOME }}/bin", privileged: false, migration: backup }
+  - { path: /usr/local/bin, privileged: true, migration: backup }
 
 optional_packages:
   - claude-desktop

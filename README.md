@@ -87,7 +87,7 @@ cd linux-setup
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
 | `apps` | GitHub CLI and VS Code from signed vendor APT repos; Ghostty from Ubuntu | Does not replace the default terminal |
-| `tools` | Eight Ubuntu APT packages; backs up matching local command shadows and verifies APT wins in `PATH` | No Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
+| `tools` | Eight Ubuntu APT packages; removes `~/.local/bin` shadows, backs up other local shadows, and verifies APT wins in `PATH` | No Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
@@ -112,9 +112,9 @@ Chrome and 1Password are already installed on the target laptop. `status` detect
 
 Twitch CLI is not available from Ubuntu 26.04 APT, so the APT-only action leaves it out. Add FFmpeg later only if yt-dlp merging or post-processing actually needs it.
 
-Before changing anything, `tools` checks all eight command names in `~/.local/bin`, `~/bin`, and `/usr/local/bin`. It installs and verifies the Ubuntu packages first, then renames each matching local file or symlink with a `.pre-linux-setup-apt-<timestamp>` suffix. Nothing is permanently deleted. Finally, it resolves every command to its canonical `/usr/bin` or `/usr/sbin` APT path.
+Before changing anything, `tools` checks all eight command names in `~/.local/bin`, `~/bin`, and `/usr/local/bin`. It installs and verifies the Ubuntu packages first. It then permanently removes exact matching files or symlinks from `~/.local/bin`; matches in `~/bin` or `/usr/local/bin` are renamed with a `.pre-linux-setup-apt-<timestamp>` suffix. Finally, it resolves every command to its canonical `/usr/bin` or `/usr/sbin` APT path.
 
-The action does not run another package manager's uninstall command. A matching command entry inside the three checked directories is still backed up. If Linuxbrew, Snap, Cargo, npm, mise, asdf, or another provider elsewhere still wins in `PATH`, the action stops and prints that path so it can be removed with its own package manager.
+The action does not run another package manager's uninstall command. If Linuxbrew, Snap, Cargo, npm, mise, asdf, or another provider elsewhere still wins in `PATH`, the action stops and prints that path so it can be removed with its own package manager.
 
 ## Safety boundary
 
