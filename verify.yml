@@ -12,7 +12,6 @@
     workstation_home: "{{ ansible_facts.env.HOME }}"
     dotfiles_dir: "{{ ansible_facts.env.HOME }}/.local/share/dotfiles"
     oh_my_posh_path: "{{ ansible_facts.env.HOME }}/.local/bin/oh-my-posh"
-    tool_bin_dir: "{{ ansible_facts.env.HOME }}/.local/bin"
     font_dir: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove"
     font_marker: "{{ ansible_facts.env.HOME }}/.local/share/fonts/CaskaydiaCove/.nerd-font-{{ nerd_font.version }}"
     required_packages: "{{ base_packages + core_app_packages }}"
@@ -65,16 +64,12 @@
       ansible.builtin.set_fact:
         missing_selected_tool_packages: "{{ tool_packages | difference(ansible_facts.packages.keys() | list) }}"
 
-    - name: Inspect selected user-local CLI tools
+    - name: Inspect legacy user-local APT shadows
       ansible.builtin.stat:
         path: "{{ item.path }}"
         follow: false
-        checksum_algorithm: sha256
-      loop:
-        - { path: "{{ tool_bin_dir }}/rclone", sha256: "{{ rclone_cli.binary_sha256 }}" }
-        - { path: "{{ tool_bin_dir }}/yt-dlp", sha256: "{{ yt_dlp_cli.sha256 }}" }
-        - { path: "{{ tool_bin_dir }}/twitch", sha256: "{{ twitch_cli.binary_sha256 }}" }
-      register: verified_selected_cli_tools
+      loop: "{{ legacy_user_tool_files }}"
+      register: verified_legacy_user_tool_paths
       loop_control:
         label: "{{ item.path }}"
 
@@ -313,18 +308,8 @@
              'would apply ' not in (verified_dotfiles_preview.stdout | default('')) }}
         selected_tools_ready: >-
           {{ missing_selected_tool_packages | length == 0 and
-             verified_selected_cli_tools.results[0].stat.isreg | default(false) and
-             not (verified_selected_cli_tools.results[0].stat.islnk | default(false)) and
-             verified_selected_cli_tools.results[0].stat.executable | default(false) and
-             verified_selected_cli_tools.results[0].stat.checksum | default('') == rclone_cli.binary_sha256 and
-             verified_selected_cli_tools.results[1].stat.isreg | default(false) and
-             not (verified_selected_cli_tools.results[1].stat.islnk | default(false)) and
-             verified_selected_cli_tools.results[1].stat.executable | default(false) and
-             verified_selected_cli_tools.results[1].stat.checksum | default('') == yt_dlp_cli.sha256 and
-             verified_selected_cli_tools.results[2].stat.isreg | default(false) and
-             not (verified_selected_cli_tools.results[2].stat.islnk | default(false)) and
-             verified_selected_cli_tools.results[2].stat.executable | default(false) and
-             verified_selected_cli_tools.results[2].stat.checksum | default('') == twitch_cli.binary_sha256 }}
+             (verified_legacy_user_tool_paths.results |
+              selectattr('stat.exists') | list | length) == 0 }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and

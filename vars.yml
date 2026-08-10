@@ -40,26 +40,15 @@ tool_packages:
   - fastfetch
   - httrack
   - nmap
+  - rclone
   - smartmontools
+  - yt-dlp
 
-rclone_cli:
-  version: "1.75.0"
-  url: https://downloads.rclone.org/v1.75.0/rclone-v1.75.0-linux-amd64.zip
-  archive_sha256: aa2804e08f48250e71009c727124b6341cd0288465804a9a09d14663cabafbaa
-  binary_sha256: f3f9aff817f9766029e50adf9a7963c169e475b8f10c7927823568a0d9443db7
-  member: rclone-v1.75.0-linux-amd64/rclone
-
-yt_dlp_cli:
-  version: "2026.07.04"
-  url: https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp
-  sha256: 495be29ff4d9d4e9be7eabdfef225221e5d5282e77f2f505abc6dca80349f3fd
-
-twitch_cli:
-  version: "1.1.24"
-  url: https://github.com/twitchdev/twitch-cli/releases/download/v1.1.24/twitch-cli_1.1.24_Linux_x86_64.tar.gz
-  archive_sha256: 9cae4e9cd52e66fb4dda6b633b3276a4450a28a83dea7a4651a42a67372eed8f
-  binary_sha256: 40958ae7aed8a58f58bd9f32dec98cdd326741e5f9c1c6e6da9f7ae1df599240
-  member: twitch-cli_1.1.24_Linux_x86_64/twitch
+legacy_user_tool_files:
+  - path: "{{ ansible_facts.env.HOME }}/.local/bin/rclone"
+    sha256: f3f9aff817f9766029e50adf9a7963c169e475b8f10c7927823568a0d9443db7
+  - path: "{{ ansible_facts.env.HOME }}/.local/bin/yt-dlp"
+    sha256: 495be29ff4d9d4e9be7eabdfef225221e5d5282e77f2f505abc6dca80349f3fd
 
 optional_packages:
   - claude-desktop
