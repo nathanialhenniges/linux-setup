@@ -42,7 +42,7 @@ Commands:
   verify     Read-only state board that fails until the core setup is ready
   base       Core packages, Oh My Posh, and CaskaydiaCove Nerd Font
   apps       GitHub CLI, VS Code, and Ghostty
-  tools      Eight Ubuntu APT tools; replaces local command shadows
+  tools      Eight Ubuntu APT tools; removes local command shadows
   terminal   Make launch-tested Ghostty the Ubuntu default
   codex      Show the official Codex CLI route; make no change
   dotfiles   Fast-forward and run only dotfiles/linux-desktop.sh; set user Zsh
