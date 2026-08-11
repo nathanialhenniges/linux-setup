@@ -29,12 +29,14 @@ base_packages:
   - zsh-syntax-highlighting
 
 core_app_packages:
+  - bluez
   - claude-desktop
   - cloudflare-warp
   - code
   - gh
   - ghostty
   - gnome-shell-extension-manager
+  - libfuse2t64
   - obs-studio
 
 core_snap_packages:
@@ -79,6 +81,24 @@ nerd_font:
     - CaskaydiaCoveNerdFontMono-Bold.ttf
     - CaskaydiaCoveNerdFontMono-Italic.ttf
     - CaskaydiaCoveNerdFontMono-BoldItalic.ttf
+
+librepods:
+  version: linux-v0.1.0
+  url: https://github.com/librepods-org/librepods/releases/download/linux-v0.1.0/librepods-x86_64.AppImage
+  sha256: 0569ba9a15aa58e660ec3ccb4d2d39ffd8800d6a5da3741802aefd86fd4b55a6
+  install_path: "{{ ansible_facts.env.HOME }}/.local/bin/librepods"
+  launcher_path: "{{ ansible_facts.env.HOME }}/.local/share/applications/librepods.desktop"
+  desktop_entry: |
+    [Desktop Entry]
+    Type=Application
+    Name=LibrePods
+    Comment=AirPods controls and battery status
+    TryExec={{ ansible_facts.env.HOME }}/.local/bin/librepods
+    Exec={{ ansible_facts.env.HOME }}/.local/bin/librepods
+    Icon=audio-headphones
+    Terminal=false
+    Categories=AudioVideo;Utility;
+    StartupNotify=true
 
 dotfiles_repo: https://github.com/nathanialhenniges/dotfiles.git
 dotfiles_allowed_origins:

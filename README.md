@@ -102,7 +102,7 @@ cd linux-setup
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
-| `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, and OBS from Ubuntu; Postman's publisher-supported Snap | No sign-ins, WARP enrollment, Discord download, Plex PWA, or default-terminal change |
+| `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; pinned LibrePods AppImage | No sign-ins, WARP enrollment, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
@@ -158,6 +158,12 @@ apt-cache policy claude-desktop
 sudo apt install --simulate claude-desktop
 df -h /
 ```
+
+## AirPods on Linux
+
+`apps` installs LibrePods' immutable official `linux-v0.1.0` x86-64 AppImage in `~/.local/bin`, verifies GitHub's release-asset SHA-256 digest, and adds a user-local application launcher. The release tag is verified, but the binary has no separate upstream signature. This is the latest durable Linux release; the project's newer rewrite is distributed as temporary nightly workflow artifacts, so it is not safe or reproducible enough for unattended setup yet. Upstream does not certify Ubuntu 26.04 specifically, so the MBA launch is an acceptance test.
+
+Pair the AirPods normally in GNOME Bluetooth, then open LibrePods. The project lists listening-mode control, ear detection, battery status, conversational awareness, and automatic connection as working Linux features. Autostart remains off until the app passes a real launch and suspend test on the MBA. The setup does not impersonate an Apple Bluetooth VendorID, edit `/etc/bluetooth/main.conf`, or restart Bluetooth/audio services.
 
 ## macOS muscle memory
 
@@ -239,6 +245,9 @@ After the MBA is configured, `./setup.sh verify` must pass. A second dry run of 
 - [Discord's official Linux installation](https://support.discord.com/hc/en-us/articles/360034561191-Desktop-Installation-Guide)
 - [Claude Desktop for Linux](https://support.claude.com/en/articles/10065433-install-claude-desktop)
 - [Cloudflare WARP for Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)
+- [LibrePods](https://github.com/librepods-org/librepods)
+- [LibrePods Linux installation notes](https://github.com/librepods-org/librepods/blob/main/linux/README.md)
+- [LibrePods Linux v0.1.0 release](https://github.com/librepods-org/librepods/releases/tag/linux-v0.1.0)
 - [OpenAI Codex](https://github.com/openai/codex)
 - [Toshy](https://github.com/RedBearAK/toshy)
 - [Ubuntu 26.04 rclone package](https://packages.ubuntu.com/resolute/rclone)

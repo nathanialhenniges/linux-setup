@@ -167,6 +167,8 @@
         - "{{ dotfiles_dir }}/.git"
         - "{{ dotfiles_dir }}/linux-desktop.sh"
         - /usr/bin/zsh
+        - "{{ librepods.install_path }}"
+        - "{{ librepods.launcher_path }}"
       register: workstation_files
 
     - name: Read the installed Nerd Font release marker
@@ -391,6 +393,14 @@
              selected_tool_resolution_errors | length == 0 and
               selected_tool_ownership_errors | length == 0 }}
         postman_ready: "{{ verified_postman_snap.rc | default(1) == 0 }}"
+        librepods_ready: >-
+          {{ workstation_files.results[10].stat.isreg | default(false) and
+             not (workstation_files.results[10].stat.islnk | default(false)) and
+             workstation_files.results[10].stat.executable | default(false) and
+             workstation_files.results[10].stat.checksum | default('') == librepods.sha256 and
+             workstation_files.results[11].stat.isreg | default(false) and
+             not (workstation_files.results[11].stat.islnk | default(false)) and
+             workstation_files.results[11].stat.checksum | default('') == (librepods.desktop_entry | hash('sha256')) }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and
@@ -410,6 +420,7 @@
           - "BASE PACKAGES      {{ 'ready' if missing_base_packages | length == 0 else 'missing: ' ~ (missing_base_packages | join(', ')) }}"
           - "APT APP PACKAGES   {{ 'ready' if missing_core_app_packages | length == 0 else 'missing: ' ~ (missing_core_app_packages | join(', ')) }}"
           - "POSTMAN            {{ 'installed' if postman_ready else 'needs apps action' }}"
+          - "LIBREPODS          {{ 'installed; pair and launch manually' if librepods_ready else 'needs apps action' }}"
           - "PERSONAL PROMPT    {{ 'ready' if prompt_ready else 'needs base action' }}"
           - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
           - "CORE APT SOURCES   {{ 'ready' if core_sources_ready else 'needs apps action' }}"
@@ -433,6 +444,7 @@
         that:
           - missing_required_packages | length == 0
           - postman_ready
+          - librepods_ready
           - prompt_ready
           - font_ready
           - terminal_ready
