@@ -384,15 +384,35 @@
         - missing_core_apps | length > 0
       tags: apps
 
-    - name: Install the approved APT application packages
+    - name: Refresh APT metadata for approved applications
       ansible.builtin.apt:
-        name: "{{ core_app_packages }}"
-        state: present
         update_cache: true
         cache_valid_time: 3600
+        lock_timeout: 300
+        update_cache_retries: 5
+        update_cache_retry_max_delay: 12
+      become: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Install each approved APT application
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: false
         fail_on_autoremove: true
         allow_unauthenticated: false
+        lock_timeout: 300
       become: true
+      loop: "{{ core_app_packages }}"
+      loop_control:
+        label: "{{ item }}"
+      register: approved_app_install
+      retries: 3
+      delay: 5
+      until: approved_app_install is succeeded
       when:
         - setup_action == 'apps'
         - not ansible_check_mode
