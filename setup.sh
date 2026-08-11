@@ -26,7 +26,7 @@ usage() {
 Ubuntu Desktop 26.04 local Ansible setup
 
 Usage:
-  ./setup.sh bootstrap
+  ./setup.sh [--dry-run] bootstrap
   ./setup.sh [--dry-run] all
   ./setup.sh [--dry-run] status
   ./setup.sh [--dry-run] verify
@@ -41,13 +41,13 @@ Usage:
   ./setup.sh [--dry-run] keybinds
 
 Commands:
-  bootstrap  Install minimal Ubuntu ansible-core prerequisites
-  all        Bootstrap, run every setup action in order, then verify
+  bootstrap  With Ansible present, repair a reviewed APT conflict; then bootstrap
+  all        Bootstrap, run seven workstation actions in order, then verify
   status     Read-only ADHD-friendly state board; missing items are allowed
   verify     Read-only state board that fails until the core setup is ready
   sources    Repair verified vendor APT sources without refreshing APT
   base       Core packages, Oh My Posh, and CaskaydiaCove Nerd Font
-  apps       Approved desktop apps from APT plus Postman's official Snap
+  apps       Approved APT apps, Postman Snap, Upscayl Flatpak, and LibrePods
   tools      Eight Ubuntu APT tools; removes local command shadows
   terminal   Make launch-tested Ghostty the Ubuntu default
   codex      Show the official Codex CLI route; make no change

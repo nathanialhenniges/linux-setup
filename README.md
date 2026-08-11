@@ -16,7 +16,7 @@ On an already-bootstrapped MBA, preview everything and then run it:
 
 The real run bootstraps Ansible, then runs `base`, `apps`, `tools`, `terminal`, `dotfiles`, `gnome`, and `keybinds` in that order. It stops on the first failure and finishes with strict `verify`. Keybinds stays last because it is interactive and may ask for a reboot.
 
-The preview skips bootstrap so it never uses the network or `sudo`, forwards check mode to every setup action, and finishes with the non-strict status board. Run `./setup.sh bootstrap` first if Ansible is not installed yet.
+The preview skips bootstrap so it never uses the network or `sudo`, previews all seven workstation actions, and finishes with the non-strict status board. If both known Claude source files exist, it previews that guarded repair and stops before APT-backed checks; run `./setup.sh sources`, then preview again. Run `./setup.sh bootstrap` first if Ansible is not installed yet.
 
 ## One box at a time: focused repair
 
@@ -45,7 +45,7 @@ git pull --ff-only
 ./setup.sh apps
 ```
 
-The updated action adds Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, and Upscayl. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
+The updated action adds Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, Upscayl, and LibrePods. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
 
 Upscayl needs a working Vulkan driver. The `apps` action installs Ubuntu's Mesa Vulkan driver and `vulkaninfo`; run `vulkaninfo --summary` before expecting it to upscale anything.
 
@@ -57,22 +57,21 @@ Real actions ask for your Ubuntu login password only when Ansible needs administ
 
 ## Update an installed machine later
 
-Run these from the existing MBA checkout whenever this setup or the desktop
-dotfiles change:
+Run these from the existing MBA checkout whenever this setup changes:
 
 ```bash
 cd ~/linux-setup
 git pull --ff-only
-./setup.sh dotfiles
-./setup.sh status
+./setup.sh --dry-run all
+./setup.sh all
 ```
 
-The Git pull updates this trusted setup first. The `dotfiles` command then
-verifies and fast-forwards the managed `~/.local/share/dotfiles` checkout,
-backs up replaced home files, and reapplies only `linux-desktop.sh`. It stops
-instead of overwriting local Git changes or an unexpected origin.
+The Git pull updates this trusted setup first. The preview shows the full
+reconciliation, and the real run applies package, app, tool, terminal,
+dotfiles, GNOME, and keybinding changes before strict verification. It is safe
+to rerun and stops on the first failure.
 
-For a dotfiles-only refresh, use the guarded updater inside that checkout:
+For a dotfiles-only change, use the guarded updater inside that checkout:
 
 ```bash
 cd ~/.local/share/dotfiles
@@ -93,8 +92,8 @@ git --version
 If Ubuntu says `git: command not found`, bootstrap only Git:
 
 ```bash
-sudo apt-get update
-sudo apt-get install --yes git
+sudo apt update
+sudo apt install --yes git
 ```
 
 Then clone the setup:
@@ -105,21 +104,21 @@ cd linux-setup
 ./setup.sh all
 ```
 
-That one command includes bootstrap and strict verification. If you want a no-change preview first, run `./setup.sh bootstrap` followed by `./setup.sh --dry-run all`.
+That one command includes bootstrap and strict verification. To preview first, run `./setup.sh bootstrap`, which installs prerequisites and can repair the exact reviewed Claude source conflict when Ansible is already present, followed by the no-change `./setup.sh --dry-run all`.
 
-`--dry-run` uses Ansible check mode. It never uses `sudo`, downloads a key, installs a package, or changes managed state. Ansible may create its ignored `.ansible/` temporary directory inside this checkout.
-If both known Claude source files conflict, `--dry-run all` previews the source repair and stops before any APT-backed check. Run `./setup.sh sources`, then preview again. A normal `./setup.sh all` performs that guarded repair automatically before bootstrap refreshes APT.
+`--dry-run` never uses `sudo`, downloads a key, installs a package, or changes managed state. Ansible actions use check mode; wrapper and interactive actions use explicit read-only previews; `status` and `verify` are already read-only. Ansible may create its ignored `.ansible/` temporary directory inside this checkout.
+If both known Claude source files exist, `--dry-run all` previews the source repair and stops before any APT-backed check. Run `./setup.sh sources`, then preview again. When Ansible is already present, a normal `./setup.sh all` performs that guarded repair automatically before bootstrap refreshes APT.
 
 ## What each command does
 
 | Command | Installs or changes | Does **not** do |
 |---|---|---|
-| `bootstrap` | Minimal `ansible-core`, Python APT bindings, and Ubuntu's supported classic `sudo.ws` provider | No full Ansible collection bundle, global `sudo` switch, or workstation changes |
+| `bootstrap` | When Ansible is already present, guarded repair of the exact reviewed Claude APT duplicate; then minimal `ansible-core`, Python APT bindings, and Ubuntu's supported classic `sudo.ws` provider | No full Ansible collection bundle, global `sudo` switch, or seven workstation actions |
 | `all` | Bootstraps and runs the seven reviewed setup actions in order, then strict verification | No Codex installer, server/devbox setup, credentials, account sign-ins, Discord download, or Plex PWA |
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `sources` | Verifies and repairs reviewed vendor keys and APT source files without refreshing APT | No package refresh, package install, account change, or unreviewed source deletion |
-| `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
+| `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Flatpak, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, developer language runtimes, upgrade, or login |
 | `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Upscayl from the verified Flathub remote; pinned LibrePods AppImage | No sign-ins, WARP enrollment, automatic Upscayl GPU claims, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
@@ -151,7 +150,7 @@ The action does not run another package manager's uninstall command. If Linuxbre
 
 ## Safety boundary
 
-The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from pinned immutable upstream releases and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. Upscayl is the one reviewed Flatpak: Flathub verifies `org.upscayl.Upscayl` against `upscayl.org`, its Snap Store publisher is unverified, and the action refuses to run if a `flathub` remote already points somewhere other than Flathub's repository.
+The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from versioned upstream release assets and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. Upscayl is the one reviewed Flatpak: Flathub verifies `org.upscayl.Upscayl` against `upscayl.org`, its Snap Store publisher is unverified, and the action refuses to run if a `flathub` remote already points somewhere other than Flathub's repository.
 
 It never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens.
 
@@ -214,7 +213,7 @@ not silently added to the server role.
 
 ## AirPods on Linux
 
-`apps` installs LibrePods' immutable official `linux-v0.1.0` x86-64 AppImage in `~/.local/bin`, verifies GitHub's release-asset SHA-256 digest, and adds a user-local application launcher. The release tag is verified, but the binary has no separate upstream signature. This is the latest durable Linux release; the project's newer rewrite is distributed as temporary nightly workflow artifacts, so it is not safe or reproducible enough for unattended setup yet. Upstream does not certify Ubuntu 26.04 specifically, so the MBA launch is an acceptance test.
+`apps` installs LibrePods' reviewed `linux-v0.1.0` x86-64 AppImage in `~/.local/bin`, verifies the release-asset SHA-256 digest, and adds a user-local application launcher. The versioned asset is pinned by that digest, but the binary has no separate upstream signature. Review architecture, packaging, signatures or checksums, and Ubuntu compatibility before changing this pin. Upstream does not certify Ubuntu 26.04 specifically, so the MBA launch is an acceptance test.
 
 Pair the AirPods normally in GNOME Bluetooth, then open LibrePods. The project lists listening-mode control, ear detection, battery status, conversational awareness, and automatic connection as working Linux features. Autostart remains off until the app passes a real launch and suspend test on the MBA. The setup does not impersonate an Apple Bluetooth VendorID, edit `/etc/bluetooth/main.conf`, or restart Bluetooth/audio services.
 
@@ -289,11 +288,13 @@ Changes to APT-source recovery also require the slower Ubuntu 26.04 AMD64 contai
 ./tests/test_apt_source_recovery_docker.sh
 ```
 
-It requires a running Docker-compatible engine and live access to the four reviewed vendor key URLs. It deliberately proves APT is broken, runs the exact bootstrap preflight used by `all`, then proves the duplicate is gone and APT parses again. It also proves unknown source content is refused without deletion.
+It requires a running Docker-compatible engine plus network access to its image registry, Ubuntu mirrors, the four reviewed vendor key URLs, and the configured vendor APT repositories. It deliberately proves APT is broken, runs the exact bootstrap preflight used by `all`, then proves the duplicate is gone and APT parses again. It also proves unknown source content is refused without deletion.
 
 After the MBA is configured, `./setup.sh verify` must pass. A second dry run of each action should finish with `changed=0`; stop and review any reported drift before applying it.
 
 ## Official references
+
+Artifact provenance, reviewed pins, and upstream license links are recorded in [Third-party notices and credits](THIRD-PARTY-NOTICES.md).
 
 - [Ubuntu 26.04 release notes](https://documentation.ubuntu.com/release-notes/26.04/)
 - [Ubuntu third-party repository safety](https://documentation.ubuntu.com/server/explanation/software/third-party-repository-usage/)
