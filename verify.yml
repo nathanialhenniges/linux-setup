@@ -93,6 +93,7 @@
           - /usr/bin/flatpak
           - info
           - --system
+          - --show-origin
           - org.upscayl.Upscayl
       register: verified_upscayl_flatpak
       changed_when: false
@@ -101,17 +102,17 @@
         - verified_flatpak_executable.stat.isreg | default(false)
         - verified_flatpak_executable.stat.executable | default(false)
 
-    - name: Check for a legacy Upscayl Snap
+    - name: Read installed Snap packages for legacy Upscayl verification
       ansible.builtin.command:
-        argv: [/usr/bin/snap, list, upscayl]
-      register: verified_legacy_upscayl_snap
+        argv: [/usr/bin/snap, list]
+      register: verified_legacy_upscayl_snaps
       changed_when: false
       failed_when: false
 
-    - name: Check for a legacy user-scoped Upscayl Flatpak
+    - name: Read user-scoped Flatpak application IDs for legacy Upscayl verification
       ansible.builtin.command:
-        argv: [/usr/bin/flatpak, info, --user, org.upscayl.Upscayl]
-      register: verified_legacy_upscayl_user_flatpak
+        argv: [/usr/bin/flatpak, list, --user, --app, --columns=application]
+      register: verified_legacy_upscayl_user_flatpaks
       changed_when: false
       failed_when: false
       when:
@@ -436,11 +437,17 @@
              selected_tool_resolution_errors | length == 0 and
               selected_tool_ownership_errors | length == 0 }}
         postman_ready: "{{ verified_postman_snap.rc | default(1) == 0 }}"
-        upscayl_ready: "{{ verified_upscayl_flatpak.rc | default(1) == 0 }}"
+        upscayl_ready: >-
+          {{ verified_upscayl_flatpak.rc | default(1) == 0 and
+             verified_upscayl_flatpak.stdout | default('') | trim == core_flatpak_remote.name }}
         upscayl_legacy_routes_ready: >-
           {{ 'upscayl' not in ansible_facts.packages and
-             verified_legacy_upscayl_snap.rc | default(1) != 0 and
-             verified_legacy_upscayl_user_flatpak.rc | default(1) != 0 }}
+             verified_legacy_upscayl_snaps.rc | default(1) == 0 and
+             (verified_legacy_upscayl_snaps.stdout_lines | default([]) |
+              select('match', '^upscayl[ ]') | list | length) == 0 and
+             verified_legacy_upscayl_user_flatpaks.rc | default(1) == 0 and
+             'org.upscayl.Upscayl' not in
+             (verified_legacy_upscayl_user_flatpaks.stdout_lines | default([])) }}
         librepods_ready: >-
           {{ workstation_files.results[10].stat.isreg | default(false) and
              not (workstation_files.results[10].stat.islnk | default(false)) and

@@ -615,6 +615,7 @@
           - /usr/bin/flatpak
           - info
           - --system
+          - --show-origin
           - org.upscayl.Upscayl
       register: migrated_upscayl_flatpak
       changed_when: false
@@ -623,23 +624,44 @@
       when: setup_action == 'apps'
       tags: apps
 
-    - name: Read the legacy Upscayl Snap state
+    - name: Read installed Snap packages for legacy Upscayl
       ansible.builtin.command:
-        argv: [/usr/bin/snap, list, upscayl]
-      register: legacy_upscayl_snap
+        argv: [/usr/bin/snap, list]
+      register: legacy_upscayl_snaps
       changed_when: false
       failed_when: false
       check_mode: false
       when: setup_action == 'apps'
       tags: apps
 
-    - name: Read the legacy user-scoped Upscayl Flatpak state
+    - name: Read installed user-scoped Flatpak application IDs
       ansible.builtin.command:
-        argv: [/usr/bin/flatpak, info, --user, org.upscayl.Upscayl]
-      register: legacy_upscayl_user_flatpak
+        argv: [/usr/bin/flatpak, list, --user, --app, --columns=application]
+      register: legacy_upscayl_user_flatpaks
       changed_when: false
       failed_when: false
       check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Require readable legacy package state before migration
+      ansible.builtin.assert:
+        that:
+          - legacy_upscayl_snaps.rc == 0
+          - legacy_upscayl_user_flatpaks.rc == 0
+        fail_msg: "Could not read every legacy Upscayl package route; no migration cleanup was attempted."
+        quiet: true
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Record recognized legacy Upscayl package routes
+      ansible.builtin.set_fact:
+        legacy_upscayl_snap_present: >-
+          {{ (legacy_upscayl_snaps.stdout_lines | default([]) |
+              select('match', '^upscayl[ ]') | list | length) == 1 }}
+        legacy_upscayl_user_flatpak_present: >-
+          {{ 'org.upscayl.Upscayl' in
+             (legacy_upscayl_user_flatpaks.stdout_lines | default([])) }}
       when: setup_action == 'apps'
       tags: apps
 
@@ -648,8 +670,8 @@
         msg: "Would remove the legacy Upscayl {{ item }} only after the reviewed system Flatpak verifies"
       loop: >-
         {{ (['Debian package'] if 'upscayl' in ansible_facts.packages else []) +
-           (['Snap'] if legacy_upscayl_snap.rc | default(1) == 0 else []) +
-           (['user Flatpak'] if legacy_upscayl_user_flatpak.rc | default(1) == 0 else []) }}
+           (['Snap'] if legacy_upscayl_snap_present else []) +
+           (['user Flatpak'] if legacy_upscayl_user_flatpak_present else []) }}
       changed_when: true
       when:
         - setup_action == 'apps'
@@ -660,6 +682,7 @@
       ansible.builtin.assert:
         that:
           - migrated_upscayl_flatpak.rc == 0
+          - migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name
         fail_msg: "The reviewed Upscayl Flatpak did not verify; legacy installations were left untouched."
         quiet: true
       when:
@@ -678,6 +701,7 @@
         - setup_action == 'apps'
         - not ansible_check_mode
         - migrated_upscayl_flatpak.rc == 0
+        - migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name
         - "'upscayl' in ansible_facts.packages"
       tags: apps
 
@@ -690,7 +714,8 @@
         - setup_action == 'apps'
         - not ansible_check_mode
         - migrated_upscayl_flatpak.rc == 0
-        - legacy_upscayl_snap.rc | default(1) == 0
+        - migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name
+        - legacy_upscayl_snap_present
       tags: apps
 
     - name: Remove the legacy user-scoped Upscayl Flatpak
@@ -701,7 +726,8 @@
         - setup_action == 'apps'
         - not ansible_check_mode
         - migrated_upscayl_flatpak.rc == 0
-        - legacy_upscayl_user_flatpak.rc | default(1) == 0
+        - migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name
+        - legacy_upscayl_user_flatpak_present
       tags: apps
 
     - name: Inspect user-local LibrePods paths

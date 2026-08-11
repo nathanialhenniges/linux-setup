@@ -205,10 +205,19 @@ if [[ -n "$upscayl_install_line" && -n "$upscayl_verify_line" &&
    (( upscayl_deb_cleanup_line > upscayl_verify_line )) &&
    (( upscayl_snap_cleanup_line > upscayl_verify_line )) &&
    (( upscayl_user_flatpak_cleanup_line > upscayl_verify_line )) &&
-   grep -A12 -F 'Remove the legacy Upscayl Debian package' "$repo_dir/site.yml" | grep -Fq 'not ansible_check_mode' &&
-   grep -A12 -F 'Remove the legacy Upscayl Snap' "$repo_dir/site.yml" | grep -Fq 'not ansible_check_mode' &&
-   grep -A12 -F 'Remove the legacy user-scoped Upscayl Flatpak' "$repo_dir/site.yml" | grep -Fq 'not ansible_check_mode' &&
-   grep -Fq 'upscayl_legacy_routes_ready:' "$repo_dir/verify.yml"; then
+   grep -A8 -F 'Verify the reviewed Upscayl Flatpak before migration cleanup' "$repo_dir/site.yml" | grep -Fq -- '- --show-origin' &&
+   grep -A8 -F 'Require the reviewed Upscayl Flatpak before migration cleanup' "$repo_dir/site.yml" | grep -Fq 'migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name' &&
+   grep -A18 -F 'Remove the legacy Upscayl Debian package' "$repo_dir/site.yml" | grep -Fq 'migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name' &&
+   grep -A16 -F 'Remove the legacy Upscayl Snap' "$repo_dir/site.yml" | grep -Fq 'migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name' &&
+   grep -A14 -F 'Remove the legacy user-scoped Upscayl Flatpak' "$repo_dir/site.yml" | grep -Fq 'migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name' &&
+   grep -Fq 'argv: [/usr/bin/snap, list]' "$repo_dir/site.yml" &&
+   grep -Fq 'argv: [/usr/bin/flatpak, list, --user, --app, --columns=application]' "$repo_dir/site.yml" &&
+   grep -A8 -F 'Require readable legacy package state before migration' "$repo_dir/site.yml" | grep -Fq 'legacy_upscayl_snaps.rc == 0' &&
+   grep -A8 -F 'Require readable legacy package state before migration' "$repo_dir/site.yml" | grep -Fq 'legacy_upscayl_user_flatpaks.rc == 0' &&
+   grep -A8 -F 'upscayl_ready:' "$repo_dir/verify.yml" | grep -Fq "verified_upscayl_flatpak.stdout | default('') | trim == core_flatpak_remote.name" &&
+   grep -A10 -F 'upscayl_legacy_routes_ready:' "$repo_dir/verify.yml" | grep -Fq 'verified_legacy_upscayl_snaps.rc | default(1) == 0' &&
+   grep -Fq 'User-owned' "$repo_dir/README.md" &&
+   grep -Fq 'AppImage files are left alone' "$repo_dir/README.md"; then
   pass 'Upscayl verifies Flatpak before removing recognized legacy packages'
 else
   fail 'Upscayl legacy migration ordering and safety'
