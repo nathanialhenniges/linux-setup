@@ -166,13 +166,30 @@ app_package_manifest="$(awk '
   capture && /^  - / { sub(/^  - /, ""); print }
 ' "$repo_dir/vars.yml")"
 expected_app_packages=$'bluez\nclaude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nlibfuse2t64\nobs-studio'
+flatpak_package_manifest="$(awk '
+  /^core_flatpak_packages:/ { capture=1; next }
+  capture && /^[[:alnum:]_]+:/ { exit }
+  capture && /^  - / { sub(/^  - /, ""); print }
+' "$repo_dir/vars.yml")"
 if [[ "$app_package_manifest" == "$expected_app_packages" ]] &&
    grep -A1 -F 'core_snap_packages:' "$repo_dir/vars.yml" | grep -Fq '  - postman' &&
+   [[ "$flatpak_package_manifest" == 'org.upscayl.Upscayl' ]] &&
    ! grep -Fq '  - optional' "$repo_dir/vars.yml" &&
    ! grep -Fq 'keybinds | optional' "$setup"; then
   pass 'approved desktop application manifests are exact'
 else
   fail 'approved desktop application manifests'
+fi
+
+if grep -Fq '  name: flathub' "$repo_dir/vars.yml" &&
+   grep -Fq '  url: https://dl.flathub.org/repo/flathub.flatpakrepo' "$repo_dir/vars.yml" &&
+   grep -Fq '    - name: Refuse a Flathub remote pointing somewhere else' "$repo_dir/site.yml" &&
+   grep -Fq '          - --if-not-exists' "$repo_dir/site.yml" &&
+   grep -Fq '      loop: "{{ core_flatpak_packages }}"' "$repo_dir/site.yml" &&
+   ! grep -Fq '          - --user' "$repo_dir/site.yml"; then
+  pass 'Flatpak stays on the reviewed system Flathub remote'
+else
+  fail 'Flatpak remote policy'
 fi
 
 if grep -Fq '    - name: Refresh APT metadata for approved applications' "$repo_dir/site.yml" &&
