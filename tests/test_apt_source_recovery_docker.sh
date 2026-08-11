@@ -32,8 +32,11 @@ RUN useradd --create-home --shell /bin/bash tester \
       'Architectures: amd64' \
       'Signed-By: /etc/apt/keyrings/claude-desktop.asc' \
       >/etc/apt/sources.list.d/claude-desktop.sources \
- && printf '%s\n' \
-      'deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' \
+    && printf '%s\n' \
+      '### Managed by the claude-desktop package.' \
+      '### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop' \
+      '### to force this entry on or off; remove this file too when opting out.' \
+      'deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' \
       >/etc/apt/sources.list.d/claude-desktop.list
 COPY . /home/tester/linux-setup
 RUN chown -R tester:tester /home/tester/linux-setup
@@ -107,8 +110,11 @@ CONTAINER
 docker run --rm --env QEMU_CPU=max --platform linux/amd64 --interactive "$image" bash -s <<'CONTAINER'
 set -Eeuo pipefail
 
-runuser -u tester -- env HOME=/home/tester XDG_CURRENT_DESKTOP=ubuntu:GNOME \
-  /home/tester/linux-setup/setup.sh sources >/tmp/initial-source-repair.log 2>&1
+if ! runuser -u tester -- env HOME=/home/tester XDG_CURRENT_DESKTOP=ubuntu:GNOME \
+  /home/tester/linux-setup/setup.sh sources >/tmp/initial-source-repair.log 2>&1; then
+  tail -n 20 /tmp/initial-source-repair.log >&2
+  exit 1
+fi
 
 mkdir -p /tmp/claude-test-package/DEBIAN
 printf '%s\n' \
@@ -127,7 +133,10 @@ if [ -r /etc/default/claude-desktop ]; then
 fi
 if [ "$CLAUDE_DESKTOP_ADD_REPO" = true ]; then
   printf '%s\n' \
-    'deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' \
+    '### Managed by the claude-desktop package.' \
+    '### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop' \
+    '### to force this entry on or off; remove this file too when opting out.' \
+    'deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' \
     >/etc/apt/sources.list.d/claude-desktop.list
 fi
 POSTINST
@@ -142,8 +151,11 @@ if apt-get update >/tmp/post-install-broken.log 2>&1; then
 fi
 grep -Fq 'Conflicting values set for option Signed-By' /tmp/post-install-broken.log
 
-runuser -u tester -- env HOME=/home/tester XDG_CURRENT_DESKTOP=ubuntu:GNOME \
-  /home/tester/linux-setup/setup.sh sources >/tmp/recurrent-source-repair.log 2>&1
+if ! runuser -u tester -- env HOME=/home/tester XDG_CURRENT_DESKTOP=ubuntu:GNOME \
+  /home/tester/linux-setup/setup.sh sources >/tmp/recurrent-source-repair.log 2>&1; then
+  tail -n 20 /tmp/recurrent-source-repair.log >&2
+  exit 1
+fi
 grep -Fxq 'CLAUDE_DESKTOP_ADD_REPO="false"' /etc/default/claude-desktop
 dpkg -i /tmp/claude-desktop-e2e.deb >/dev/null
 test ! -e /etc/apt/sources.list.d/claude-desktop.list
