@@ -115,6 +115,7 @@ fi
 
 if grep -Fq 'ansible_become_exe=/usr/bin/sudo.ws' "$repo_dir/inventory.ini" &&
    grep -Fq '[[ -x /usr/bin/sudo.ws ]]' "$setup" &&
+   grep -Fq '/usr/bin/sudo.ws -n /usr/bin/true 2>/dev/null || command+=(--ask-become-pass)' "$setup" &&
    ! grep -Eq 'update-alternatives|NOPASSWD' "$setup" "$repo_dir/inventory.ini"; then
   pass 'Ansible uses scoped Ubuntu classic sudo'
 else
@@ -150,12 +151,18 @@ fi
 
 claude_preflight_call_line="$(grep -n -m1 -F '  repair_known_claude_source_conflict' "$setup" | cut -d: -f1 || true)"
 bootstrap_apt_update_line="$(grep -n -m1 -F '  sudo apt-get update' "$setup" | cut -d: -f1 || true)"
+dry_run_source_preview_line="$(grep -n -m1 -F "\"\$repo_dir/setup.sh\" --dry-run sources" "$setup" | cut -d: -f1 || true)"
+all_step_loop_line="$(grep -n -m1 -F "  for step in \"\${all_actions[@]}\"" "$setup" | cut -d: -f1 || true)"
 if [[ -n "$claude_preflight_call_line" && -n "$bootstrap_apt_update_line" ]] &&
    (( claude_preflight_call_line < bootstrap_apt_update_line )) &&
-   grep -Fq 'local official_source=/etc/apt/sources.list.d/claude-desktop.list' "$setup" &&
-   grep -Fq 'local managed_source=/etc/apt/sources.list.d/claude-desktop.sources' "$setup" &&
+   [[ -n "$dry_run_source_preview_line" && -n "$all_step_loop_line" ]] &&
+   (( dry_run_source_preview_line < all_step_loop_line )) &&
+   grep -Fq 'readonly claude_official_source=/etc/apt/sources.list.d/claude-desktop.list' "$setup" &&
+   grep -Fq 'readonly claude_managed_source=/etc/apt/sources.list.d/claude-desktop.sources' "$setup" &&
    grep -Fq "\"\$repo_dir/setup.sh\" sources ||" "$setup" &&
+   grep -Fq 'dry-run all stopped before APT' "$setup" &&
    grep -Fq "setup_action in ['sources', 'apps']" "$repo_dir/site.yml" &&
+   grep -Fq "['!all', '!min', 'architecture', 'distribution', 'env', 'hardware', 'user']" "$repo_dir/site.yml" &&
    grep -A4 -F 'Read installed package state without using the network' "$repo_dir/site.yml" | grep -Fq "when: setup_action != 'sources'" &&
    ! grep -A18 -F 'Configure verified core vendor repositories' "$repo_dir/site.yml" | grep -Fq 'update_cache:'; then
   pass 'Claude Signed-By repair runs before bootstrap parses APT sources'

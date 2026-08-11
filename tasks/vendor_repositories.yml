@@ -44,7 +44,9 @@
       - (claude_official_source_content.content | b64decode | trim) in claude_official_source_lines
     fail_msg: >-
       Refusing to replace unexpected content in {{ claude_official_source_path }}.
-      Review that file manually before rerunning apps.
+      Found {{ (claude_official_source_content.content | b64decode).splitlines() | length }} line(s),
+      SHA-256 {{ claude_official_source_content.content | b64decode | hash('sha256') }}.
+      Leave it untouched and report this complete message before rerunning setup.
     quiet: true
   when: claude_official_source.stat.isreg | default(false)
 
