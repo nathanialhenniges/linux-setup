@@ -704,6 +704,7 @@
         msg:
           - "Extension Manager launch command: extension-manager"
           - "LibrePods launch command: librepods. Pair AirPods in GNOME Bluetooth first; autostart and Apple VendorID spoofing stay off."
+          - "Upscayl launch test: run vulkaninfo --summary, then upscayl and upscale one small image. Intel HD 6000 support is not guaranteed."
           - "Discord stays manual: download its official .deb from https://discord.com/download and open it with App Center."
           - "Plex stays manual: open https://app.plex.tv in Chrome and install the page as an app."
           - "Account sign-ins and Cloudflare enrollment remain manual."

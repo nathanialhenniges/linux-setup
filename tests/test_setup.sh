@@ -165,7 +165,7 @@ app_package_manifest="$(awk '
   capture && /^[[:alnum:]_]+:/ { exit }
   capture && /^  - / { sub(/^  - /, ""); print }
 ' "$repo_dir/vars.yml")"
-expected_app_packages=$'bluez\nclaude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nlibfuse2t64\nobs-studio'
+expected_app_packages=$'bluez\nclaude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nlibfuse2t64\nmesa-vulkan-drivers\nobs-studio\nvulkan-tools'
 flatpak_package_manifest="$(awk '
   /^core_flatpak_packages:/ { capture=1; next }
   capture && /^[[:alnum:]_]+:/ { exit }

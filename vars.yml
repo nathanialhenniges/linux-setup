@@ -38,7 +38,9 @@ core_app_packages:
   - ghostty
   - gnome-shell-extension-manager
   - libfuse2t64
+  - mesa-vulkan-drivers
   - obs-studio
+  - vulkan-tools
 
 core_snap_packages:
   - postman

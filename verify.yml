@@ -447,7 +447,7 @@
           - "BASE PACKAGES      {{ 'ready' if missing_base_packages | length == 0 else 'missing: ' ~ (missing_base_packages | join(', ')) }}"
           - "APT APP PACKAGES   {{ 'ready' if missing_core_app_packages | length == 0 else 'missing: ' ~ (missing_core_app_packages | join(', ')) }}"
           - "POSTMAN            {{ 'installed' if postman_ready else 'needs apps action' }}"
-          - "UPSCAYL            {{ 'installed' if upscayl_ready else 'needs apps action' }}"
+          - "UPSCAYL            {{ 'installed; Vulkan launch test manual' if upscayl_ready else 'needs apps action' }}"
           - "LIBREPODS          {{ 'installed; pair and launch manually' if librepods_ready else 'needs apps action' }}"
           - "PERSONAL PROMPT    {{ 'ready' if prompt_ready else 'needs base action' }}"
           - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
