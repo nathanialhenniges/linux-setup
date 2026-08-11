@@ -4,6 +4,7 @@ set -Eeuo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 dry_run=false
 action="help"
+readonly -a all_actions=(base apps tools terminal dotfiles gnome keybinds)
 readonly toshy_tag="Toshy_v26.08.0"
 readonly toshy_commit="c39ee06d8d7fa299a082034d75275e6da97e0275"
 readonly toshy_tree_sha256="dfa142bd53177d038098b9b6919c50f4904d3c37f4cbd33c6bad5e969c85ed57"
@@ -24,6 +25,7 @@ Ubuntu Desktop 26.04 local Ansible setup
 
 Usage:
   ./setup.sh bootstrap
+  ./setup.sh [--dry-run] all
   ./setup.sh [--dry-run] status
   ./setup.sh [--dry-run] verify
   ./setup.sh [--dry-run] base
@@ -37,6 +39,7 @@ Usage:
 
 Commands:
   bootstrap  Install minimal Ubuntu ansible-core prerequisites
+  all        Bootstrap, run every setup action in order, then verify
   status     Read-only ADHD-friendly state board; missing items are allowed
   verify     Read-only state board that fails until the core setup is ready
   base       Core packages, Oh My Posh, and CaskaydiaCove Nerd Font
@@ -68,7 +71,7 @@ parse_args() {
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="help"
         ;;
-      bootstrap | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)
+      bootstrap | all | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="$argument"
         ;;
@@ -325,11 +328,42 @@ run_action() {
   exec "${command[@]}"
 }
 
+run_all() {
+  local step final_step="verify" step_number=0
+  local total_steps=$(( ${#all_actions[@]} + 1 ))
+  local -a command
+
+  if [[ "$dry_run" == false ]]; then
+    printf '\n[%d/%d] %s\n' 1 "$((total_steps + 1))" bootstrap
+    "$repo_dir/setup.sh" bootstrap || die "all stopped at bootstrap; fix that error, then rerun ./setup.sh all"
+    total_steps=$((total_steps + 1))
+    step_number=1
+  else
+    final_step="status"
+    printf '%s\n' '[dry-run] bootstrap skipped: preview never uses network or sudo'
+  fi
+
+  for step in "${all_actions[@]}"; do
+    step_number=$((step_number + 1))
+    printf '\n[%d/%d] %s\n' "$step_number" "$total_steps" "$step"
+    command=("$repo_dir/setup.sh")
+    [[ "$dry_run" == false ]] || command+=(--dry-run)
+    command+=("$step")
+    "${command[@]}" || die "all stopped at $step; fix that error, then rerun ./setup.sh all"
+  done
+
+  step_number=$((step_number + 1))
+  printf '\n[%d/%d] %s\n' "$step_number" "$total_steps" "$final_step"
+  "$repo_dir/setup.sh" "$final_step" ||
+    die "all stopped at $final_step; use ./setup.sh status, fix the failed checks, then rerun ./setup.sh all"
+}
+
 main() {
   parse_args "$@"
   case "$action" in
     help) usage ;;
     bootstrap) bootstrap_ansible ;;
+    all) run_all ;;
     status) run_status false ;;
     verify) run_status true ;;
     codex)
