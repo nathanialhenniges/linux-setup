@@ -16,6 +16,7 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 
 - Prefer Ubuntu packages.
 - Keep Postman as the exact `postman` Snap documented by Postman and published by its verified Snap Store account. Read local Snap state before installation; do not add other Snaps without an explicit reviewed decision.
+- Keep Flatpak to the reviewed system `flathub` remote and the exact application IDs in `core_flatpak_packages`. Read the configured remotes first and refuse a `flathub` name that points anywhere but Flathub's own repository; never add a second remote, a user-scope remote, or an unverified publisher. Upscayl is the reviewed entry: Flathub verifies `org.upscayl.Upscayl` against `upscayl.org`, which its Snap Store publisher does not match, so it is installed as a Flatpak and not a Snap.
 - For vendor APT repos, use deb822 `.sources`, isolated `/etc/apt/keyrings` files, `Signed-By`, and a full documented fingerprint check. For Claude, safely recognize Anthropic's exact official alternate `.list` definitions, install the verified managed source first, then remove only that duplicate source; refuse unsafe or customized content and leave the unused public keyring alone.
 - Never use `apt-key`, `trusted=yes`, PPAs, or `curl | sh`.
 - Pin non-APT artifacts to immutable upstream releases, verify reviewed SHA-256 values before installation, and keep them user-local when possible.

@@ -45,7 +45,9 @@ git pull --ff-only
 ./setup.sh apps
 ```
 
-The updated action adds Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, and Postman. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
+The updated action adds Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, and Upscayl. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
+
+Upscayl needs a working Vulkan driver, which the base action does not install. Run `vulkaninfo --summary` before expecting it to upscale anything; on Intel graphics that means Mesa's Vulkan driver package.
 
 Discord remains a manual official `.deb` because its download URL changes without a stable published checksum. Plex remains a manual Chrome site app. The action prints both steps when it finishes.
 
@@ -116,7 +118,7 @@ That one command includes bootstrap and strict verification. If you want a no-ch
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
-| `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; pinned LibrePods AppImage | No sign-ins, WARP enrollment, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
+| `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Upscayl from the verified Flathub remote; pinned LibrePods AppImage | No sign-ins, WARP enrollment, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
@@ -147,7 +149,7 @@ The action does not run another package manager's uninstall command. If Linuxbre
 
 ## Safety boundary
 
-The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from pinned immutable upstream releases and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account.
+The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from pinned immutable upstream releases and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. Upscayl is the one reviewed Flatpak: Flathub verifies `org.upscayl.Upscayl` against `upscayl.org`, its Snap Store publisher is unverified, and the action refuses to run if a `flathub` remote already points somewhere other than Flathub's repository.
 
 It never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens.
 
@@ -265,6 +267,7 @@ After the MBA is configured, `./setup.sh verify` must pass. A second dry run of 
 - [GNOME Extension Manager in Ubuntu 26.04](https://packages.ubuntu.com/resolute/gnome-shell-extension-manager)
 - [OBS Studio in Ubuntu 26.04](https://packages.ubuntu.com/resolute/obs-studio)
 - [Postman on Linux](https://learning.postman.com/docs/getting-started/installation/install-app/)
+- [Upscayl on Flathub](https://flathub.org/apps/org.upscayl.Upscayl)
 - [Discord's official Linux installation](https://support.discord.com/hc/en-us/articles/360034561191-Desktop-Installation-Guide)
 - [Claude Desktop for Linux](https://support.claude.com/en/articles/10065433-install-claude-desktop)
 - [Cloudflare WARP for Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)

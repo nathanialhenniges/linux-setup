@@ -477,6 +477,138 @@
         - item.rc | default(1) != 0
       tags: apps
 
+    - name: Inspect the Flatpak executable
+      ansible.builtin.stat:
+        path: /usr/bin/flatpak
+        follow: false
+      register: core_flatpak_executable
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Require Ubuntu's packaged Flatpak client
+      ansible.builtin.assert:
+        that:
+          - core_flatpak_executable.stat.isreg | default(false)
+          - not (core_flatpak_executable.stat.islnk | default(false))
+          - core_flatpak_executable.stat.executable | default(false)
+        fail_msg: "Ubuntu's packaged Flatpak client is required. Run ./setup.sh base, then retry apps."
+        quiet: true
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Read configured Flatpak remotes
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - remotes
+          - --system
+          - --columns=name,url
+      register: configured_flatpak_remotes
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Record the reviewed Flathub remote state
+      ansible.builtin.set_fact:
+        core_flatpak_remote_urls: >-
+          {{ (configured_flatpak_remotes.stdout_lines | default([])) |
+             map('regex_search', '^' ~ core_flatpak_remote.name ~ '\s+(\S+)', '\1') |
+             reject('none') | map('first') | list }}
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Record whether the reviewed Flathub remote is configured
+      ansible.builtin.set_fact:
+        core_flatpak_remote_ready: >-
+          {{ core_flatpak_remote_urls | length == 1 and
+             core_flatpak_remote_urls[0] | regex_replace('/$', '') ==
+             core_flatpak_remote.repo_url | regex_replace('/$', '') }}
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Refuse a Flathub remote pointing somewhere else
+      ansible.builtin.assert:
+        that:
+          - core_flatpak_remote_ready or core_flatpak_remote_urls | length == 0
+        fail_msg: "A system remote named {{ core_flatpak_remote.name }} already points at {{ core_flatpak_remote_urls | join(', ') }} rather than {{ core_flatpak_remote.repo_url }}. Review it manually before running apps."
+        quiet: true
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Preview the reviewed Flathub remote
+      ansible.builtin.debug:
+        msg: "Would add the reviewed system Flatpak remote {{ core_flatpak_remote.name }} ({{ core_flatpak_remote.url }})"
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - ansible_check_mode
+        - not core_flatpak_remote_ready
+      tags: apps
+
+    - name: Add the reviewed Flathub remote
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - remote-add
+          - --system
+          - --if-not-exists
+          - "{{ core_flatpak_remote.name }}"
+          - "{{ core_flatpak_remote.url }}"
+      changed_when: true
+      become: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - not core_flatpak_remote_ready
+      tags: apps
+
+    - name: Read installed approved Flatpak applications
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - info
+          - --system
+          - "{{ item }}"
+      loop: "{{ core_flatpak_packages }}"
+      register: installed_core_flatpaks
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Preview missing approved Flatpak applications
+      ansible.builtin.debug:
+        msg: "Would install the verified Flathub application: {{ item.item }}"
+      loop: "{{ installed_core_flatpaks.results }}"
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - ansible_check_mode
+        - item.rc | default(1) != 0
+      tags: apps
+
+    - name: Install missing approved Flatpak applications
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - install
+          - --system
+          - --noninteractive
+          - --assumeyes
+          - "{{ core_flatpak_remote.name }}"
+          - "{{ item.item }}"
+      loop: "{{ installed_core_flatpaks.results }}"
+      changed_when: true
+      become: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - item.rc | default(1) != 0
+      tags: apps
+
     - name: Inspect user-local LibrePods paths
       ansible.builtin.stat:
         path: "{{ item.path }}"

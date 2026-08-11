@@ -12,6 +12,7 @@ base_packages:
   - curl
   - direnv
   - eza
+  - flatpak
   - fontconfig
   - fonts-cascadia-code
   - fzf
@@ -41,6 +42,14 @@ core_app_packages:
 
 core_snap_packages:
   - postman
+
+core_flatpak_remote:
+  name: flathub
+  url: https://dl.flathub.org/repo/flathub.flatpakrepo
+  repo_url: https://dl.flathub.org/repo/
+
+core_flatpak_packages:
+  - org.upscayl.Upscayl
 
 tool_packages:
   - awscli
