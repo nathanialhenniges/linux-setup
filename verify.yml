@@ -278,9 +278,15 @@
       failed_when: false
       changed_when: false
 
+    - name: Inspect Anthropic's duplicate Claude source
+      ansible.builtin.stat:
+        path: "{{ claude_official_source_path }}"
+        follow: false
+      register: verified_claude_official_source
+
     - name: Initialize core repository readiness
       ansible.builtin.set_fact:
-        core_sources_ready: true
+        core_sources_ready: "{{ not (verified_claude_official_source.stat.exists | default(false)) }}"
 
     - name: Verify each core repository file
       ansible.builtin.set_fact:

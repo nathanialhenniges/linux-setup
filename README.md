@@ -162,10 +162,19 @@ The desktop entry point must exist as a regular file. An existing dotfiles check
 ## Codex and Claude on Linux
 
 - **Codex:** `./setup.sh codex` points to the official Linux instructions without executing remote code. The supported Linux experience is Codex CLI or the official VS Code extension. The macOS/Windows Codex desktop app is not installed through Wine or an unofficial port.
-- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta; `apps` installs its APT package without signing in. The action refreshes APT once, waits for fresh-Ubuntu package locks, and installs each approved app in a labeled transaction with bounded retries so a Claude error cannot be confused with another package.
+- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta; `apps` installs its APT package without signing in. The action refreshes APT once, waits for fresh-Ubuntu package locks, and installs each approved app in a labeled transaction with bounded retries so a Claude error cannot be confused with another package. If Anthropic's official `.list` already exists, the action accepts only its exact documented content, installs the verified managed deb822 source, and then removes the duplicate definition that would make APT reject two different `Signed-By` paths. It leaves Anthropic's unused public key file in place.
 - **Remote Codex on the MBP:** keep that as a separate remote-access workflow. This repo does not alter the existing devbox or Cloudflare tunnel setup.
 
-If only Claude fails, do not rerun every setup action. Check its candidate and dependency plan directly, then keep the exact first `E:` line:
+If Claude failed with a keyring or `Signed-By` conflict, pull the repair and rerun only the app action:
+
+```bash
+cd ~/linux-setup
+git pull --ff-only
+./setup.sh --dry-run apps
+./setup.sh apps
+```
+
+Do not manually delete source or keyring files. The guarded migration refuses an unexpected file instead of overwriting it. If Claude still fails, check its candidate and dependency plan, then keep the exact first `E:` line:
 
 ```bash
 apt-cache policy claude-desktop
