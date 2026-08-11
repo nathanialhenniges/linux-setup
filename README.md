@@ -192,7 +192,8 @@ unverified Snap, extra Flatpak remote, or `curl | sh` is used.
 
 The 2015 Air's Intel HD 6000 is not on Upscayl's published compatibility list.
 Installation can be automated; hardware compatibility cannot. After `apps`
-finishes, run `vulkaninfo --summary`, open `upscayl`, and test one small image.
+finishes, run `vulkaninfo --summary`, then
+`flatpak run org.upscayl.Upscayl` and test one small image.
 Keep large batches on the MacBook Pro if the Air is slow or reports a Vulkan
 error.
 
