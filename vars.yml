@@ -1,5 +1,6 @@
 ---
 supported_actions:
+  - sources
   - base
   - apps
   - tools
