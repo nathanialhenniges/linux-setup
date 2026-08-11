@@ -1,0 +1,43 @@
+# Third-party notices and credits
+
+This repository installs or configures third-party software but does not claim
+ownership of it. Each project remains governed by its own license and vendor
+terms. This file records provenance; it does not grant a license for this
+repository, which currently has no project license.
+
+Last reviewed: **2026-08-11**
+
+## Reviewed immutable pins
+
+The canonical SHA-256 values live beside the install logic in `vars.yml` for
+downloaded artifacts and `setup.sh` for Git source trees. Change a pin and its
+digest together, then run the repository checks.
+
+| Component | Reviewed pin | How it is verified | Upstream credit and license |
+|---|---|---|---|
+| Oh My Posh | `v30.5.0` Linux AMD64 binary | Release URL and SHA-256 in `vars.yml` | [Release](https://github.com/JanDeDobbeleer/oh-my-posh/releases/tag/v30.5.0) · [MIT license at the pin](https://github.com/JanDeDobbeleer/oh-my-posh/blob/v30.5.0/COPYING) |
+| CaskaydiaCove Nerd Font | Nerd Fonts `v3.5.0` Cascadia Code archive | Release URL and SHA-256 in `vars.yml` | [Release](https://github.com/ryanoasis/nerd-fonts/releases/tag/v3.5.0) · [Cascadia Code SIL Open Font License 1.1 at the pin](https://github.com/ryanoasis/nerd-fonts/blob/v3.5.0/patched-fonts/CascadiaCode/LICENSE) · [Nerd Fonts license details](https://github.com/ryanoasis/nerd-fonts/blob/v3.5.0/LICENSE) and [license audit](https://github.com/ryanoasis/nerd-fonts/blob/v3.5.0/license-audit.md) |
+| LibrePods | `linux-v0.1.0` x86-64 AppImage | Release URL and SHA-256 in `vars.yml` | [Release](https://github.com/librepods-org/librepods/releases/tag/linux-v0.1.0) · [AGPL-3.0 license at the pin](https://github.com/librepods-org/librepods/blob/linux-v0.1.0/LICENSE) |
+| Toshy | `Toshy_v26.08.0`, commit `c39ee06d8d7fa299a082034d75275e6da97e0275` | Commit plus source-tree SHA-256 in `setup.sh` | [Release](https://github.com/RedBearAK/toshy/releases/tag/Toshy_v26.08.0) · [GPL-3.0 license at the pin](https://github.com/RedBearAK/toshy/blob/Toshy_v26.08.0/LICENSE) |
+| xwaykeyz | Commit `7d6904cf64dee3bb52f1cea75040ae943bc8fe32` | Commit plus source-tree SHA-256 in `setup.sh` | [Pinned source](https://github.com/RedBearAK/xwaykeyz/tree/7d6904cf64dee3bb52f1cea75040ae943bc8fe32) · [GPL-3.0-or-later license at the pin](https://github.com/RedBearAK/xwaykeyz/blob/7d6904cf64dee3bb52f1cea75040ae943bc8fe32/LICENSE) |
+
+These are reviewed pins, not claims that they are each upstream's newest
+release. Reproducibility and on-device compatibility take priority over an
+automatic version chase.
+
+## Reviewed non-pinned routes
+
+| Component | Route used here | Upstream credit or terms |
+|---|---|---|
+| Focused Window D-Bus | Manual GNOME extension required by Toshy | [Source](https://github.com/flexagoon/focused-window-dbus) · [MIT license](https://github.com/flexagoon/focused-window-dbus/blob/main/LICENSE) · [GNOME Extensions listing](https://extensions.gnome.org/extension/5592/focused-window-d-bus/) |
+| Upscayl | Exact app ID `org.upscayl.Upscayl` from the verified system Flathub remote | [Flathub listing](https://flathub.org/apps/org.upscayl.Upscayl) · [Source](https://github.com/upscayl/upscayl) · [AGPL-3.0 license](https://github.com/upscayl/upscayl/blob/main/LICENSE) |
+| GitHub CLI | GitHub's signed APT repository | [Official Linux install](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) · [Source](https://github.com/cli/cli) · [MIT license](https://github.com/cli/cli/blob/trunk/LICENSE) |
+| Visual Studio Code | Microsoft's signed APT repository | [Official Linux install](https://code.visualstudio.com/docs/setup/linux) · [Microsoft binary license](https://code.visualstudio.com/license) |
+| Claude Desktop | Anthropic's signed Ubuntu/Debian APT repository | [Official Linux install](https://support.claude.com/en/articles/10065433-install-claude-desktop) · Anthropic terms apply |
+| Cloudflare WARP | Cloudflare's signed APT repository | [Official Linux install](https://developers.cloudflare.com/warp-client/get-started/linux/) · Cloudflare terms apply |
+| Postman | Publisher-verified Snap named `postman` | [Official Linux install](https://learning.postman.com/docs/getting-started/installation/install-app/) · [Postman terms](https://www.postman.com/legal/terms/) |
+| Ubuntu packages | Ubuntu 26.04 archives, including Ansible, Ghostty, OBS Studio, Flatpak, and CLI tools | [Ubuntu package index](https://packages.ubuntu.com/resolute/allpackages); installed copyright and license metadata is under `/usr/share/doc/<package>/copyright` |
+
+Codex is reference-only here: `./setup.sh codex` points to the
+[official OpenAI Codex repository](https://github.com/openai/codex) and does
+not install it.
