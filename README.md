@@ -53,7 +53,7 @@ Discord remains a manual official `.deb` because its download URL changes withou
 
 Stop after any failed box. Do not keep stacking fixes.
 
-Real actions ask for your Ubuntu login password only when Ansible needs administrator access. Ubuntu 26.04 defaults to `sudo-rs`, whose different prompt is not handled by the packaged Ansible release, so this repo scopes Ansible to Ubuntu's supported `/usr/bin/sudo.ws`. It does not change the system-wide `sudo` default, store your password, or add passwordless access. The dotfiles action never changes root and never prompts during a dry run. Sign out and back in once after it changes your login shell.
+Real actions validate your Ubuntu login password with `/usr/bin/sudo.ws` before Ansible needs administrator access, so a mistype gets the native retry prompt instead of stopping the playbook. Ubuntu 26.04 defaults to `sudo-rs`, whose different prompt is not handled by the packaged Ansible release, so this repo scopes Ansible to Ubuntu's supported `/usr/bin/sudo.ws`. It does not change the system-wide `sudo` default, store your password, or add passwordless access. The dotfiles action never changes root and never prompts during a dry run. Sign out and back in once after it changes your login shell.
 
 ## Update an installed machine later
 
@@ -298,6 +298,8 @@ After the MBA is configured, `./setup.sh verify` must pass. A second dry run of 
 Artifact provenance, reviewed pins, and upstream license links are recorded in [Third-party notices and credits](THIRD-PARTY-NOTICES.md).
 
 - [Ubuntu 26.04 release notes](https://documentation.ubuntu.com/release-notes/26.04/)
+- [Ubuntu 26.04 `sudo-rs` and `sudo.ws` differences](https://documentation.ubuntu.com/server/reference/other-tools/sudo-rs/)
+- [Ansible privilege escalation](https://docs.ansible.com/projects/ansible-core/devel/playbook_guide/playbooks_privilege_escalation.html)
 - [Ubuntu third-party repository safety](https://documentation.ubuntu.com/server/explanation/software/third-party-repository-usage/)
 - [GitHub CLI Linux packages](https://github.com/cli/cli/blob/trunk/docs/install_linux.md)
 - [VS Code on Linux](https://code.visualstudio.com/docs/setup/linux)
