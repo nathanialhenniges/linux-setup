@@ -101,6 +101,23 @@
         - verified_flatpak_executable.stat.isreg | default(false)
         - verified_flatpak_executable.stat.executable | default(false)
 
+    - name: Check for a legacy Upscayl Snap
+      ansible.builtin.command:
+        argv: [/usr/bin/snap, list, upscayl]
+      register: verified_legacy_upscayl_snap
+      changed_when: false
+      failed_when: false
+
+    - name: Check for a legacy user-scoped Upscayl Flatpak
+      ansible.builtin.command:
+        argv: [/usr/bin/flatpak, info, --user, org.upscayl.Upscayl]
+      register: verified_legacy_upscayl_user_flatpak
+      changed_when: false
+      failed_when: false
+      when:
+        - verified_flatpak_executable.stat.isreg | default(false)
+        - verified_flatpak_executable.stat.executable | default(false)
+
     - name: Calculate missing selected CLI packages
       ansible.builtin.set_fact:
         missing_selected_tool_packages: "{{ tool_packages | difference(ansible_facts.packages.keys() | list) }}"
@@ -420,6 +437,10 @@
               selected_tool_ownership_errors | length == 0 }}
         postman_ready: "{{ verified_postman_snap.rc | default(1) == 0 }}"
         upscayl_ready: "{{ verified_upscayl_flatpak.rc | default(1) == 0 }}"
+        upscayl_legacy_routes_ready: >-
+          {{ 'upscayl' not in ansible_facts.packages and
+             verified_legacy_upscayl_snap.rc | default(1) != 0 and
+             verified_legacy_upscayl_user_flatpak.rc | default(1) != 0 }}
         librepods_ready: >-
           {{ workstation_files.results[10].stat.isreg | default(false) and
              not (workstation_files.results[10].stat.islnk | default(false)) and
@@ -448,6 +469,7 @@
           - "APT APP PACKAGES   {{ 'ready' if missing_core_app_packages | length == 0 else 'missing: ' ~ (missing_core_app_packages | join(', ')) }}"
           - "POSTMAN            {{ 'installed' if postman_ready else 'needs apps action' }}"
           - "UPSCAYL            {{ 'installed; Vulkan launch test manual' if upscayl_ready else 'needs apps action' }}"
+          - "UPSCAYL OLD ROUTES {{ 'removed' if upscayl_legacy_routes_ready else 'needs apps migration' }}"
           - "LIBREPODS          {{ 'installed; pair and launch manually' if librepods_ready else 'needs apps action' }}"
           - "PERSONAL PROMPT    {{ 'ready' if prompt_ready else 'needs base action' }}"
           - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
@@ -481,6 +503,7 @@
           - core_sources_ready
           - macos_keys_ready
           - upscayl_ready
+          - upscayl_legacy_routes_ready
         fail_msg: "Core setup is incomplete. Run the action named by the status board, then verify again."
         success_msg: "Core Ubuntu workstation setup is verified."
       when: strict_verify | bool

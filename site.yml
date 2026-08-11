@@ -609,6 +609,101 @@
         - item.rc | default(1) != 0
       tags: apps
 
+    - name: Verify the reviewed Upscayl Flatpak before migration cleanup
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - info
+          - --system
+          - org.upscayl.Upscayl
+      register: migrated_upscayl_flatpak
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Read the legacy Upscayl Snap state
+      ansible.builtin.command:
+        argv: [/usr/bin/snap, list, upscayl]
+      register: legacy_upscayl_snap
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Read the legacy user-scoped Upscayl Flatpak state
+      ansible.builtin.command:
+        argv: [/usr/bin/flatpak, info, --user, org.upscayl.Upscayl]
+      register: legacy_upscayl_user_flatpak
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Preview legacy Upscayl package migration
+      ansible.builtin.debug:
+        msg: "Would remove the legacy Upscayl {{ item }} only after the reviewed system Flatpak verifies"
+      loop: >-
+        {{ (['Debian package'] if 'upscayl' in ansible_facts.packages else []) +
+           (['Snap'] if legacy_upscayl_snap.rc | default(1) == 0 else []) +
+           (['user Flatpak'] if legacy_upscayl_user_flatpak.rc | default(1) == 0 else []) }}
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - ansible_check_mode
+      tags: apps
+
+    - name: Require the reviewed Upscayl Flatpak before migration cleanup
+      ansible.builtin.assert:
+        that:
+          - migrated_upscayl_flatpak.rc == 0
+        fail_msg: "The reviewed Upscayl Flatpak did not verify; legacy installations were left untouched."
+        quiet: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Remove the legacy Upscayl Debian package
+      ansible.builtin.apt:
+        name: upscayl
+        state: absent
+        fail_on_autoremove: true
+        lock_timeout: 300
+      become: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - migrated_upscayl_flatpak.rc == 0
+        - "'upscayl' in ansible_facts.packages"
+      tags: apps
+
+    - name: Remove the legacy Upscayl Snap
+      ansible.builtin.command:
+        argv: [/usr/bin/snap, remove, upscayl]
+      changed_when: true
+      become: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - migrated_upscayl_flatpak.rc == 0
+        - legacy_upscayl_snap.rc | default(1) == 0
+      tags: apps
+
+    - name: Remove the legacy user-scoped Upscayl Flatpak
+      ansible.builtin.command:
+        argv: [/usr/bin/flatpak, uninstall, --user, --noninteractive, --assumeyes, org.upscayl.Upscayl]
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - migrated_upscayl_flatpak.rc == 0
+        - legacy_upscayl_user_flatpak.rc | default(1) == 0
+      tags: apps
+
     - name: Inspect user-local LibrePods paths
       ansible.builtin.stat:
         path: "{{ item.path }}"

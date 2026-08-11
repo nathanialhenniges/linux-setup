@@ -186,10 +186,32 @@ if grep -Fq '  name: flathub' "$repo_dir/vars.yml" &&
    grep -Fq '    - name: Refuse a Flathub remote pointing somewhere else' "$repo_dir/site.yml" &&
    grep -Fq '          - --if-not-exists' "$repo_dir/site.yml" &&
    grep -Fq '      loop: "{{ core_flatpak_packages }}"' "$repo_dir/site.yml" &&
-   ! grep -Fq '          - --user' "$repo_dir/site.yml"; then
+   ! grep -A14 -F 'Add the reviewed Flathub remote' "$repo_dir/site.yml" | grep -Fq -- '- --user' &&
+   ! grep -A20 -F 'Install missing approved Flatpak applications' "$repo_dir/site.yml" | grep -Fq -- '- --user'; then
   pass 'Flatpak stays on the reviewed system Flathub remote'
 else
   fail 'Flatpak remote policy'
+fi
+
+upscayl_install_line="$(grep -n -m1 -F 'Install missing approved Flatpak applications' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+upscayl_verify_line="$(grep -n -m1 -F 'Verify the reviewed Upscayl Flatpak before migration cleanup' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+upscayl_deb_cleanup_line="$(grep -n -m1 -F 'Remove the legacy Upscayl Debian package' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+upscayl_snap_cleanup_line="$(grep -n -m1 -F 'Remove the legacy Upscayl Snap' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+upscayl_user_flatpak_cleanup_line="$(grep -n -m1 -F 'Remove the legacy user-scoped Upscayl Flatpak' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+if [[ -n "$upscayl_install_line" && -n "$upscayl_verify_line" &&
+      -n "$upscayl_deb_cleanup_line" && -n "$upscayl_snap_cleanup_line" &&
+      -n "$upscayl_user_flatpak_cleanup_line" ]] &&
+   (( upscayl_verify_line > upscayl_install_line )) &&
+   (( upscayl_deb_cleanup_line > upscayl_verify_line )) &&
+   (( upscayl_snap_cleanup_line > upscayl_verify_line )) &&
+   (( upscayl_user_flatpak_cleanup_line > upscayl_verify_line )) &&
+   grep -A12 -F 'Remove the legacy Upscayl Debian package' "$repo_dir/site.yml" | grep -Fq 'not ansible_check_mode' &&
+   grep -A12 -F 'Remove the legacy Upscayl Snap' "$repo_dir/site.yml" | grep -Fq 'not ansible_check_mode' &&
+   grep -A12 -F 'Remove the legacy user-scoped Upscayl Flatpak' "$repo_dir/site.yml" | grep -Fq 'not ansible_check_mode' &&
+   grep -Fq 'upscayl_legacy_routes_ready:' "$repo_dir/verify.yml"; then
+  pass 'Upscayl verifies Flatpak before removing recognized legacy packages'
+else
+  fail 'Upscayl legacy migration ordering and safety'
 fi
 
 if grep -Fq '    - name: Refresh APT metadata for approved applications' "$repo_dir/site.yml" &&
