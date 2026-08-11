@@ -36,6 +36,13 @@ else
   fail 'help output'
 fi
 
+if "$setup" --help | grep -Fq './setup.sh [--dry-run] all' &&
+   "$setup" --help | grep -Fq 'all        Bootstrap, run every setup action in order, then verify'; then
+  pass 'help advertises the all command'
+else
+  fail 'all command help'
+fi
+
 if "$setup" | grep -Fq './setup.sh bootstrap'; then
   pass 'no command defaults to help'
 else
@@ -127,6 +134,18 @@ if grep -Fq 'setup_action is defined' "$repo_dir/site.yml" &&
   pass 'one explicit action is required'
 else
   fail 'explicit action boundary'
+fi
+
+if grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome keybinds)' "$setup" &&
+   grep -Fq 'bootstrap | all | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)' "$setup" &&
+   grep -Fq "\"\$repo_dir/setup.sh\" bootstrap || die \"all stopped at bootstrap" "$setup" &&
+   grep -Fq "[[ \"\$dry_run\" == false ]] || command+=(--dry-run)" "$setup" &&
+   grep -Fq 'final_step="status"' "$setup" &&
+   grep -Fq "\"\$repo_dir/setup.sh\" \"\$final_step\" ||" "$setup" &&
+   grep -Fq 'all) run_all ;;' "$setup"; then
+  pass 'all sequences only reviewed actions and preserves dry-run safety'
+else
+  fail 'all action orchestration'
 fi
 
 tool_package_manifest="$(awk '
