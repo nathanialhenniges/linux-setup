@@ -5,7 +5,20 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 > [!IMPORTANT]
 > This is a **desktop workstation** setup. It never configures a server or devbox and never invokes the dotfiles `server.sh`, `server-dev.sh`, `install.sh`, `config/server/**`, or `config/agent/**` paths.
 
-## Do one box at a time
+## Fast path: do the whole setup
+
+On an already-bootstrapped MBA, preview everything and then run it:
+
+```bash
+./setup.sh --dry-run all
+./setup.sh all
+```
+
+The real run bootstraps Ansible, then runs `base`, `apps`, `tools`, `terminal`, `dotfiles`, `gnome`, and `keybinds` in that order. It stops on the first failure and finishes with strict `verify`. Keybinds stays last because it is interactive and may ask for a reboot.
+
+The preview skips bootstrap so it never uses the network or `sudo`, forwards check mode to every setup action, and finishes with the non-strict status board. Run `./setup.sh bootstrap` first if Ansible is not installed yet.
+
+## One box at a time: focused repair
 
 - [ ] 1. Install the small Ansible runtime: `./setup.sh bootstrap`
 - [ ] 2. See what is already ready: `./setup.sh status`
@@ -87,10 +100,10 @@ Then clone the setup:
 ```bash
 git clone https://github.com/nathanialhenniges/linux-setup.git
 cd linux-setup
-./setup.sh bootstrap
-./setup.sh status
-./setup.sh --dry-run base
+./setup.sh all
 ```
+
+That one command includes bootstrap and strict verification. If you want a no-change preview first, run `./setup.sh bootstrap` followed by `./setup.sh --dry-run all`.
 
 `--dry-run` uses Ansible check mode. It never uses `sudo`, downloads a key, installs a package, or changes managed state. Ansible may create its ignored `.ansible/` temporary directory inside this checkout.
 
@@ -99,6 +112,7 @@ cd linux-setup
 | Command | Installs or changes | Does **not** do |
 |---|---|---|
 | `bootstrap` | Minimal `ansible-core`, Python APT bindings, and Ubuntu's supported classic `sudo.ws` provider | No full Ansible collection bundle, global `sudo` switch, or workstation changes |
+| `all` | Bootstraps and runs the seven reviewed setup actions in order, then strict verification | No Codex installer, server/devbox setup, credentials, account sign-ins, Discord download, or Plex PWA |
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
