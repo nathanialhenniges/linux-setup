@@ -156,6 +156,7 @@ if [[ -n "$claude_preflight_call_line" && -n "$bootstrap_apt_update_line" ]] &&
    grep -Fq 'local managed_source=/etc/apt/sources.list.d/claude-desktop.sources' "$setup" &&
    grep -Fq "\"\$repo_dir/setup.sh\" sources ||" "$setup" &&
    grep -Fq "setup_action in ['sources', 'apps']" "$repo_dir/site.yml" &&
+   grep -A4 -F 'Read installed package state without using the network' "$repo_dir/site.yml" | grep -Fq "when: setup_action != 'sources'" &&
    ! grep -A18 -F 'Configure verified core vendor repositories' "$repo_dir/site.yml" | grep -Fq 'update_cache:'; then
   pass 'Claude Signed-By repair runs before bootstrap parses APT sources'
 else

@@ -71,6 +71,7 @@
     - name: Read installed package state without using the network
       ansible.builtin.package_facts:
         manager: apt
+      when: setup_action != 'sources'
       tags: always
 
   tasks:
