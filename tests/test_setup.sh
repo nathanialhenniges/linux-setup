@@ -106,6 +106,7 @@ if grep -Fq 'start_toshy_services' "$setup" &&
    grep -Fq 'SSH_TTY' "$setup" &&
    grep -Fq 'DBUS_SESSION_BUS_ADDRESS' "$setup" &&
    grep -Fq "\$HOME/.Xmodmap" "$setup" &&
+   grep -A15 -F 'refuse_competing_keymappers() {' "$setup" | grep -Fq '  return 0' &&
    grep -Fq 'XDG_SESSION_TYPE:-}" == wayland' "$setup" &&
    grep -Fq 'toshy-services-enable' "$setup" &&
    grep -Fq 'toshy-services-restart' "$setup" &&

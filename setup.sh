@@ -248,6 +248,7 @@ refuse_competing_keymappers() {
     systemctl is-active --quiet "$unit" 2>/dev/null &&
       die "stop and disable the competing system service before Toshy: $unit"
   done
+  return 0
 }
 
 start_toshy_services() {
