@@ -477,10 +477,101 @@
         - item.rc | default(1) != 0
       tags: apps
 
+    - name: Inspect user-local LibrePods paths
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - { path: "{{ workstation_home }}/.local", kind: directory }
+        - { path: "{{ workstation_home }}/.local/bin", kind: directory }
+        - { path: "{{ librepods.install_path }}", kind: file }
+        - { path: "{{ workstation_home }}/.local/share", kind: directory }
+        - { path: "{{ workstation_home }}/.local/share/applications", kind: directory }
+        - { path: "{{ librepods.launcher_path }}", kind: file }
+      loop_control:
+        label: "{{ item.path }}"
+      register: librepods_paths
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Refuse unsafe LibrePods paths
+      ansible.builtin.assert:
+        that:
+          - not (item.stat.islnk | default(false))
+          - >-
+            not (item.stat.exists | default(false)) or
+            (item.item.kind == 'directory' and item.stat.isdir | default(false)) or
+            (item.item.kind == 'file' and item.stat.isreg | default(false))
+        fail_msg: "Refusing unsafe LibrePods path: {{ item.item.path }}"
+        quiet: true
+      loop: "{{ librepods_paths.results }}"
+      loop_control:
+        label: "{{ item.item.path }}"
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Record whether LibrePods is current
+      ansible.builtin.set_fact:
+        librepods_current: >-
+          {{ librepods_paths.results[2].stat.isreg | default(false) and
+             librepods_paths.results[2].stat.executable | default(false) and
+             librepods_paths.results[2].stat.checksum | default('') == librepods.sha256 and
+             librepods_paths.results[5].stat.isreg | default(false) and
+             librepods_paths.results[5].stat.checksum | default('') == (librepods.desktop_entry | hash('sha256')) }}
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Preview the pinned LibrePods install
+      ansible.builtin.debug:
+        msg: "Would install verified LibrePods {{ librepods.version }} for the current user"
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - ansible_check_mode
+        - not librepods_current
+      tags: apps
+
+    - name: Ensure user-local LibrePods directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ workstation_home }}/.local/bin"
+        - "{{ workstation_home }}/.local/share/applications"
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Install the pinned LibrePods AppImage
+      ansible.builtin.get_url:
+        url: "{{ librepods.url }}"
+        dest: "{{ librepods.install_path }}"
+        checksum: "sha256:{{ librepods.sha256 }}"
+        mode: "0755"
+        force: false
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Install the LibrePods desktop launcher
+      ansible.builtin.copy:
+        dest: "{{ librepods.launcher_path }}"
+        content: "{{ librepods.desktop_entry }}"
+        mode: "0644"
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
     - name: Show the two remaining manual application steps
       ansible.builtin.debug:
         msg:
           - "Extension Manager launch command: extension-manager"
+          - "LibrePods launch command: librepods. Pair AirPods in GNOME Bluetooth first; autostart and Apple VendorID spoofing stay off."
           - "Discord stays manual: download its official .deb from https://discord.com/download and open it with App Center."
           - "Plex stays manual: open https://app.plex.tv in Chrome and install the page as an app."
           - "Account sign-ins and Cloudflare enrollment remain manual."

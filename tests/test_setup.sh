@@ -146,7 +146,7 @@ app_package_manifest="$(awk '
   capture && /^[[:alnum:]_]+:/ { exit }
   capture && /^  - / { sub(/^  - /, ""); print }
 ' "$repo_dir/vars.yml")"
-expected_app_packages=$'claude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nobs-studio'
+expected_app_packages=$'bluez\nclaude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nlibfuse2t64\nobs-studio'
 if [[ "$app_package_manifest" == "$expected_app_packages" ]] &&
    grep -A1 -F 'core_snap_packages:' "$repo_dir/vars.yml" | grep -Fq '  - postman' &&
    ! grep -Fq '  - optional' "$repo_dir/vars.yml" &&
@@ -272,6 +272,19 @@ if grep -Fq 'checksum: "sha256:{{ item.key_sha256 }}"' "$repo_dir/tasks/vendor_r
   pass 'vendor keys and sources require integrity checks'
 else
   fail 'vendor key verification gates'
+fi
+
+if grep -A3 -F 'librepods:' "$repo_dir/vars.yml" | grep -Fq 'version: linux-v0.1.0' &&
+   grep -A3 -F 'librepods:' "$repo_dir/vars.yml" | grep -Fq 'sha256: 0569ba9a15aa58e660ec3ccb4d2d39ffd8800d6a5da3741802aefd86fd4b55a6' &&
+   grep -Fq 'releases/download/linux-v0.1.0/librepods-x86_64.AppImage' "$repo_dir/vars.yml" &&
+   grep -Fq 'Refuse unsafe LibrePods paths' "$repo_dir/site.yml" &&
+   grep -A12 -F 'Install the pinned LibrePods AppImage' "$repo_dir/site.yml" | grep -Fq 'checksum: "sha256:{{ librepods.sha256 }}"' &&
+   grep -A12 -F 'Install the pinned LibrePods AppImage' "$repo_dir/site.yml" | grep -Fq 'not ansible_check_mode' &&
+   grep -Fq 'librepods_ready:' "$repo_dir/verify.yml" &&
+   ! grep -Eiq 'nightly-|DeviceID[[:space:]]*=|/etc/bluetooth/main\.conf|X-GNOME-Autostart-enabled[[:space:]]*=[[:space:]]*true' "$repo_dir/site.yml" "$repo_dir/verify.yml" "$repo_dir/vars.yml"; then
+  pass 'LibrePods uses a pinned user-local release without Bluetooth spoofing'
+else
+  fail 'LibrePods artifact and Bluetooth safety boundary'
 fi
 
 if grep -Fq 'not ansible_check_mode' "$repo_dir/site.yml" &&
