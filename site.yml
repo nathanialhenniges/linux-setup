@@ -429,6 +429,25 @@
         - not ansible_check_mode
       tags: apps
 
+    - name: Inspect Claude's package-managed repository after application installation
+      ansible.builtin.stat:
+        path: "{{ claude_official_source_path }}"
+        follow: false
+      register: post_install_claude_source
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Require Claude package installation to honor the repository opt-out
+      ansible.builtin.assert:
+        that:
+          - not (post_install_claude_source.stat.exists | default(false))
+        fail_msg: >-
+          Claude recreated {{ claude_official_source_path }} and would break APT.
+          The package repository opt-out was not honored; stop before another APT action.
+        quiet: true
+      when: setup_action == 'apps'
+      tags: apps
+
     - name: Inspect the Snap executable
       ansible.builtin.stat:
         path: /usr/bin/snap

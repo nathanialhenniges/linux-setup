@@ -16,7 +16,7 @@ On an already-bootstrapped MBA, preview everything and then run it:
 
 The real run bootstraps Ansible, then runs `base`, `apps`, `tools`, `terminal`, `dotfiles`, `gnome`, and `keybinds` in that order. It stops on the first failure and finishes with strict `verify`. Keybinds stays last because it is interactive and may ask for a reboot.
 
-The preview skips bootstrap so it never uses the network or `sudo`, previews all seven workstation actions, and finishes with the non-strict status board. If both known Claude source files exist, it previews that guarded repair and stops before APT-backed checks; run `./setup.sh sources`, then preview again. Run `./setup.sh bootstrap` first if Ansible is not installed yet.
+The preview skips bootstrap so it never uses the network or `sudo`, previews all seven workstation actions, and finishes with the non-strict status board. If it finds a Claude entry outside the managed deb822 source, it previews the guarded source check and stops before APT-backed checks; run `./setup.sh sources`, then preview again. Run `./setup.sh bootstrap` first if Ansible is not installed yet.
 
 ## One box at a time: focused repair
 
@@ -107,7 +107,7 @@ cd linux-setup
 That one command includes bootstrap and strict verification. To preview first, run `./setup.sh bootstrap`, which installs prerequisites and can repair the exact reviewed Claude source conflict when Ansible is already present, followed by the no-change `./setup.sh --dry-run all`.
 
 `--dry-run` never uses `sudo`, downloads a key, installs a package, or changes managed state. Ansible actions use check mode; wrapper and interactive actions use explicit read-only previews; `status` and `verify` are already read-only. Ansible may create its ignored `.ansible/` temporary directory inside this checkout.
-If both known Claude source files exist, `--dry-run all` previews the source repair and stops before any APT-backed check. Run `./setup.sh sources`, then preview again. When Ansible is already present, a normal `./setup.sh all` performs that guarded repair automatically before bootstrap refreshes APT.
+If any Claude entry exists outside the managed `.sources` file, `--dry-run all` previews the source check and stops before any APT-backed action. When Ansible is already present, a normal `./setup.sh all` runs that check automatically before bootstrap refreshes APT. Exact Anthropic `.list` lines are migrated; an unreviewed `.sources` file or unknown content is refused unchanged.
 
 ## What each command does
 
@@ -165,7 +165,7 @@ The desktop entry point must exist as a regular file. An existing dotfiles check
 ## Codex and Claude on Linux
 
 - **Codex:** `./setup.sh codex` points to the official Linux instructions without executing remote code. The supported Linux experience is Codex CLI or the official VS Code extension. The macOS/Windows Codex desktop app is not installed through Wine or an unofficial port.
-- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta; `apps` installs its APT package without signing in. The action refreshes APT once, waits for fresh-Ubuntu package locks, and installs each approved app in a labeled transaction with bounded retries so a Claude error cannot be confused with another package. If Anthropic's official `.list` already exists, the action accepts only its exact documented content, installs the verified managed deb822 source, and then removes the duplicate definition that would make APT reject two different `Signed-By` paths. It leaves Anthropic's unused public key file in place. When both known Claude source paths exist, `bootstrap` runs this guarded `sources` repair before its first APT refresh. Unexpected content stays untouched; the failure reports only a line count and SHA-256, never the source contents.
+- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta; `apps` installs its APT package without signing in. Before installation, setup replaces an absent or already-canonical `/etc/default/claude-desktop` with Anthropic's documented `CLAUDE_DESKTOP_ADD_REPO="false"` opt-out so the package cannot recreate a second repository beside the verified managed deb822 source. Because Claude's package sources that file as root, setup never executes it and refuses unexpected content, non-root ownership, symlinks, or any mode other than `0644`. The preflight scans `/etc/apt/sources.list`, `.list`, and `.sources` files without invoking APT. It removes only Anthropic's two exact documented `.list` lines after the managed source is verified; unreviewed deb822 sources and unknown content stay untouched and are reported only by path, line count, and SHA-256. `apps` asserts the package did not recreate its `.list`, and `verify` checks the exact opt-out plus every source location again.
 - **Remote Codex on the MBP:** keep that as a separate remote-access workflow. This repo does not alter the existing devbox or Cloudflare tunnel setup.
 
 If Claude failed with a keyring or `Signed-By` conflict, pull the repair, run the focused source action, then resume everything:
@@ -175,10 +175,11 @@ cd ~/linux-setup
 git pull --ff-only
 ./setup.sh --dry-run sources
 ./setup.sh sources
+sudo apt update
 ./setup.sh all
 ```
 
-Do not manually delete source or keyring files. The guarded migration refuses an unexpected file instead of overwriting it. If Claude still fails, check its candidate and dependency plan, then keep the exact first `E:` line:
+Do not manually delete source or keyring files. If `sources` prints `Refusing ...`, stop and paste that complete safe message; the guarded migration left the file unchanged. If Claude still fails after `sudo apt update` succeeds, check its candidate and dependency plan, then keep the exact first `E:` line:
 
 ```bash
 apt-cache policy claude-desktop
@@ -288,7 +289,7 @@ Changes to APT-source recovery also require the slower Ubuntu 26.04 AMD64 contai
 ./tests/test_apt_source_recovery_docker.sh
 ```
 
-It requires a running Docker-compatible engine plus network access to its image registry, Ubuntu mirrors, the four reviewed vendor key URLs, and the configured vendor APT repositories. It deliberately proves APT is broken, runs the exact bootstrap preflight used by `all`, then proves the duplicate is gone and APT parses again. It also proves unknown source content is refused without deletion.
+It requires a running Docker-compatible engine plus network access to its image registry, Ubuntu mirrors, the four reviewed vendor key URLs, and the configured vendor APT repositories. It deliberately breaks APT, runs the exact bootstrap preflight used by `all`, simulates Claude package reinstallation, and proves the conflict cannot return. Other fixtures cover a verified Claude line at `/etc/apt/sources.list:41`, a missing managed source, an unmanaged deb822 source, and unsafe root-sourced opt-out content. Preserved files are checked by SHA-256; refusals must not delete or leak their contents.
 
 After the MBA is configured, `./setup.sh verify` must pass. A second dry run of each action should finish with `changed=0`; stop and review any reported drift before applying it.
 
@@ -309,7 +310,9 @@ Artifact provenance, reviewed pins, and upstream license links are recorded in [
 - [Upscayl troubleshooting](https://github.com/upscayl/upscayl/wiki/Troubleshooting)
 - [Upscayl on Flathub](https://flathub.org/apps/org.upscayl.Upscayl)
 - [Discord's official Linux installation](https://support.discord.com/hc/en-us/articles/360034561191-Desktop-Installation-Guide)
+- [Claude Desktop for Linux and repository opt-out](https://code.claude.com/docs/en/desktop-linux)
 - [Claude Desktop for Linux](https://support.claude.com/en/articles/10065433-install-claude-desktop)
+- [Debian APT source-list rules](https://manpages.debian.org/unstable/apt/sources.list.5.en.html)
 - [Cloudflare WARP for Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)
 - [LibrePods](https://github.com/librepods-org/librepods)
 - [LibrePods Linux installation notes](https://github.com/librepods-org/librepods/blob/main/linux/README.md)

@@ -13,8 +13,9 @@ readonly xwaykeyz_tree_sha256="ff312b70705b9bd63524223f4b48755605b6f0970c77c8e35
 readonly toshy_repo="https://github.com/RedBearAK/toshy.git"
 readonly xwaykeyz_repo="https://github.com/RedBearAK/xwaykeyz.git"
 readonly focus_extension="focused-window-dbus@flexagoon.com"
-readonly claude_official_source=/etc/apt/sources.list.d/claude-desktop.list
 readonly claude_managed_source=/etc/apt/sources.list.d/claude-desktop.sources
+readonly claude_repository_uri=https://downloads.claude.ai/claude-desktop/apt/stable
+readonly claude_list_repository_pattern='^[[:space:]]*deb(-src)?[[:space:]].*https://downloads\.claude\.ai/claude-desktop/apt/stable'
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -108,10 +109,37 @@ target_preflight() {
      -e /usr/share/xsessions/ubuntu.desktop ]] || die "Ubuntu Desktop was not detected"
 }
 
+claude_unmanaged_source_present() {
+  local path pattern result
+  local -a grep_args
+
+  for path in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+    [[ "$path" != "$claude_managed_source" ]] || continue
+    [[ -e "$path" || -L "$path" ]] || continue
+    [[ -f "$path" ]] || continue
+    if [[ "$path" == *.sources ]]; then
+      pattern="$claude_repository_uri"
+      grep_args=(-Fq)
+    else
+      pattern="$claude_list_repository_pattern"
+      grep_args=(-Eq)
+    fi
+    if grep "${grep_args[@]}" "$pattern" "$path"; then
+      [[ ! -L "$path" ]] || die "refusing symlinked Claude APT source: $path"
+      return 0
+    else
+      result=$?
+      [[ "$result" -eq 1 ]] || die "could not inspect Claude APT source candidate: $path"
+    fi
+  done
+
+  return 1
+}
+
 repair_known_claude_source_conflict() {
-  [[ -e "$claude_official_source" && -e "$claude_managed_source" ]] || return 0
+  claude_unmanaged_source_present || return 0
   command -v ansible-playbook >/dev/null 2>&1 ||
-    die "Claude has two APT sources, but Ansible is unavailable for the guarded repair"
+    die "Claude has conflicting APT sources, but Ansible is unavailable for the guarded repair"
 
   printf '%s\n' 'Claude source preflight: verifying the managed source before removing the exact duplicate'
   "$repo_dir/setup.sh" sources ||
@@ -355,7 +383,7 @@ run_all() {
     step_number=1
   else
     final_step="status"
-    if [[ -e "$claude_official_source" && -e "$claude_managed_source" ]]; then
+    if claude_unmanaged_source_present; then
       printf '%s\n' '[dry-run] previewing the required Claude source repair before any APT-backed action'
       "$repo_dir/setup.sh" --dry-run sources ||
         die "dry-run all could not verify the Claude source repair; leave the files untouched"
