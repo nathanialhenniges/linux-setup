@@ -108,6 +108,7 @@ cd linux-setup
 That one command includes bootstrap and strict verification. If you want a no-change preview first, run `./setup.sh bootstrap` followed by `./setup.sh --dry-run all`.
 
 `--dry-run` uses Ansible check mode. It never uses `sudo`, downloads a key, installs a package, or changes managed state. Ansible may create its ignored `.ansible/` temporary directory inside this checkout.
+If both known Claude source files conflict, `--dry-run all` previews the source repair and stops before any APT-backed check. Run `./setup.sh sources`, then preview again. A normal `./setup.sh all` performs that guarded repair automatically before bootstrap refreshes APT.
 
 ## What each command does
 
@@ -165,7 +166,7 @@ The desktop entry point must exist as a regular file. An existing dotfiles check
 ## Codex and Claude on Linux
 
 - **Codex:** `./setup.sh codex` points to the official Linux instructions without executing remote code. The supported Linux experience is Codex CLI or the official VS Code extension. The macOS/Windows Codex desktop app is not installed through Wine or an unofficial port.
-- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta; `apps` installs its APT package without signing in. The action refreshes APT once, waits for fresh-Ubuntu package locks, and installs each approved app in a labeled transaction with bounded retries so a Claude error cannot be confused with another package. If Anthropic's official `.list` already exists, the action accepts only its exact documented content, installs the verified managed deb822 source, and then removes the duplicate definition that would make APT reject two different `Signed-By` paths. It leaves Anthropic's unused public key file in place. When both known Claude source paths exist, `bootstrap` runs this guarded `sources` repair before its first APT refresh.
+- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta; `apps` installs its APT package without signing in. The action refreshes APT once, waits for fresh-Ubuntu package locks, and installs each approved app in a labeled transaction with bounded retries so a Claude error cannot be confused with another package. If Anthropic's official `.list` already exists, the action accepts only its exact documented content, installs the verified managed deb822 source, and then removes the duplicate definition that would make APT reject two different `Signed-By` paths. It leaves Anthropic's unused public key file in place. When both known Claude source paths exist, `bootstrap` runs this guarded `sources` repair before its first APT refresh. Unexpected content stays untouched; the failure reports only a line count and SHA-256, never the source contents.
 - **Remote Codex on the MBP:** keep that as a separate remote-access workflow. This repo does not alter the existing devbox or Cloudflare tunnel setup.
 
 If Claude failed with a keyring or `Signed-By` conflict, pull the repair, run the focused source action, then resume everything:
@@ -281,6 +282,14 @@ another installed terminal above `com.mitchellh.ghostty.desktop`.
 ```bash
 ./tests/test_setup.sh
 ```
+
+Changes to APT-source recovery also require the slower Ubuntu 26.04 AMD64 container test:
+
+```bash
+./tests/test_apt_source_recovery_docker.sh
+```
+
+It requires a running Docker-compatible engine and live access to the four reviewed vendor key URLs. It deliberately proves APT is broken, runs the exact bootstrap preflight used by `all`, then proves the duplicate is gone and APT parses again. It also proves unknown source content is refused without deletion.
 
 After the MBA is configured, `./setup.sh verify` must pass. A second dry run of each action should finish with `changed=0`; stop and review any reported drift before applying it.
 
