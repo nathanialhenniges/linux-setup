@@ -322,9 +322,57 @@
         follow: false
       register: verified_claude_official_source
 
+    - name: Inspect Claude's package repository opt-out
+      ansible.builtin.stat:
+        path: "{{ claude_repository_opt_out_path }}"
+        follow: false
+      register: verified_claude_repository_opt_out
+
+    - name: Read Claude's package repository opt-out
+      ansible.builtin.slurp:
+        src: "{{ claude_repository_opt_out_path }}"
+      register: verified_claude_repository_opt_out_content
+      failed_when: false
+      changed_when: false
+
+    - name: Detect Claude entries outside the managed APT source
+      ansible.builtin.shell: |
+        set -Eeuo pipefail
+        shopt -s nullglob
+        list_pattern='^[[:space:]]*deb(-src)?[[:space:]].*https://downloads\.claude\.ai/claude-desktop/apt/stable'
+        for path in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+          [[ "$path" != "{{ claude_managed_source_path }}" ]] || continue
+          [[ -e "$path" || -L "$path" ]] || continue
+          [[ -f "$path" ]] || continue
+          if [[ "$path" == *.sources ]]; then
+            pattern='{{ claude_repository_uri }}'
+            grep_args=(-Fq)
+          else
+            pattern="$list_pattern"
+            grep_args=(-Eq)
+          fi
+          if grep "${grep_args[@]}" "$pattern" "$path"; then
+            printf '%s\n' "$path"
+          else
+            result=$?
+            [[ "$result" -eq 1 ]] || exit "$result"
+          fi
+        done
+      args:
+        executable: /bin/bash
+      register: verified_claude_unmanaged_sources
+      changed_when: false
+
     - name: Initialize core repository readiness
       ansible.builtin.set_fact:
-        core_sources_ready: "{{ not (verified_claude_official_source.stat.exists | default(false)) }}"
+        core_sources_ready: >-
+          {{ not (verified_claude_official_source.stat.exists | default(false)) and
+             verified_claude_repository_opt_out.stat.isreg | default(false) and
+             not (verified_claude_repository_opt_out.stat.islnk | default(false)) and
+             verified_claude_repository_opt_out.stat.uid | default(-1) == 0 and
+             verified_claude_repository_opt_out.stat.mode | default('') == '0644' and
+             (verified_claude_repository_opt_out_content.content | default('') | b64decode) == (claude_repository_opt_out_line ~ '\n') and
+             verified_claude_unmanaged_sources.stdout_lines | length == 0 }}
 
     - name: Verify each core repository file
       ansible.builtin.set_fact:

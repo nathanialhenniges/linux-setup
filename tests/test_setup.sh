@@ -170,8 +170,9 @@ if [[ -n "$claude_preflight_call_line" && -n "$bootstrap_apt_update_line" ]] &&
    (( claude_preflight_call_line < bootstrap_apt_update_line )) &&
    [[ -n "$dry_run_source_preview_line" && -n "$all_step_loop_line" ]] &&
    (( dry_run_source_preview_line < all_step_loop_line )) &&
-   grep -Fq 'readonly claude_official_source=/etc/apt/sources.list.d/claude-desktop.list' "$setup" &&
    grep -Fq 'readonly claude_managed_source=/etc/apt/sources.list.d/claude-desktop.sources' "$setup" &&
+   grep -Fq 'claude_unmanaged_source_present() {' "$setup" &&
+   grep -Fq '/etc/apt/sources.list.d/*.sources' "$setup" &&
    grep -Fq "\"\$repo_dir/setup.sh\" sources ||" "$setup" &&
    grep -Fq 'dry-run all stopped before APT' "$setup" &&
    grep -Fq "setup_action in ['sources', 'apps']" "$repo_dir/site.yml" &&
@@ -378,22 +379,35 @@ fi
 
 vendor_install_line="$(grep -n -m1 -F 'Install isolated deb822 vendor sources' "$repo_dir/tasks/vendor_repositories.yml" | cut -d: -f1 || true)"
 claude_cleanup_line="$(grep -n -m1 -F "Remove Anthropic's exact duplicate Claude source" "$repo_dir/tasks/vendor_repositories.yml" | cut -d: -f1 || true)"
+claude_additional_cleanup_line="$(grep -n -m1 -F 'Remove only verified Claude entries from additional APT list files' "$repo_dir/tasks/vendor_repositories.yml" | cut -d: -f1 || true)"
 if grep -A20 -F '  - name: claude-desktop' "$repo_dir/vars.yml" | grep -Fq 'key_sha256: bd70a5e4a268002704024ceba7f8446024114e94f3f0bdd11c23a9e592be81c6' &&
    grep -A20 -F '  - name: claude-desktop' "$repo_dir/vars.yml" | grep -Fq '31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE' &&
    grep -A20 -F '  - name: claude-desktop' "$repo_dir/vars.yml" | grep -Fq 'Signed-By: /etc/apt/keyrings/claude-desktop.asc' &&
    grep -Fq 'claude_official_source_path: /etc/apt/sources.list.d/claude-desktop.list' "$repo_dir/vars.yml" &&
+   grep -Fq 'claude_repository_opt_out_path: /etc/default/claude-desktop' "$repo_dir/vars.yml" &&
+   grep -Fq "Refuse unsafe content in Claude's repository opt-out file" "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Install Claude package repository opt-out as exact content' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'CLAUDE_DESKTOP_ADD_REPO="false"' "$repo_dir/vars.yml" &&
    grep -Fq 'deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' "$repo_dir/vars.yml" &&
    grep -Fq 'deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' "$repo_dir/vars.yml" &&
    grep -Fq "Inspect Anthropic's alternate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Refuse an unsafe alternate Claude source path" "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Require Anthropic's exact alternate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Preview removal of Anthropic's duplicate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Discover active Claude entries in other APT list files' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Discover Claude entries in unmanaged deb822 sources' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Refuse unmanaged Claude deb822 sources' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Remove Anthropic's exact duplicate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Remove only verified Claude entries from additional APT list files' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -A8 -F "Remove Anthropic's exact duplicate Claude source" "$repo_dir/tasks/vendor_repositories.yml" | grep -Fq 'not ansible_check_mode' &&
-   [[ -n "$vendor_install_line" && -n "$claude_cleanup_line" ]] &&
+   [[ -n "$vendor_install_line" && -n "$claude_cleanup_line" && -n "$claude_additional_cleanup_line" ]] &&
    (( claude_cleanup_line > vendor_install_line )) &&
+   (( claude_additional_cleanup_line > vendor_install_line )) &&
+   grep -Fq 'Require Claude package installation to honor the repository opt-out' "$repo_dir/site.yml" &&
    grep -Fq "Inspect Anthropic's duplicate Claude source" "$repo_dir/verify.yml" &&
-   grep -Fq "not (verified_claude_official_source.stat.exists | default(false))" "$repo_dir/verify.yml"; then
+   grep -Fq "not (verified_claude_official_source.stat.exists | default(false))" "$repo_dir/verify.yml" &&
+   grep -Fq "Inspect Claude's package repository opt-out" "$repo_dir/verify.yml" &&
+   grep -Fq 'Detect Claude entries outside the managed APT source' "$repo_dir/verify.yml"; then
   pass 'Claude duplicate Signed-By source is migrated safely'
 else
   fail 'Claude duplicate Signed-By migration'

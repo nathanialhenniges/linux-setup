@@ -15,6 +15,53 @@
     fail_msg: "/etc/apt/keyrings must be absent or a real directory."
     quiet: true
 
+- name: Inspect Claude's repository opt-out file
+  ansible.builtin.stat:
+    path: "{{ claude_repository_opt_out_path }}"
+    follow: false
+  register: claude_repository_opt_out
+
+- name: Refuse an unsafe Claude repository opt-out path
+  ansible.builtin.assert:
+    that:
+      - not (claude_repository_opt_out.stat.islnk | default(false))
+      - >-
+        not (claude_repository_opt_out.stat.exists | default(false)) or
+        claude_repository_opt_out.stat.isreg | default(false)
+    fail_msg: "Refusing unsafe Claude repository opt-out: {{ claude_repository_opt_out_path }}"
+    quiet: true
+
+- name: Require safe Claude repository opt-out ownership and mode
+  ansible.builtin.assert:
+    that:
+      - not (claude_repository_opt_out.stat.exists | default(false)) or claude_repository_opt_out.stat.uid == 0
+      - >-
+        not (claude_repository_opt_out.stat.exists | default(false)) or
+        claude_repository_opt_out.stat.mode == '0644'
+    fail_msg: "Refusing unsafe ownership or mode on {{ claude_repository_opt_out_path }}."
+    quiet: true
+
+- name: Read Claude's repository opt-out file
+  ansible.builtin.slurp:
+    src: "{{ claude_repository_opt_out_path }}"
+  register: claude_repository_opt_out_content
+  changed_when: false
+  when: claude_repository_opt_out.stat.isreg | default(false)
+
+- name: Refuse unsafe content in Claude's repository opt-out file
+  ansible.builtin.assert:
+    that:
+      - >-
+        (claude_repository_opt_out_content.content | b64decode) in
+        ['', claude_repository_opt_out_line, claude_repository_opt_out_line ~ '\n']
+    fail_msg: >-
+      Refusing unsafe content in {{ claude_repository_opt_out_path }}.
+      Found {{ (claude_repository_opt_out_content.content | b64decode).splitlines() | length }} line(s),
+      SHA-256 {{ claude_repository_opt_out_content.content | b64decode | hash('sha256') }}.
+      This file is sourced as root by Claude's package; leave it untouched and report this complete message.
+    quiet: true
+  when: claude_repository_opt_out.stat.isreg | default(false)
+
 - name: Inspect Anthropic's alternate Claude source
   ansible.builtin.stat:
     path: "{{ claude_official_source_path }}"
@@ -57,6 +104,161 @@
   when:
     - ansible_check_mode
     - claude_official_source.stat.isreg | default(false)
+
+- name: Discover active Claude entries in other APT list files
+  ansible.builtin.shell: |
+    set -Eeuo pipefail
+    shopt -s nullglob
+    pattern='^[[:space:]]*deb(-src)?[[:space:]].*https://downloads\.claude\.ai/claude-desktop/apt/stable'
+    for path in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
+      [[ -e "$path" || -L "$path" ]] || continue
+      [[ -f "$path" ]] || continue
+      if grep -Eq "$pattern" "$path"; then
+        printf '%s\n' "$path"
+      else
+        result=$?
+        [[ "$result" -eq 1 ]] || exit "$result"
+      fi
+    done
+  args:
+    executable: /bin/bash
+  register: claude_active_list_scan
+  changed_when: false
+
+- name: Discover Claude entries in unmanaged deb822 sources
+  ansible.builtin.shell: |
+    set -Eeuo pipefail
+    shopt -s nullglob
+    for path in /etc/apt/sources.list.d/*.sources; do
+      [[ "$path" != "{{ claude_managed_source_path }}" ]] || continue
+      [[ -e "$path" || -L "$path" ]] || continue
+      [[ -f "$path" ]] || continue
+      if grep -Fq '{{ claude_repository_uri }}' "$path"; then
+        printf '%s\n' "$path"
+      else
+        result=$?
+        [[ "$result" -eq 1 ]] || exit "$result"
+      fi
+    done
+  args:
+    executable: /bin/bash
+  register: claude_unmanaged_deb822_scan
+  changed_when: false
+
+- name: Inspect unmanaged Claude deb822 sources
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: "{{ claude_unmanaged_deb822_scan.stdout_lines | unique | list }}"
+  register: claude_unmanaged_deb822_sources
+
+- name: Refuse unsafe unmanaged Claude deb822 paths
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+      - not (item.stat.islnk | default(false))
+    fail_msg: "Refusing unsafe unmanaged Claude deb822 source: {{ item.item }}"
+    quiet: true
+  loop: "{{ claude_unmanaged_deb822_sources.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Read unmanaged Claude deb822 sources
+  ansible.builtin.slurp:
+    src: "{{ item }}"
+  loop: "{{ claude_unmanaged_deb822_scan.stdout_lines | unique | list }}"
+  register: claude_unmanaged_deb822_content
+  changed_when: false
+
+- name: Refuse unmanaged Claude deb822 sources
+  ansible.builtin.assert:
+    that: false
+    fail_msg: >-
+      Refusing unmanaged Claude deb822 source {{ item.item }}.
+      Found {{ (item.content | b64decode).splitlines() | length }} line(s),
+      SHA-256 {{ item.content | b64decode | hash('sha256') }}.
+      It is not a reviewed Anthropic layout; leave it untouched and report this complete message.
+    quiet: true
+  loop: "{{ claude_unmanaged_deb822_content.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Select additional Claude APT list files
+  ansible.builtin.set_fact:
+    claude_additional_source_paths: >-
+      {{ claude_active_list_scan.stdout_lines
+         | reject('equalto', claude_official_source_path)
+         | unique | list }}
+
+- name: Inspect additional Claude APT list files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: "{{ claude_additional_source_paths }}"
+  register: claude_additional_sources
+
+- name: Refuse unsafe additional Claude APT list files
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+      - not (item.stat.islnk | default(false))
+    fail_msg: "Refusing unsafe Claude APT source: {{ item.item }}"
+    quiet: true
+  loop: "{{ claude_additional_sources.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Read additional Claude APT list files
+  ansible.builtin.slurp:
+    src: "{{ item }}"
+  loop: "{{ claude_additional_source_paths }}"
+  register: claude_additional_source_content
+  changed_when: false
+
+- name: Require exact Claude entries in additional APT list files
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.content | b64decode).splitlines()
+        | reject('match', '^[ \t]*#')
+        | select('search', claude_repository_uri)
+        | list | difference(claude_official_source_lines) | length == 0
+    fail_msg: >-
+      Refusing unexpected Claude content in {{ item.item }}.
+      Found {{ (item.content | b64decode).splitlines() | length }} line(s),
+      SHA-256 {{ item.content | b64decode | hash('sha256') }}.
+      Leave it untouched and report this complete message before rerunning setup.
+    quiet: true
+  loop: "{{ claude_additional_source_content.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Preview verified Claude entry removal from additional list files
+  ansible.builtin.debug:
+    msg: "Would remove only the verified Claude entry from: {{ item }}"
+  changed_when: true
+  loop: "{{ claude_additional_source_paths }}"
+  when: ansible_check_mode
+
+- name: Preview Claude package repository opt-out
+  ansible.builtin.debug:
+    msg: "Would install exact repository opt-out: {{ claude_repository_opt_out_path }}"
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - >-
+      not (claude_repository_opt_out.stat.isreg | default(false)) or
+      (claude_repository_opt_out_content.content | default('') | b64decode) != (claude_repository_opt_out_line ~ '\n')
+
+- name: Install Claude package repository opt-out as exact content
+  ansible.builtin.copy:
+    dest: "{{ claude_repository_opt_out_path }}"
+    content: "{{ claude_repository_opt_out_line }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: not ansible_check_mode
 
 - name: Inspect installed vendor signing keys
   ansible.builtin.stat:
@@ -228,3 +430,14 @@
   when:
     - not ansible_check_mode
     - claude_official_source.stat.isreg | default(false)
+
+- name: Remove only verified Claude entries from additional APT list files
+  ansible.builtin.lineinfile:
+    path: "{{ item.0 }}"
+    regexp: "^{{ item.1 | regex_escape }}$"
+    state: absent
+  become: true
+  loop: "{{ claude_additional_source_paths | product(claude_official_source_lines) | list }}"
+  loop_control:
+    label: "{{ item.0 }}"
+  when: not ansible_check_mode
