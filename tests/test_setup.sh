@@ -156,6 +156,19 @@ else
   fail 'approved desktop application manifests'
 fi
 
+if grep -Fq '    - name: Refresh APT metadata for approved applications' "$repo_dir/site.yml" &&
+   grep -Fq '        update_cache_retries: 5' "$repo_dir/site.yml" &&
+   grep -Fq '        lock_timeout: 300' "$repo_dir/site.yml" &&
+   grep -Fq '    - name: Install each approved APT application' "$repo_dir/site.yml" &&
+   grep -Fq '        name: "{{ item }}"' "$repo_dir/site.yml" &&
+   grep -Fq '      loop: "{{ core_app_packages }}"' "$repo_dir/site.yml" &&
+   grep -Fq '      until: approved_app_install is succeeded' "$repo_dir/site.yml" &&
+   ! grep -Fq '        name: "{{ core_app_packages }}"' "$repo_dir/site.yml"; then
+  pass 'desktop APT apps install independently with bounded retries'
+else
+  fail 'desktop APT app isolation and retry policy'
+fi
+
 if grep -A1 -F 'key: dock-fixed' "$repo_dir/vars.yml" | grep -Fq 'value: "true"'; then
   pass 'Ubuntu Dock stays visible'
 else
