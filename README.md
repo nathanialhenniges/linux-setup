@@ -117,6 +117,7 @@ That one command includes bootstrap and strict verification. If you want a no-ch
 | `all` | Bootstraps and runs the seven reviewed setup actions in order, then strict verification | No Codex installer, server/devbox setup, credentials, account sign-ins, Discord download, or Plex PWA |
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
+| `sources` | Verifies and repairs reviewed vendor keys and APT source files without refreshing APT | No package refresh, package install, account change, or unreviewed source deletion |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
 | `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Upscayl from the verified Flathub remote; pinned LibrePods AppImage | No sign-ins, WARP enrollment, automatic Upscayl GPU claims, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
@@ -164,16 +165,17 @@ The desktop entry point must exist as a regular file. An existing dotfiles check
 ## Codex and Claude on Linux
 
 - **Codex:** `./setup.sh codex` points to the official Linux instructions without executing remote code. The supported Linux experience is Codex CLI or the official VS Code extension. The macOS/Windows Codex desktop app is not installed through Wine or an unofficial port.
-- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta; `apps` installs its APT package without signing in. The action refreshes APT once, waits for fresh-Ubuntu package locks, and installs each approved app in a labeled transaction with bounded retries so a Claude error cannot be confused with another package. If Anthropic's official `.list` already exists, the action accepts only its exact documented content, installs the verified managed deb822 source, and then removes the duplicate definition that would make APT reject two different `Signed-By` paths. It leaves Anthropic's unused public key file in place.
+- **Claude:** Anthropic publishes an official Ubuntu/Debian desktop beta; `apps` installs its APT package without signing in. The action refreshes APT once, waits for fresh-Ubuntu package locks, and installs each approved app in a labeled transaction with bounded retries so a Claude error cannot be confused with another package. If Anthropic's official `.list` already exists, the action accepts only its exact documented content, installs the verified managed deb822 source, and then removes the duplicate definition that would make APT reject two different `Signed-By` paths. It leaves Anthropic's unused public key file in place. When both known Claude source paths exist, `bootstrap` runs this guarded `sources` repair before its first APT refresh.
 - **Remote Codex on the MBP:** keep that as a separate remote-access workflow. This repo does not alter the existing devbox or Cloudflare tunnel setup.
 
-If Claude failed with a keyring or `Signed-By` conflict, pull the repair and rerun only the app action:
+If Claude failed with a keyring or `Signed-By` conflict, pull the repair, run the focused source action, then resume everything:
 
 ```bash
 cd ~/linux-setup
 git pull --ff-only
-./setup.sh --dry-run apps
-./setup.sh apps
+./setup.sh --dry-run sources
+./setup.sh sources
+./setup.sh all
 ```
 
 Do not manually delete source or keyring files. The guarded migration refuses an unexpected file instead of overwriting it. If Claude still fails, check its candidate and dependency plan, then keep the exact first `E:` line:

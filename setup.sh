@@ -28,6 +28,7 @@ Usage:
   ./setup.sh [--dry-run] all
   ./setup.sh [--dry-run] status
   ./setup.sh [--dry-run] verify
+  ./setup.sh [--dry-run] sources
   ./setup.sh [--dry-run] base
   ./setup.sh [--dry-run] apps
   ./setup.sh [--dry-run] tools
@@ -42,6 +43,7 @@ Commands:
   all        Bootstrap, run every setup action in order, then verify
   status     Read-only ADHD-friendly state board; missing items are allowed
   verify     Read-only state board that fails until the core setup is ready
+  sources    Repair verified vendor APT sources without refreshing APT
   base       Core packages, Oh My Posh, and CaskaydiaCove Nerd Font
   apps       Approved desktop apps from APT plus Postman's official Snap
   tools      Eight Ubuntu APT tools; removes local command shadows
@@ -71,7 +73,7 @@ parse_args() {
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="help"
         ;;
-      bootstrap | all | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)
+      bootstrap | all | status | verify | sources | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="$argument"
         ;;
@@ -104,6 +106,19 @@ target_preflight() {
      -e /usr/share/xsessions/ubuntu.desktop ]] || die "Ubuntu Desktop was not detected"
 }
 
+repair_known_claude_source_conflict() {
+  local official_source=/etc/apt/sources.list.d/claude-desktop.list
+  local managed_source=/etc/apt/sources.list.d/claude-desktop.sources
+
+  [[ -e "$official_source" && -e "$managed_source" ]] || return 0
+  command -v ansible-playbook >/dev/null 2>&1 ||
+    die "Claude has two APT sources, but Ansible is unavailable for the guarded repair"
+
+  printf '%s\n' 'Claude source preflight: verifying the managed source before removing the exact duplicate'
+  "$repo_dir/setup.sh" sources ||
+    die "Claude source preflight refused the local files; leave them untouched and report its first error"
+}
+
 bootstrap_ansible() {
   target_preflight
   if [[ "$dry_run" == true ]]; then
@@ -111,6 +126,7 @@ bootstrap_ansible() {
     printf '%s\n' '[dry-run] sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian sudo'
     return
   fi
+  repair_known_claude_source_conflict
   sudo apt-get update
   sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian sudo
   ansible-playbook --version | sed -n '1p'
@@ -313,7 +329,7 @@ run_action() {
     command+=(--check --diff)
   else
     case "$action" in
-      base | apps | tools)
+      sources | base | apps | tools)
         require_classic_sudo
         command+=(--ask-become-pass)
         ;;

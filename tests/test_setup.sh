@@ -137,7 +137,7 @@ else
 fi
 
 if grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome keybinds)' "$setup" &&
-   grep -Fq 'bootstrap | all | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)' "$setup" &&
+   grep -Fq 'bootstrap | all | status | verify | sources | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)' "$setup" &&
    grep -Fq "\"\$repo_dir/setup.sh\" bootstrap || die \"all stopped at bootstrap" "$setup" &&
    grep -Fq "[[ \"\$dry_run\" == false ]] || command+=(--dry-run)" "$setup" &&
    grep -Fq 'final_step="status"' "$setup" &&
@@ -146,6 +146,21 @@ if grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome k
   pass 'all sequences only reviewed actions and preserves dry-run safety'
 else
   fail 'all action orchestration'
+fi
+
+claude_preflight_call_line="$(grep -n -m1 -F '  repair_known_claude_source_conflict' "$setup" | cut -d: -f1 || true)"
+bootstrap_apt_update_line="$(grep -n -m1 -F '  sudo apt-get update' "$setup" | cut -d: -f1 || true)"
+if [[ -n "$claude_preflight_call_line" && -n "$bootstrap_apt_update_line" ]] &&
+   (( claude_preflight_call_line < bootstrap_apt_update_line )) &&
+   grep -Fq 'local official_source=/etc/apt/sources.list.d/claude-desktop.list' "$setup" &&
+   grep -Fq 'local managed_source=/etc/apt/sources.list.d/claude-desktop.sources' "$setup" &&
+   grep -Fq "\"\$repo_dir/setup.sh\" sources ||" "$setup" &&
+   grep -Fq "setup_action in ['sources', 'apps']" "$repo_dir/site.yml" &&
+   grep -A4 -F 'Read installed package state without using the network' "$repo_dir/site.yml" | grep -Fq "when: setup_action != 'sources'" &&
+   ! grep -A18 -F 'Configure verified core vendor repositories' "$repo_dir/site.yml" | grep -Fq 'update_cache:'; then
+  pass 'Claude Signed-By repair runs before bootstrap parses APT sources'
+else
+  fail 'Claude pre-bootstrap source repair ordering'
 fi
 
 tool_package_manifest="$(awk '

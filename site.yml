@@ -71,6 +71,7 @@
     - name: Read installed package state without using the network
       ansible.builtin.package_facts:
         manager: apt
+      when: setup_action != 'sources'
       tags: always
 
   tasks:
@@ -354,11 +355,15 @@
       ansible.builtin.include_tasks:
         file: tasks/vendor_repositories.yml
         apply:
-          tags: apps
+          tags:
+            - sources
+            - apps
       vars:
         vendor_repositories: "{{ core_vendor_repositories }}"
-      when: setup_action == 'apps'
-      tags: apps
+      when: setup_action in ['sources', 'apps']
+      tags:
+        - sources
+        - apps
 
     - name: Install the selected command-line tools
       ansible.builtin.include_tasks:
