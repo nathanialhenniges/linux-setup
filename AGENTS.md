@@ -31,6 +31,7 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 - Scope Ansible privilege escalation to `/usr/bin/sudo.ws` on Ubuntu 26.04; never switch the system-wide `sudo` alternative, store a password, or add `NOPASSWD` to a workstation. The isolated disposable Docker test user may use `NOPASSWD` because emulated x86 PTYs are unavailable under Colima.
 - Keep every mutating Ansible action explicitly tagged and selected through `setup.sh`. The wrapper-only `all` command may sequence only the reviewed leaf actions in their documented order, propagate `--dry-run`, stop on the first failure, and never create an Ansible `all` tag or bypass a leaf action's guards.
 - Keep `--dry-run` free of sudo, network, and managed-state writes. Ansible's ignored local temporary directory is the only allowed side effect.
+- Keep `THIRD-PARTY-NOTICES.md` synchronized with every pinned download, upstream-source install, and license reference. Describe immutable pins as reviewed, never as the upstream "latest" release.
 
 ## Checks
 
@@ -41,7 +42,7 @@ Run before every commit:
 git diff --check
 ```
 
-The tests must cover playbook syntax, the localhost lock, explicit action selection, check-mode mutation gates, vendor checksum/fingerprint gates, and the dedicated dotfiles entry point.
+The tests must cover playbook syntax, the localhost lock, explicit action selection, check-mode mutation gates, vendor checksum/fingerprint gates, third-party notice coverage, and the dedicated dotfiles entry point.
 Run `./tests/test_apt_source_recovery_docker.sh` whenever Claude/APT preflight behavior changes.
 
 Review every tracked file for secrets and absolute personal paths before the first public push.

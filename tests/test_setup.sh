@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 setup="$repo_dir/setup.sh"
+notices="$repo_dir/THIRD-PARTY-NOTICES.md"
 failures=0
 
 pass() { printf 'PASS: %s\n' "$1"; }
@@ -30,6 +31,18 @@ else
   fail 'setup wrapper mode'
 fi
 
+if [[ -f "$notices" ]] &&
+   grep -Fq 'v30.5.0' "$notices" &&
+   grep -Fq 'v3.5.0' "$notices" &&
+   grep -Fq 'linux-v0.1.0' "$notices" &&
+   grep -Fq 'Toshy_v26.08.0' "$notices" &&
+   grep -Fq '7d6904cf64dee3bb52f1cea75040ae943bc8fe32' "$notices" &&
+   grep -Fq 'focused-window-dbus' "$notices"; then
+  pass 'third-party notices cover reviewed artifacts and sources'
+else
+  fail 'third-party notices coverage'
+fi
+
 if "$setup" --help | grep -Fq 'Ubuntu Desktop 26.04 local Ansible setup'; then
   pass 'help works without target checks'
 else
@@ -37,13 +50,13 @@ else
 fi
 
 if "$setup" --help | grep -Fq './setup.sh [--dry-run] all' &&
-   "$setup" --help | grep -Fq 'all        Bootstrap, run every setup action in order, then verify'; then
+   "$setup" --help | grep -Fq 'all        Bootstrap, run seven workstation actions in order, then verify'; then
   pass 'help advertises the all command'
 else
   fail 'all command help'
 fi
 
-if "$setup" | grep -Fq './setup.sh bootstrap'; then
+if "$setup" | grep -Fq './setup.sh [--dry-run] bootstrap'; then
   pass 'no command defaults to help'
 else
   fail 'default help behavior'
