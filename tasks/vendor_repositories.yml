@@ -15,6 +15,47 @@
     fail_msg: "/etc/apt/keyrings must be absent or a real directory."
     quiet: true
 
+- name: Inspect Anthropic's alternate Claude source
+  ansible.builtin.stat:
+    path: "{{ claude_official_source_path }}"
+    follow: false
+  register: claude_official_source
+
+- name: Refuse an unsafe alternate Claude source path
+  ansible.builtin.assert:
+    that:
+      - not (claude_official_source.stat.islnk | default(false))
+      - >-
+        not (claude_official_source.stat.exists | default(false)) or
+        claude_official_source.stat.isreg | default(false)
+    fail_msg: "Refusing unsafe alternate Claude source: {{ claude_official_source_path }}"
+    quiet: true
+
+- name: Read Anthropic's alternate Claude source
+  ansible.builtin.slurp:
+    src: "{{ claude_official_source_path }}"
+  register: claude_official_source_content
+  changed_when: false
+  when: claude_official_source.stat.isreg | default(false)
+
+- name: Require Anthropic's exact alternate Claude source
+  ansible.builtin.assert:
+    that:
+      - (claude_official_source_content.content | b64decode | trim) in claude_official_source_lines
+    fail_msg: >-
+      Refusing to replace unexpected content in {{ claude_official_source_path }}.
+      Review that file manually before rerunning apps.
+    quiet: true
+  when: claude_official_source.stat.isreg | default(false)
+
+- name: Preview removal of Anthropic's duplicate Claude source
+  ansible.builtin.debug:
+    msg: "Would remove the exact duplicate Claude source: {{ claude_official_source_path }}"
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - claude_official_source.stat.isreg | default(false)
+
 - name: Inspect installed vendor signing keys
   ansible.builtin.stat:
     path: "{{ item.key_path }}"
@@ -176,3 +217,12 @@
       when: vendor_key_temp.path is defined
       changed_when: false
   when: not ansible_check_mode
+
+- name: Remove Anthropic's exact duplicate Claude source
+  ansible.builtin.file:
+    path: "{{ claude_official_source_path }}"
+    state: absent
+  become: true
+  when:
+    - not ansible_check_mode
+    - claude_official_source.stat.isreg | default(false)

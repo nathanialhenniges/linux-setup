@@ -107,6 +107,11 @@ dotfiles_allowed_origins:
   - git@github.com:nathanialhenniges/dotfiles
   - git@github.com:nathanialhenniges/dotfiles.git
 
+claude_official_source_path: /etc/apt/sources.list.d/claude-desktop.list
+claude_official_source_lines:
+  - deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main
+  - deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main
+
 core_vendor_repositories:
   - name: github-cli
     key_url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
