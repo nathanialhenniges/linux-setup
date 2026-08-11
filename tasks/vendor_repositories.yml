@@ -88,7 +88,7 @@
 - name: Require Anthropic's exact alternate Claude source
   ansible.builtin.assert:
     that:
-      - (claude_official_source_content.content | b64decode | trim) in claude_official_source_lines
+      - (claude_official_source_content.content | b64decode | trim) in claude_official_source_file_contents
     fail_msg: >-
       Refusing to replace unexpected content in {{ claude_official_source_path }}.
       Found {{ (claude_official_source_content.content | b64decode).splitlines() | length }} line(s),

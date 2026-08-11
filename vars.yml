@@ -125,6 +125,30 @@ claude_repository_uri: https://downloads.claude.ai/claude-desktop/apt/stable
 claude_official_source_lines:
   - deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main
   - deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main
+claude_official_source_file_contents:
+  - "{{ claude_official_source_lines[0] }}"
+  - "{{ claude_official_source_lines[1] }}"
+  - |-
+    ### Managed by the claude-desktop package.
+    ### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop
+    ### to force this entry on or off; remove this file too when opting out.
+    {{ claude_official_source_lines[1] }}
+  - |-
+    ### Managed by the claude-desktop package.
+    ### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop
+    ### to force this entry on or off; remove this file too when opting out.
+    ### If the deb line below is commented out, the apt repo isn't live yet —
+    ### uncomment it once it is (the package preserves an uncommented line
+    ### across upgrades).
+    {{ claude_official_source_lines[1] }}
+  - |-
+    ### Managed by the claude-desktop package.
+    ### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop
+    ### to force this entry on or off; remove this file too when opting out.
+    ### If the deb line below is commented out, the apt repo isn't live yet —
+    ### uncomment it once it is (the package preserves an uncommented line
+    ### across upgrades).
+    # {{ claude_official_source_lines[1] }}
 claude_repository_opt_out_path: /etc/default/claude-desktop
 claude_repository_opt_out_line: 'CLAUDE_DESKTOP_ADD_REPO="false"'
 

@@ -390,6 +390,9 @@ if grep -A20 -F '  - name: claude-desktop' "$repo_dir/vars.yml" | grep -Fq 'key_
    grep -Fq 'CLAUDE_DESKTOP_ADD_REPO="false"' "$repo_dir/vars.yml" &&
    grep -Fq 'deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' "$repo_dir/vars.yml" &&
    grep -Fq 'deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' "$repo_dir/vars.yml" &&
+   grep -Fq 'claude_official_source_file_contents:' "$repo_dir/vars.yml" &&
+   grep -Fq '### Managed by the claude-desktop package.' "$repo_dir/vars.yml" &&
+   grep -Fq 'in claude_official_source_file_contents' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Inspect Anthropic's alternate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Refuse an unsafe alternate Claude source path" "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Require Anthropic's exact alternate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
@@ -492,6 +495,7 @@ if command -v ansible-playbook >/dev/null 2>&1; then
      ! grep -Fq 'not a directory' <<< "$removal_output"; then
     pass 'local command shadow and obsolete backup are removed after the APT gate'
   else
+    printf '%s\n' "$removal_output" >&2
     fail 'local command shadow removal'
   fi
 
@@ -500,6 +504,7 @@ if command -v ansible-playbook >/dev/null 2>&1; then
      ! grep -Fq 'not a directory' <<< "$check_output"; then
     pass 'check mode leaves local command shadows untouched'
   else
+    printf '%s\n' "$check_output" >&2
     fail 'check-mode local shadow safety'
   fi
 else
