@@ -190,6 +190,12 @@ df -h /
 It also installs Ubuntu's `mesa-vulkan-drivers` and `vulkan-tools`; no PPA,
 unverified Snap, extra Flatpak remote, or `curl | sh` is used.
 
+If an older `upscayl` Debian package, Snap, or user-scoped Flatpak is present,
+`apps` installs and verifies the reviewed system Flatpak first, then removes
+that recognized legacy package. Dry-run previews the migration. User-owned
+AppImage files are left alone because their path and provenance cannot be
+inferred safely.
+
 The 2015 Air's Intel HD 6000 is not on Upscayl's published compatibility list.
 Installation can be automated; hardware compatibility cannot. After `apps`
 finishes, run `vulkaninfo --summary`, then
