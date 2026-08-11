@@ -16,7 +16,7 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 
 - Prefer Ubuntu packages.
 - Keep Postman as the exact `postman` Snap documented by Postman and published by its verified Snap Store account. Read local Snap state before installation; do not add other Snaps without an explicit reviewed decision.
-- For vendor APT repos, use deb822 `.sources`, isolated `/etc/apt/keyrings` files, `Signed-By`, and a full documented fingerprint check.
+- For vendor APT repos, use deb822 `.sources`, isolated `/etc/apt/keyrings` files, `Signed-By`, and a full documented fingerprint check. For Claude, safely recognize Anthropic's exact official alternate `.list` definitions, install the verified managed source first, then remove only that duplicate source; refuse unsafe or customized content and leave the unused public keyring alone.
 - Never use `apt-key`, `trusted=yes`, PPAs, or `curl | sh`.
 - Pin non-APT artifacts to immutable upstream releases, verify reviewed SHA-256 values before installation, and keep them user-local when possible.
 - Keep LibrePods on an immutable official x86-64 AppImage release with its published SHA-256 and a user-local launcher. Do not automate temporary nightly artifacts, autostart, Bluetooth VendorID spoofing, `/etc/bluetooth/main.conf`, or audio-service restarts; pair and launch it manually before considering those optional changes.
