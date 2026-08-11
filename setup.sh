@@ -13,6 +13,8 @@ readonly xwaykeyz_tree_sha256="ff312b70705b9bd63524223f4b48755605b6f0970c77c8e35
 readonly toshy_repo="https://github.com/RedBearAK/toshy.git"
 readonly xwaykeyz_repo="https://github.com/RedBearAK/xwaykeyz.git"
 readonly focus_extension="focused-window-dbus@flexagoon.com"
+readonly claude_official_source=/etc/apt/sources.list.d/claude-desktop.list
+readonly claude_managed_source=/etc/apt/sources.list.d/claude-desktop.sources
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -107,10 +109,7 @@ target_preflight() {
 }
 
 repair_known_claude_source_conflict() {
-  local official_source=/etc/apt/sources.list.d/claude-desktop.list
-  local managed_source=/etc/apt/sources.list.d/claude-desktop.sources
-
-  [[ -e "$official_source" && -e "$managed_source" ]] || return 0
+  [[ -e "$claude_official_source" && -e "$claude_managed_source" ]] || return 0
   command -v ansible-playbook >/dev/null 2>&1 ||
     die "Claude has two APT sources, but Ansible is unavailable for the guarded repair"
 
@@ -331,12 +330,12 @@ run_action() {
     case "$action" in
       sources | base | apps | tools)
         require_classic_sudo
-        command+=(--ask-become-pass)
+        /usr/bin/sudo.ws -n /usr/bin/true 2>/dev/null || command+=(--ask-become-pass)
         ;;
       dotfiles)
         if dotfiles_needs_become; then
           require_classic_sudo
-          command+=(--ask-become-pass)
+          /usr/bin/sudo.ws -n /usr/bin/true 2>/dev/null || command+=(--ask-become-pass)
         fi
         ;;
     esac
@@ -356,6 +355,12 @@ run_all() {
     step_number=1
   else
     final_step="status"
+    if [[ -e "$claude_official_source" && -e "$claude_managed_source" ]]; then
+      printf '%s\n' '[dry-run] previewing the required Claude source repair before any APT-backed action'
+      "$repo_dir/setup.sh" --dry-run sources ||
+        die "dry-run all could not verify the Claude source repair; leave the files untouched"
+      die "dry-run all stopped before APT; run ./setup.sh sources, then rerun ./setup.sh --dry-run all"
+    fi
     printf '%s\n' '[dry-run] bootstrap skipped: preview never uses network or sudo'
   fi
 

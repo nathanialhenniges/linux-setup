@@ -3,6 +3,12 @@
   hosts: workstation
   connection: local
   gather_facts: true
+  gather_subset: >-
+    {{
+      ['!all', '!min', 'architecture', 'distribution', 'env', 'hardware', 'user']
+      if setup_action | default('') == 'sources'
+      else ['all']
+    }}
   vars_files:
     - vars.yml
   vars:
@@ -65,7 +71,7 @@
     - name: Warn when memory is below the comfortable target
       ansible.builtin.debug:
         msg: "Warning: {{ ansible_facts.memtotal_mb }} MB RAM is below the comfortable 6144 MB target."
-      when: ansible_facts.memtotal_mb | int < 6144
+      when: ansible_facts.memtotal_mb | default(0) | int < 6144
       tags: always
 
     - name: Read installed package state without using the network
