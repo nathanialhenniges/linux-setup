@@ -19,6 +19,7 @@ After that dedicated desktop profile succeeds, `linux-setup` may make the packag
 - For vendor APT repos, use deb822 `.sources`, isolated `/etc/apt/keyrings` files, `Signed-By`, and a full documented fingerprint check.
 - Never use `apt-key`, `trusted=yes`, PPAs, or `curl | sh`.
 - Pin non-APT artifacts to immutable upstream releases, verify reviewed SHA-256 values before installation, and keep them user-local when possible.
+- Keep LibrePods on an immutable official x86-64 AppImage release with its published SHA-256 and a user-local launcher. Do not automate temporary nightly artifacts, autostart, Bluetooth VendorID spoofing, `/etc/bluetooth/main.conf`, or audio-service restarts; pair and launch it manually before considering those optional changes.
 - Keep account authentication and Cloudflare enrollment manual.
 - Use local `ansible-core` playbooks with builtin modules and task-level `become`; never add remote inventory or host management.
 - Keep Toshy in the explicit interactive `keybinds` action: pin and verify Toshy plus xwaykeyz, require a live GNOME session and the Wayland focus extension, refuse competing global keymappers, and verify its user services. Toshy's full default config is the macOS mapping source of truth; do not duplicate it in Ghostty, Ansible, or dotfiles. Never run its installer through Ansible or as root.
