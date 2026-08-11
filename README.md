@@ -47,7 +47,7 @@ git pull --ff-only
 
 The updated action adds Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, and Upscayl. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
 
-Upscayl needs a working Vulkan driver, which the base action does not install. Run `vulkaninfo --summary` before expecting it to upscale anything; on Intel graphics that means Mesa's Vulkan driver package.
+Upscayl needs a working Vulkan driver. The `apps` action installs Ubuntu's Mesa Vulkan driver and `vulkaninfo`; run `vulkaninfo --summary` before expecting it to upscale anything.
 
 Discord remains a manual official `.deb` because its download URL changes without a stable published checksum. Plex remains a manual Chrome site app. The action prints both steps when it finishes.
 
@@ -118,7 +118,7 @@ That one command includes bootstrap and strict verification. If you want a no-ch
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, runtimes, upgrade, or login |
-| `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Upscayl from the verified Flathub remote; pinned LibrePods AppImage | No sign-ins, WARP enrollment, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
+| `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Upscayl from the verified Flathub remote; pinned LibrePods AppImage | No sign-ins, WARP enrollment, automatic Upscayl GPU claims, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
@@ -183,6 +183,24 @@ apt-cache policy claude-desktop
 sudo apt install --simulate claude-desktop
 df -h /
 ```
+
+## Upscayl on the MBA
+
+`apps` installs `org.upscayl.Upscayl` from the reviewed system Flathub remote.
+It also installs Ubuntu's `mesa-vulkan-drivers` and `vulkan-tools`; no PPA,
+unverified Snap, extra Flatpak remote, or `curl | sh` is used.
+
+The 2015 Air's Intel HD 6000 is not on Upscayl's published compatibility list.
+Installation can be automated; hardware compatibility cannot. After `apps`
+finishes, run `vulkaninfo --summary`, open `upscayl`, and test one small image.
+Keep large batches on the MacBook Pro if the Air is slow or reports a Vulkan
+error.
+
+The current devboxes are headless Ampere ARM64 systems without Vulkan GPUs, so
+Upscayl cannot run there and is deliberately absent from server setup. Upscale
+locally, then copy only the output to a devbox. A future graphical AMD64 machine
+with a real or passed-through Vulkan GPU should be reviewed as a workstation,
+not silently added to the server role.
 
 ## AirPods on Linux
 
@@ -267,6 +285,9 @@ After the MBA is configured, `./setup.sh verify` must pass. A second dry run of 
 - [GNOME Extension Manager in Ubuntu 26.04](https://packages.ubuntu.com/resolute/gnome-shell-extension-manager)
 - [OBS Studio in Ubuntu 26.04](https://packages.ubuntu.com/resolute/obs-studio)
 - [Postman on Linux](https://learning.postman.com/docs/getting-started/installation/install-app/)
+- [Upscayl repository](https://github.com/upscayl/upscayl)
+- [Upscayl compatibility list](https://github.com/upscayl/upscayl/wiki/Compatibility-List)
+- [Upscayl troubleshooting](https://github.com/upscayl/upscayl/wiki/Troubleshooting)
 - [Upscayl on Flathub](https://flathub.org/apps/org.upscayl.Upscayl)
 - [Discord's official Linux installation](https://support.discord.com/hc/en-us/articles/360034561191-Desktop-Installation-Guide)
 - [Claude Desktop for Linux](https://support.claude.com/en/articles/10065433-install-claude-desktop)
