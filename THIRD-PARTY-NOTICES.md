@@ -2,8 +2,9 @@
 
 This repository installs or configures third-party software but does not claim
 ownership of it. Each project remains governed by its own license and vendor
-terms. This file records provenance; it does not grant a license for this
-repository, which currently has no project license.
+terms. This file records provenance and does not replace those terms. The
+original code and documentation in this repository are licensed separately
+under the [MIT License](LICENSE).
 
 Last reviewed: **2026-08-11**
 

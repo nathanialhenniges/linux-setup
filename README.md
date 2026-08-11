@@ -320,4 +320,6 @@ Artifact provenance, reviewed pins, and upstream license links are recorded in [
 - [Ubuntu 26.04 yt-dlp package](https://packages.ubuntu.com/resolute/yt-dlp)
 - [Ubuntu 26.04 package index](https://packages.ubuntu.com/resolute/allpackages)
 
-No license has been selected. Public visibility permits review, not automatic reuse.
+This repository is available under the [MIT License](LICENSE). Installed and
+referenced third-party software remains under its own license or vendor terms;
+see [Third-party notices and credits](THIRD-PARTY-NOTICES.md).
