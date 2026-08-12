@@ -53,7 +53,7 @@ Discord remains a manual official `.deb` because its download URL changes withou
 
 Stop after any failed box. Do not keep stacking fixes.
 
-Real actions use Ansible's supported `--ask-become-pass` prompt when administrator access is needed. Enter your Ubuntu login password carefully: Ansible stops after a rejected password instead of prompting again. Ubuntu 26.04 defaults to `sudo-rs`, whose different prompt is not handled by the packaged Ansible release, so this repo scopes Ansible to Ubuntu's supported `/usr/bin/sudo.ws`. It does not change the system-wide `sudo` default, store your password, or add passwordless access. The dotfiles action never changes root and never prompts during a dry run. Sign out and back in once after it changes your login shell.
+Real actions always use Ansible's supported `--ask-become-pass` prompt when administrator access is needed. This is intentional even when `sudo.ws` has a cached terminal credential: Ansible's local subprocess cannot reliably reuse that separate timestamp. Enter your Ubuntu login password carefully because Ansible stops after a rejected password instead of prompting again. Ubuntu 26.04 defaults to `sudo-rs`, whose different prompt is not handled by the packaged Ansible release, so this repo scopes Ansible to Ubuntu's supported `/usr/bin/sudo.ws`. It does not change the system-wide `sudo` default, store your password, or add passwordless access. The dotfiles action never changes root and never prompts during a dry run. Sign out and back in once after it changes your login shell.
 
 ## Update an installed machine later
 
@@ -287,6 +287,12 @@ Changes to APT-source recovery also require the slower Ubuntu 26.04 AMD64 contai
 
 ```bash
 ./tests/test_apt_source_recovery_docker.sh
+```
+
+Changes to sudo or Ansible privilege handling require its focused Ubuntu 26.04 AMD64 container test:
+
+```bash
+./tests/test_sudo_become_docker.sh
 ```
 
 It requires a running Docker-compatible engine plus network access to its image registry, Ubuntu mirrors, the four reviewed vendor key URLs, and the configured vendor APT repositories. It deliberately breaks APT, runs the exact bootstrap preflight used by `all`, simulates Claude package reinstallation, and proves the conflict cannot return. Other fixtures cover a verified Claude line at `/etc/apt/sources.list:41`, a missing managed source, an unmanaged deb822 source, and unsafe root-sourced opt-out content. Preserved files are checked by SHA-256; refusals must not delete or leak their contents.
