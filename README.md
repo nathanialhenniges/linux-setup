@@ -241,12 +241,12 @@ Pinned Toshy v26.08.0 is the single Mac-mode keymap. Its default config already 
 One-time setup:
 
 1. Run `./setup.sh gnome` so the built-in dock/search preferences are known.
-2. Open Ubuntu's **Extension Manager**, install **Focused Window D-Bus**, and enable it. [Version 11 supports GNOME 49 and 50](https://extensions.gnome.org/extension/5592/focused-window-d-bus/).
-3. In Ghostty—not SSH or a text console—run `./setup.sh --dry-run keybinds`, then `./setup.sh keybinds`.
+2. In Ghostty—not SSH or a text console—run `./setup.sh --dry-run keybinds`, then `./setup.sh keybinds`. It installs the pinned **Focused Window D-Bus** source when needed; [the reviewed GNOME Extensions version supports GNOME 49 and 50](https://extensions.gnome.org/extension/5592/focused-window-d-bus/).
+3. If setup says the extension is installed for the next GNOME session, sign out and back in, then rerun `./setup.sh all`.
 4. If Toshy's installer shows its large **REBOOT** banner, reboot. Then rerun `./setup.sh keybinds` once; it verifies the pinned sources, enables and restarts the user services, and prints the shortcut check board.
 5. Run `./setup.sh status`, then `./setup.sh verify`. `MACOS KEY SERVICES ready` means the config, focus extension, autostart, and both Toshy services passed. It cannot prove what a physical key emitted, so finish the printed manual shortcut checklist before calling Mac mode done.
 
-The action refuses SSH/TTY installs, missing GNOME session state, `~/.Xmodmap`, and active keyd, xremap, or Input Remapper services. Toshy's app-specific maps cover known applications; if one unusual app behaves differently, run `toshy-debug` and add only that app class upstream or in Toshy's editable user slice.
+The action pins and verifies Focused Window D-Bus before installing it with GNOME's native extension tool. It refuses SSH/TTY installs, missing GNOME session state, `~/.Xmodmap`, and active keyd, xremap, or Input Remapper services. Toshy's app-specific maps cover known applications; if one unusual app behaves differently, run `toshy-debug` and add only that app class upstream or in Toshy's editable user slice.
 
 Toshy's tested Ubuntu list currently stops at 25.10, so Ubuntu 26.04 remains an on-device acceptance test. Toshy's Python dependency installation is not hermetic; read its prompt before continuing.
 

@@ -30,7 +30,7 @@ automatic version chase.
 
 | Component | Route used here | Upstream credit or terms |
 |---|---|---|
-| Focused Window D-Bus | Manual GNOME extension required by Toshy | [Source](https://github.com/flexagoon/focused-window-dbus) · [MIT license](https://github.com/flexagoon/focused-window-dbus/blob/main/LICENSE) · [GNOME Extensions listing](https://extensions.gnome.org/extension/5592/focused-window-d-bus/) |
+| Focused Window D-Bus | Pinned GNOME extension required by Toshy | [Pinned source](https://github.com/flexagoon/focused-window-dbus/tree/5ff336fac73b34deaf83f32772e8478885fa4925) · [MIT license](https://github.com/flexagoon/focused-window-dbus/blob/main/LICENSE) · [GNOME Extensions listing](https://extensions.gnome.org/extension/5592/focused-window-d-bus/) |
 | Upscayl | Exact app ID `org.upscayl.Upscayl` from the verified system Flathub remote | [Flathub listing](https://flathub.org/apps/org.upscayl.Upscayl) · [Source](https://github.com/upscayl/upscayl) · [AGPL-3.0 license](https://github.com/upscayl/upscayl/blob/main/LICENSE) |
 | GitHub CLI | GitHub's signed APT repository | [Official Linux install](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) · [Source](https://github.com/cli/cli) · [MIT license](https://github.com/cli/cli/blob/trunk/LICENSE) |
 | Visual Studio Code | Microsoft's signed APT repository | [Official Linux install](https://code.visualstudio.com/docs/setup/linux) · [Microsoft binary license](https://code.visualstudio.com/license) |
