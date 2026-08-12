@@ -179,7 +179,6 @@ dotfiles_needs_become() {
 require_classic_sudo() {
   [[ -x /usr/bin/sudo.ws ]] ||
     die "Ubuntu's /usr/bin/sudo.ws is required for Ansible. Run: ./setup.sh bootstrap"
-  /usr/bin/sudo.ws -v || die "sudo authentication failed; rerun ./setup.sh $action"
 }
 
 run_status() {
@@ -360,10 +359,12 @@ run_action() {
     case "$action" in
       sources | base | apps | tools)
         require_classic_sudo
+        /usr/bin/sudo.ws -n /usr/bin/true 2>/dev/null || command+=(--ask-become-pass)
         ;;
       dotfiles)
         if dotfiles_needs_become; then
           require_classic_sudo
+          /usr/bin/sudo.ws -n /usr/bin/true 2>/dev/null || command+=(--ask-become-pass)
         fi
         ;;
     esac
