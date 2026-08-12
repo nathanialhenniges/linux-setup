@@ -897,25 +897,6 @@
       when: setup_action == 'terminal'
       tags: terminal
 
-    - name: Read the existing default-terminal list
-      ansible.builtin.slurp:
-        src: "{{ workstation_home }}/.config/ubuntu-xdg-terminals.list"
-      register: terminal_list
-      when:
-        - setup_action == 'terminal'
-        - terminal_paths.results[2].stat.exists | default(false)
-      tags: terminal
-
-    - name: Build the idempotent Ghostty-first terminal list
-      ansible.builtin.set_fact:
-        terminal_list_content: >-
-          {{ (['com.mitchellh.ghostty.desktop'] +
-              (((terminal_list.content | default('') | b64decode).splitlines()) |
-               reject('equalto', 'com.mitchellh.ghostty.desktop') | list)) |
-             join('\n') + '\n' }}
-      when: setup_action == 'terminal'
-      tags: terminal
-
     - name: Ensure the user config directory exists
       ansible.builtin.file:
         path: "{{ workstation_home }}/.config"
@@ -927,7 +908,8 @@
     - name: Make Ghostty the Ubuntu default terminal
       ansible.builtin.copy:
         dest: "{{ workstation_home }}/.config/ubuntu-xdg-terminals.list"
-        content: "{{ terminal_list_content }}"
+        content: |
+          com.mitchellh.ghostty.desktop
         mode: "0644"
         backup: true
       when:

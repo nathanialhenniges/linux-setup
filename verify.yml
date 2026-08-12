@@ -301,20 +301,11 @@
       ansible.builtin.stat:
         path: "{{ item.source_path }}"
         follow: false
+        checksum_algorithm: sha256
       loop: "{{ core_vendor_repositories }}"
       loop_control:
         label: "{{ item.name }}"
       register: verified_core_sources
-
-    - name: Read verified core repository sources
-      ansible.builtin.slurp:
-        src: "{{ item.source_path }}"
-      loop: "{{ core_vendor_repositories }}"
-      loop_control:
-        label: "{{ item.name }}"
-      register: verified_core_source_content
-      failed_when: false
-      changed_when: false
 
     - name: Inspect Anthropic's duplicate Claude source
       ansible.builtin.stat:
@@ -326,14 +317,8 @@
       ansible.builtin.stat:
         path: "{{ claude_repository_opt_out_path }}"
         follow: false
+        checksum_algorithm: sha256
       register: verified_claude_repository_opt_out
-
-    - name: Read Claude's package repository opt-out
-      ansible.builtin.slurp:
-        src: "{{ claude_repository_opt_out_path }}"
-      register: verified_claude_repository_opt_out_content
-      failed_when: false
-      changed_when: false
 
     - name: Detect Claude entries outside the managed APT source
       ansible.builtin.shell: |
@@ -371,7 +356,8 @@
              not (verified_claude_repository_opt_out.stat.islnk | default(false)) and
              verified_claude_repository_opt_out.stat.uid | default(-1) == 0 and
              verified_claude_repository_opt_out.stat.mode | default('') == '0644' and
-             (verified_claude_repository_opt_out_content.content | default('') | b64decode) == (claude_repository_opt_out_line ~ '\n') and
+             verified_claude_repository_opt_out.stat.checksum | default('') ==
+               ((claude_repository_opt_out_line ~ '\n') | hash('sha256')) and
              verified_claude_unmanaged_sources.stdout_lines | length == 0 }}
 
     - name: Verify each core repository file
@@ -383,7 +369,8 @@
              verified_core_keys.results[core_repo_index].stat.checksum | default('') == item.key_sha256 and
              verified_core_sources.results[core_repo_index].stat.isreg | default(false) and
              not (verified_core_sources.results[core_repo_index].stat.islnk | default(false)) and
-             verified_core_source_content.results[core_repo_index].content | default('') | b64decode == item.source_content }}
+             verified_core_sources.results[core_repo_index].stat.checksum | default('') ==
+               (item.source_content | hash('sha256')) }}
       loop: "{{ core_vendor_repositories }}"
       loop_control:
         label: "{{ item.name }}"
