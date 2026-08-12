@@ -287,6 +287,23 @@ else
   fail 'Ubuntu Dock visibility preference'
 fi
 
+if grep -A5 -F 'Make Ghostty the Ubuntu default terminal' "$repo_dir/site.yml" |
+     grep -Fq 'com.mitchellh.ghostty.desktop' &&
+   ! grep -Fq "join('\\n')" "$repo_dir/site.yml"; then
+  pass 'Ghostty default uses a real newline-delimited terminal entry'
+else
+  fail 'Ghostty default terminal content'
+fi
+
+if grep -A5 -F 'Inspect verified core repository sources' "$repo_dir/verify.yml" |
+     grep -Fq 'checksum_algorithm: sha256' &&
+   grep -Fq "item.source_content | hash('sha256')" "$repo_dir/verify.yml" &&
+   grep -Fq "(claude_repository_opt_out_line ~ '\\n') | hash('sha256')" "$repo_dir/verify.yml"; then
+  pass 'core repository verification compares exact SHA-256 bytes'
+else
+  fail 'core repository byte verification'
+fi
+
 scan_files=(
   "$setup"
   "$repo_dir/site.yml"
