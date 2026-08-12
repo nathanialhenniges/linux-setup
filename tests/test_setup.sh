@@ -129,9 +129,10 @@ fi
 
 if grep -Fq 'ansible_become_exe=/usr/bin/sudo.ws' "$repo_dir/inventory.ini" &&
    grep -Fq '[[ -x /usr/bin/sudo.ws ]]' "$setup" &&
-   grep -Fq '/usr/bin/sudo.ws -n /usr/bin/true 2>/dev/null || command+=(--ask-become-pass)' "$setup" &&
+   grep -Fq 'command+=(--ask-become-pass)' "$setup" &&
+   ! grep -Fq '/usr/bin/sudo.ws -n /usr/bin/true' "$setup" &&
    ! grep -Eq 'update-alternatives|NOPASSWD' "$setup" "$repo_dir/inventory.ini"; then
-  pass 'Ansible uses scoped Ubuntu classic sudo'
+  pass 'Ansible always prompts through scoped Ubuntu classic sudo'
 else
   fail 'Ubuntu 26.04 sudo-rs compatibility boundary'
 fi

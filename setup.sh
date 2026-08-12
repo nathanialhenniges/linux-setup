@@ -359,12 +359,12 @@ run_action() {
     case "$action" in
       sources | base | apps | tools)
         require_classic_sudo
-        /usr/bin/sudo.ws -n /usr/bin/true 2>/dev/null || command+=(--ask-become-pass)
+        command+=(--ask-become-pass)
         ;;
       dotfiles)
         if dotfiles_needs_become; then
           require_classic_sudo
-          /usr/bin/sudo.ws -n /usr/bin/true 2>/dev/null || command+=(--ask-become-pass)
+          command+=(--ask-become-pass)
         fi
         ;;
     esac
