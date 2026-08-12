@@ -265,7 +265,7 @@ ensure_focus_extension() {
 
   gnome-extensions enable "$focus_extension" >/dev/null 2>&1 || true
   gnome-extensions list --active | grep -Fxq "$focus_extension" ||
-    die "Focused Window D-Bus is installed for the next GNOME session. Sign out, sign back in, then rerun: ./setup.sh all"
+    die "Focused Window D-Bus is installed for the next GNOME session. Sign out, sign back in, then resume: ./setup.sh keybinds && ./setup.sh verify"
 }
 
 refuse_competing_keymappers() {
@@ -432,7 +432,11 @@ run_all() {
     command=("$repo_dir/setup.sh")
     [[ "$dry_run" == false ]] || command+=(--dry-run)
     command+=("$step")
-    "${command[@]}" || die "all stopped at $step; fix that error, then rerun ./setup.sh all"
+    "${command[@]}" || {
+      [[ "$step" != keybinds ]] ||
+        die "all stopped at keybinds; fix that error, then resume: ./setup.sh keybinds && ./setup.sh verify"
+      die "all stopped at $step; fix that error, then rerun ./setup.sh all"
+    }
   done
 
   step_number=$((step_number + 1))
