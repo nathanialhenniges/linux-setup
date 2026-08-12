@@ -98,6 +98,7 @@ if grep -Fq 'Toshy_v26.08.0' "$setup" &&
    grep -Fq 'gnome-extensions install --force' "$setup" &&
    grep -Fq "gnome-extensions enable \"\$focus_extension\"" "$setup" &&
    grep -Fq 'gnome-extensions list --active' "$setup" &&
+   grep -Fq 'resume: ./setup.sh keybinds && ./setup.sh verify' "$setup" &&
    grep -Fq '  - gnome-shell-extension-manager' "$repo_dir/vars.yml" &&
    ! grep -Eq 'sudo[[:space:]].*setup_toshy' "$setup"; then
   pass 'Toshy and its keymapper are pinned outside Ansible become'
