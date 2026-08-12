@@ -13,6 +13,9 @@ readonly xwaykeyz_tree_sha256="ff312b70705b9bd63524223f4b48755605b6f0970c77c8e35
 readonly toshy_repo="https://github.com/RedBearAK/toshy.git"
 readonly xwaykeyz_repo="https://github.com/RedBearAK/xwaykeyz.git"
 readonly focus_extension="focused-window-dbus@flexagoon.com"
+readonly focus_extension_repo="https://github.com/flexagoon/focused-window-dbus.git"
+readonly focus_extension_commit="5ff336fac73b34deaf83f32772e8478885fa4925"
+readonly focus_extension_tree_sha256="8fe40d9eecee1e6ed8b998d04832b7bb8faa410233509346a30a4b17e5037c7f"
 readonly claude_managed_source=/etc/apt/sources.list.d/claude-desktop.sources
 readonly claude_repository_uri=https://downloads.claude.ai/claude-desktop/apt/stable
 readonly claude_list_repository_pattern='^[[:space:]]*deb(-src)?[[:space:]].*https://downloads\.claude\.ai/claude-desktop/apt/stable'
@@ -234,6 +237,37 @@ require_live_gnome_session() {
     die "keybinds supports the Ubuntu GNOME desktop only; detected: ${desktop:-unknown}"
 }
 
+ensure_focus_extension() {
+  local source_parent="$HOME/.local/src"
+  local source_dir="$source_parent/focused-window-dbus-$focus_extension_commit"
+  local bundle="$source_parent/$focus_extension.shell-extension.zip"
+
+  command -v gnome-extensions >/dev/null 2>&1 || die "gnome-extensions is missing"
+  if gnome-extensions list --active | grep -Fxq "$focus_extension"; then
+    return
+  fi
+
+  mkdir -p "$source_parent"
+  if [[ -e "$source_dir" ]]; then
+    [[ -d "$source_dir" ]] || die "$source_dir exists but is not a directory"
+  else
+    git init "$source_dir"
+    git -C "$source_dir" remote add origin "$focus_extension_repo"
+    git -C "$source_dir" fetch --depth 1 origin "$focus_extension_commit"
+    git -C "$source_dir" checkout --detach FETCH_HEAD
+  fi
+  verify_git_source "$source_dir" "$focus_extension_repo" "$focus_extension_commit" "$focus_extension_tree_sha256"
+  [[ ! -L "$bundle" && ( ! -e "$bundle" || -f "$bundle" ) ]] ||
+    die "unsafe Focused Window D-Bus bundle path: $bundle"
+  gnome-extensions pack --force --out-dir="$source_parent" "$source_dir"
+  [[ -f "$bundle" && ! -L "$bundle" ]] || die "Focused Window D-Bus bundle was not created safely"
+  gnome-extensions install --force "$bundle"
+
+  gnome-extensions enable "$focus_extension" >/dev/null 2>&1 || true
+  gnome-extensions list --active | grep -Fxq "$focus_extension" ||
+    die "Focused Window D-Bus is installed for the next GNOME session. Sign out, sign back in, then rerun: ./setup.sh all"
+}
+
 refuse_competing_keymappers() {
   local unit
 
@@ -284,7 +318,8 @@ install_keybinds() {
   local answer
 
   if [[ "$dry_run" == true ]]; then
-    printf '%s\n' "[dry-run] require enabled GNOME extension: $focus_extension"
+    printf '%s\n' "[dry-run] install or enable pinned GNOME extension: $focus_extension"
+    printf '%s\n' "[dry-run] verify Focused Window D-Bus commit and tree SHA-256: $focus_extension_commit"
     printf '%s\n' "[dry-run] require a live Ubuntu GNOME session and refuse competing keymappers"
     printf '%s\n' "[dry-run] clone $toshy_repo tag $toshy_tag"
     printf '%s\n' "[dry-run] verify Toshy commit and tree SHA-256: $toshy_commit"
@@ -302,9 +337,7 @@ install_keybinds() {
   refuse_competing_keymappers
 
   if [[ "${XDG_SESSION_TYPE:-}" == wayland || -n "${WAYLAND_DISPLAY:-}" ]]; then
-    command -v gnome-extensions >/dev/null 2>&1 || die "gnome-extensions is missing"
-    gnome-extensions list --enabled | grep -Fxq "$focus_extension" ||
-      die "enable Focused Window D-Bus first: https://extensions.gnome.org/extension/5592/focused-window-d-bus/"
+    ensure_focus_extension
   fi
 
   if [[ -f "$HOME/.config/toshy/toshy_config.py" &&
