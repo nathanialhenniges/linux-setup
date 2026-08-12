@@ -350,7 +350,7 @@
 
     - name: Initialize core repository readiness
       ansible.builtin.set_fact:
-        core_sources_ready: >-
+        claude_source_state_ready: >-
           {{ not (verified_claude_official_source.stat.exists | default(false)) and
              verified_claude_repository_opt_out.stat.isreg | default(false) and
              not (verified_claude_repository_opt_out.stat.islnk | default(false)) and
@@ -359,22 +359,29 @@
              verified_claude_repository_opt_out.stat.checksum | default('') ==
                ((claude_repository_opt_out_line ~ '\n') | hash('sha256')) and
              verified_claude_unmanaged_sources.stdout_lines | length == 0 }}
+        core_repository_files_ready: true
 
-    - name: Verify each core repository file
+    - name: Record any failed core repository file check
       ansible.builtin.set_fact:
-        core_sources_ready: >-
-          {{ core_sources_ready and
-             verified_core_keys.results[core_repo_index].stat.isreg | default(false) and
-             not (verified_core_keys.results[core_repo_index].stat.islnk | default(false)) and
-             verified_core_keys.results[core_repo_index].stat.checksum | default('') == item.key_sha256 and
-             verified_core_sources.results[core_repo_index].stat.isreg | default(false) and
-             not (verified_core_sources.results[core_repo_index].stat.islnk | default(false)) and
-             verified_core_sources.results[core_repo_index].stat.checksum | default('') ==
-               (item.source_content | hash('sha256')) }}
+        core_repository_files_ready: false
       loop: "{{ core_vendor_repositories }}"
       loop_control:
         label: "{{ item.name }}"
         index_var: core_repo_index
+      when: >-
+        not (
+          verified_core_keys.results[core_repo_index].stat.isreg | default(false) and
+          not (verified_core_keys.results[core_repo_index].stat.islnk | default(false)) and
+          verified_core_keys.results[core_repo_index].stat.checksum | default('') == item.key_sha256 and
+          verified_core_sources.results[core_repo_index].stat.isreg | default(false) and
+          not (verified_core_sources.results[core_repo_index].stat.islnk | default(false)) and
+          verified_core_sources.results[core_repo_index].stat.checksum | default('') ==
+            (item.source_content | hash('sha256'))
+        )
+
+    - name: Finalize core repository readiness
+      ansible.builtin.set_fact:
+        core_sources_ready: "{{ claude_source_state_ready and core_repository_files_ready }}"
 
     - name: Detect Codex CLI without changing shell state
       ansible.builtin.shell: command -v codex
@@ -515,7 +522,11 @@
           - "LIBREPODS          {{ 'installed; pair and launch manually' if librepods_ready else 'needs apps action' }}"
           - "PERSONAL PROMPT    {{ 'ready' if prompt_ready else 'needs base action' }}"
           - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
-          - "CORE APT SOURCES   {{ 'ready' if core_sources_ready else 'needs apps action' }}"
+          - >-
+            CORE APT SOURCES   {{
+              'ready' if core_sources_ready else
+              ('needs apps action: Claude state' if not claude_source_state_ready else
+               'needs apps action: managed file mismatch') }}
           - "SELECTED CLI TOOLS {{ 'ready' if selected_tools_ready else 'needs tools action' }}"
           - "MACOS KEY SERVICES {{ 'ready; run manual checklist' if macos_keys_ready else 'needs Focused Window D-Bus + keybinds action' }}"
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
