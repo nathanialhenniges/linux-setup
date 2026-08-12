@@ -298,7 +298,10 @@ fi
 if grep -A5 -F 'Inspect verified core repository sources' "$repo_dir/verify.yml" |
      grep -Fq 'checksum_algorithm: sha256' &&
    grep -Fq "item.source_content | hash('sha256')" "$repo_dir/verify.yml" &&
-   grep -Fq "(claude_repository_opt_out_line ~ '\\n') | hash('sha256')" "$repo_dir/verify.yml"; then
+   grep -Fq "(claude_repository_opt_out_line ~ '\\n') | hash('sha256')" "$repo_dir/verify.yml" &&
+   grep -Fq 'core_repository_files_ready: true' "$repo_dir/verify.yml" &&
+   grep -Fq 'core_repository_files_ready: false' "$repo_dir/verify.yml" &&
+   ! grep -Fq '{{ core_sources_ready and' "$repo_dir/verify.yml"; then
   pass 'core repository verification compares exact SHA-256 bytes'
 else
   fail 'core repository byte verification'
