@@ -53,7 +53,7 @@ Discord remains a manual official `.deb` because its download URL changes withou
 
 Stop after any failed box. Do not keep stacking fixes.
 
-Real actions validate your Ubuntu login password with `/usr/bin/sudo.ws` before Ansible needs administrator access, so a mistype gets the native retry prompt instead of stopping the playbook. Ubuntu 26.04 defaults to `sudo-rs`, whose different prompt is not handled by the packaged Ansible release, so this repo scopes Ansible to Ubuntu's supported `/usr/bin/sudo.ws`. It does not change the system-wide `sudo` default, store your password, or add passwordless access. The dotfiles action never changes root and never prompts during a dry run. Sign out and back in once after it changes your login shell.
+Real actions use Ansible's supported `--ask-become-pass` prompt when administrator access is needed. Enter your Ubuntu login password carefully: Ansible stops after a rejected password instead of prompting again. Ubuntu 26.04 defaults to `sudo-rs`, whose different prompt is not handled by the packaged Ansible release, so this repo scopes Ansible to Ubuntu's supported `/usr/bin/sudo.ws`. It does not change the system-wide `sudo` default, store your password, or add passwordless access. The dotfiles action never changes root and never prompts during a dry run. Sign out and back in once after it changes your login shell.
 
 ## Update an installed machine later
 
