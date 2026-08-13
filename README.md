@@ -45,7 +45,9 @@ git pull --ff-only
 ./setup.sh apps
 ```
 
-The updated action adds Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, Upscayl, and LibrePods. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
+The updated action adds the official ChatGPT Linux preview, Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, Upscayl, and LibrePods. Launch ChatGPT with `chatgpt` and sign in manually. OpenAI supports Ubuntu 26.04 AMD64; the preview uses XWayland by default because native Wayland support remains experimental. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
+
+ChatGPT's first install downloads about 334 MiB and occupies about 1.23 GiB. Setup pins the reviewed package bytes and fails safely when OpenAI updates the mutable `latest` URL, so a changed release must be reviewed before installation.
 
 Upscayl needs a working Vulkan driver. The `apps` action installs Ubuntu's Mesa Vulkan driver and `vulkaninfo`; run `vulkaninfo --summary` before expecting it to upscale anything.
 
@@ -119,7 +121,7 @@ If any Claude entry exists outside the managed `.sources` file, `--dry-run all` 
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `sources` | Verifies and repairs reviewed vendor keys and APT source files without refreshing APT | No package refresh, package install, account change, or unreviewed source deletion |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Flatpak, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, developer language runtimes, upgrade, or login |
-| `apps` | GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Upscayl from the verified Flathub remote; pinned LibrePods AppImage | No sign-ins, WARP enrollment, automatic Upscayl GPU claims, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
+| `apps` | Official pinned ChatGPT Linux preview bootstrap plus its signed OpenAI APT repo; GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Upscayl from verified Flathub; pinned LibrePods AppImage | No sign-ins, WARP enrollment, automatic Upscayl GPU claims, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
@@ -320,6 +322,7 @@ Artifact provenance, reviewed pins, and upstream license links are recorded in [
 - [Discord's official Linux installation](https://support.discord.com/hc/en-us/articles/360034561191-Desktop-Installation-Guide)
 - [Claude Desktop for Linux and repository opt-out](https://code.claude.com/docs/en/desktop-linux)
 - [Claude Desktop for Linux](https://support.claude.com/en/articles/10065433-install-claude-desktop)
+- [ChatGPT desktop app for Linux](https://learn.chatgpt.com/docs/linux/linux-app)
 - [Debian APT source-list rules](https://manpages.debian.org/unstable/apt/sources.list.5.en.html)
 - [Cloudflare WARP for Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)
 - [LibrePods](https://github.com/librepods-org/librepods)

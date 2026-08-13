@@ -32,6 +32,7 @@ base_packages:
 
 core_app_packages:
   - bluez
+  - chatgpt
   - claude-desktop
   - cloudflare-warp
   - code
@@ -53,6 +54,20 @@ core_flatpak_remote:
 
 core_flatpak_packages:
   - org.upscayl.Upscayl
+
+chatgpt:
+  version: "26.803.81509"
+  url: https://persistent.oaistatic.com/codex-app-prod/linux/deb/latest/chatgpt_amd64.deb
+  sha256: a9bf91a368f9f7c4eea38082a9fb8fb46b8d005b719a6d7715d2e5a1982c38eb
+  key_path: /usr/share/keyrings/chatgpt-archive-keyring.gpg
+  key_sha256: 23e2cfbdef6afe95505f9e95a2cb63585da7ffe9b06a51ec08a32407c847d596
+  source_path: /etc/apt/sources.list.d/chatgpt.sources
+  source_sha256: 9ff8ae7b9e2e73b9fa1a31383c4cde964e159bab39aee762aef4918d1a4f2cfd
+  defaults_path: /etc/default/chatgpt
+  defaults_sha256: fb6ebc7d7c84dd4bac8805764080244ec8abef185f393f01592731030a76e9bf
+  allowed_defaults_sha256:
+    - fb6ebc7d7c84dd4bac8805764080244ec8abef185f393f01592731030a76e9bf
+    - d7ec575e494acb1c894a2c3b42e46be332982aba839b0f7be281d936e75fbbb3
 
 tool_packages:
   - awscli

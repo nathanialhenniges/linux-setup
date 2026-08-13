@@ -313,6 +313,17 @@
         follow: false
       register: verified_claude_official_source
 
+    - name: Inspect the official ChatGPT package repository
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - "{{ chatgpt.key_path }}"
+        - "{{ chatgpt.source_path }}"
+        - "{{ chatgpt.defaults_path }}"
+      register: verified_chatgpt_repository_paths
+
     - name: Inspect Claude's package repository opt-out
       ansible.builtin.stat:
         path: "{{ claude_repository_opt_out_path }}"
@@ -360,6 +371,16 @@
                ((claude_repository_opt_out_line ~ '\n') | hash('sha256')) and
              verified_claude_unmanaged_sources.stdout_lines | length == 0 }}
         core_repository_files_ready: true
+        chatgpt_repository_ready: >-
+          {{ verified_chatgpt_repository_paths.results[0].stat.isreg | default(false) and
+             not (verified_chatgpt_repository_paths.results[0].stat.islnk | default(false)) and
+             verified_chatgpt_repository_paths.results[0].stat.checksum | default('') == chatgpt.key_sha256 and
+             verified_chatgpt_repository_paths.results[1].stat.isreg | default(false) and
+             not (verified_chatgpt_repository_paths.results[1].stat.islnk | default(false)) and
+             verified_chatgpt_repository_paths.results[1].stat.checksum | default('') == chatgpt.source_sha256 and
+             verified_chatgpt_repository_paths.results[2].stat.isreg | default(false) and
+             not (verified_chatgpt_repository_paths.results[2].stat.islnk | default(false)) and
+             verified_chatgpt_repository_paths.results[2].stat.checksum | default('') == chatgpt.defaults_sha256 }}
 
     - name: Record any failed core repository file check
       ansible.builtin.set_fact:
@@ -498,6 +519,8 @@
              workstation_files.results[11].stat.isreg | default(false) and
              not (workstation_files.results[11].stat.islnk | default(false)) and
              workstation_files.results[11].stat.checksum | default('') == (librepods.desktop_entry | hash('sha256')) }}
+        chatgpt_ready: >-
+          {{ 'chatgpt' in ansible_facts.packages and chatgpt_repository_ready }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and
@@ -538,6 +561,11 @@
           - "EXTENSION MANAGER  {{ 'installed' if 'gnome-shell-extension-manager' in ansible_facts.packages else 'needs apps action' }}"
           - "OBS STUDIO         {{ 'installed' if 'obs-studio' in ansible_facts.packages else 'needs apps action' }}"
           - "CLAUDE DESKTOP     {{ 'installed' if 'claude-desktop' in ansible_facts.packages else 'needs apps action' }}"
+          - >-
+            CHATGPT DESKTOP    {{
+              'installed; launch and sign in manually' if chatgpt_ready else
+              ('needs apps action: repository mismatch' if 'chatgpt' in ansible_facts.packages else
+               'needs apps action') }}
           - "CLOUDFLARE WARP    {{ 'installed; enrollment manual' if 'cloudflare-warp' in ansible_facts.packages else 'needs apps action' }}"
           - "DISCORD            {{ 'installed' if 'discord' in ansible_facts.packages else 'manual official .deb' }}"
           - "PLEX WEB APP       manual Chrome step"
@@ -557,6 +585,7 @@
           - macos_keys_ready
           - upscayl_ready
           - upscayl_legacy_routes_ready
+          - chatgpt_ready
         fail_msg: "Core setup is incomplete. Run the action named by the status board, then verify again."
         success_msg: "Core Ubuntu workstation setup is verified."
       when: strict_verify | bool

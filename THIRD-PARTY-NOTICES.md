@@ -6,7 +6,7 @@ terms. This file records provenance and does not replace those terms. The
 original code and documentation in this repository are licensed separately
 under the [MIT License](LICENSE).
 
-Last reviewed: **2026-08-11**
+Last reviewed: **2026-08-12**
 
 ## Reviewed immutable pins
 
@@ -30,6 +30,7 @@ automatic version chase.
 
 | Component | Route used here | Upstream credit or terms |
 |---|---|---|
+| ChatGPT desktop | Official mutable `latest` Linux preview `.deb`, gated by reviewed version `26.803.81509` and SHA-256; package-created key, source, and defaults are byte-verified before APT refresh | [Official Linux install](https://learn.chatgpt.com/docs/linux/linux-app) · OpenAI terms apply |
 | Focused Window D-Bus | Pinned GNOME extension required by Toshy | [Pinned source](https://github.com/flexagoon/focused-window-dbus/tree/5ff336fac73b34deaf83f32772e8478885fa4925) · [MIT license](https://github.com/flexagoon/focused-window-dbus/blob/main/LICENSE) · [GNOME Extensions listing](https://extensions.gnome.org/extension/5592/focused-window-d-bus/) |
 | Upscayl | Exact app ID `org.upscayl.Upscayl` from the verified system Flathub remote | [Flathub listing](https://flathub.org/apps/org.upscayl.Upscayl) · [Source](https://github.com/upscayl/upscayl) · [AGPL-3.0 license](https://github.com/upscayl/upscayl/blob/main/LICENSE) |
 | GitHub CLI | GitHub's signed APT repository | [Official Linux install](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) · [Source](https://github.com/cli/cli) · [MIT license](https://github.com/cli/cli/blob/trunk/LICENSE) |

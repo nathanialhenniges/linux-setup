@@ -357,6 +357,134 @@
         - nerd_font_extract is changed
       tags: base
 
+    - name: Inspect official ChatGPT package repository paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - "{{ chatgpt.key_path }}"
+        - "{{ chatgpt.source_path }}"
+        - "{{ chatgpt.defaults_path }}"
+      register: chatgpt_repository_paths
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Refuse unsafe official ChatGPT package repository paths
+      ansible.builtin.assert:
+        that:
+          - not (item.stat.islnk | default(false))
+          - not (item.stat.exists | default(false)) or item.stat.isreg | default(false)
+        fail_msg: "Refusing unsafe ChatGPT package path: {{ item.item }}"
+        quiet: true
+      loop: "{{ chatgpt_repository_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Refuse unknown ChatGPT package defaults
+      ansible.builtin.assert:
+        that:
+          - >-
+            not (chatgpt_repository_paths.results[2].stat.exists | default(false)) or
+            chatgpt_repository_paths.results[2].stat.checksum | default('') in chatgpt.allowed_defaults_sha256
+        fail_msg: "Refusing unknown content in {{ chatgpt.defaults_path }}; leave it untouched and report its SHA-256."
+        quiet: true
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Record official ChatGPT package readiness
+      ansible.builtin.set_fact:
+        chatgpt_bootstrap_needed: >-
+          {{ 'chatgpt' not in ansible_facts.packages or
+             chatgpt_repository_paths.results[0].stat.checksum | default('') != chatgpt.key_sha256 or
+             chatgpt_repository_paths.results[1].stat.checksum | default('') != chatgpt.source_sha256 or
+             chatgpt_repository_paths.results[2].stat.checksum | default('') != chatgpt.defaults_sha256 }}
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Preview the pinned official ChatGPT package
+      ansible.builtin.debug:
+        msg: "Would install verified official ChatGPT {{ chatgpt.version }} for Ubuntu AMD64"
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - ansible_check_mode
+        - chatgpt_bootstrap_needed
+      tags: apps
+
+    - name: Bootstrap the official ChatGPT package and signed repository
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - chatgpt_bootstrap_needed
+      tags: apps
+      block:
+        - name: Create a temporary ChatGPT package path
+          ansible.builtin.tempfile:
+            state: file
+            prefix: linux-setup-chatgpt-
+            suffix: .deb
+          register: chatgpt_package
+
+        - name: Download the pinned official ChatGPT package
+          ansible.builtin.get_url:
+            url: "{{ chatgpt.url }}"
+            dest: "{{ chatgpt_package.path }}"
+            checksum: "sha256:{{ chatgpt.sha256 }}"
+            mode: "0600"
+            force: true
+
+        - name: Install the pinned official ChatGPT package
+          ansible.builtin.apt:
+            deb: "{{ chatgpt_package.path }}"
+            state: present
+            fail_on_autoremove: true
+            allow_unauthenticated: false
+            lock_timeout: 300
+          become: true
+      always:
+        - name: Remove the temporary ChatGPT package
+          ansible.builtin.file:
+            path: "{{ chatgpt_package.path | default('/tmp/linux-setup-chatgpt-not-created') }}"
+            state: absent
+          when: chatgpt_package is defined and chatgpt_package.path is defined
+
+    - name: Verify the installed official ChatGPT package repository
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - "{{ chatgpt.key_path }}"
+        - "{{ chatgpt.source_path }}"
+        - "{{ chatgpt.defaults_path }}"
+      register: installed_chatgpt_repository_paths
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Require the exact official ChatGPT package repository
+      ansible.builtin.assert:
+        that:
+          - installed_chatgpt_repository_paths.results[0].stat.isreg | default(false)
+          - not (installed_chatgpt_repository_paths.results[0].stat.islnk | default(false))
+          - installed_chatgpt_repository_paths.results[0].stat.checksum | default('') == chatgpt.key_sha256
+          - installed_chatgpt_repository_paths.results[1].stat.isreg | default(false)
+          - not (installed_chatgpt_repository_paths.results[1].stat.islnk | default(false))
+          - installed_chatgpt_repository_paths.results[1].stat.checksum | default('') == chatgpt.source_sha256
+          - installed_chatgpt_repository_paths.results[2].stat.isreg | default(false)
+          - not (installed_chatgpt_repository_paths.results[2].stat.islnk | default(false))
+          - installed_chatgpt_repository_paths.results[2].stat.checksum | default('') == chatgpt.defaults_sha256
+        fail_msg: "Official ChatGPT package repository does not match the reviewed package; stop before APT refresh."
+        quiet: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
     - name: Configure verified core vendor repositories
       ansible.builtin.include_tasks:
         file: tasks/vendor_repositories.yml
@@ -853,6 +981,7 @@
     - name: Show the two remaining manual application steps
       ansible.builtin.debug:
         msg:
+          - "ChatGPT launch command: chatgpt. Sign-in stays manual; Linux uses XWayland by default while native Wayland support matures."
           - "Extension Manager launch command: extension-manager"
           - "LibrePods launch command: librepods. Pair AirPods in GNOME Bluetooth first; autostart and Apple VendorID spoofing stay off."
           - "Upscayl launch test: run vulkaninfo --summary, then flatpak run org.upscayl.Upscayl and upscale one small image. Intel HD 6000 support is not guaranteed."
