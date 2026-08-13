@@ -13,7 +13,9 @@
     boot_branding_logo_path: >-
       {{ boot_branding_logo_source |
          default(playbook_dir ~ '/assets/boot-branding/mrdemonwolf-logo.png') }}
-    boot_branding_logo_sha256: a2f33874bac053cd508a7f68cf57117dacf40f983e8a0286c2fee1579ebe23f4
+    boot_branding_logo_sha256: 860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406
+    boot_branding_watermark_horizontal_alignment: '.5'
+    boot_branding_watermark_vertical_alignment: '.34'
     boot_branding_alternative_priority: 100
     boot_branding_marker_content: |
       Managed by nathanialhenniges/linux-setup boot action.
@@ -380,6 +382,12 @@
             boot_branding_source_descriptor_text |
             regex_findall('(?m)^ImageDir=/usr/share/plymouth/themes/+spinner$') |
             length == 1
+          - >-
+            boot_branding_source_descriptor_text |
+            regex_findall('(?m)^WatermarkHorizontalAlignment=.*$') | length == 1
+          - >-
+            boot_branding_source_descriptor_text |
+            regex_findall('(?m)^WatermarkVerticalAlignment=.*$') | length == 1
           - boot_branding_source_theme_dir ~ '/bullet.png' in boot_branding_source_file_paths
           - boot_branding_source_theme_dir ~ '/entry.png' in boot_branding_source_file_paths
           - boot_branding_source_theme_dir ~ '/lock.png' in boot_branding_source_file_paths
@@ -413,7 +421,13 @@
              regex_replace('(?m)^Description=.*$',
                            'Description=MrDemonWolf branded Ubuntu boot splash.') |
              regex_replace('(?m)^ImageDir=.*$',
-                           'ImageDir=' ~ boot_branding_theme_dir) }}
+                           'ImageDir=' ~ boot_branding_theme_dir) |
+             regex_replace('(?m)^WatermarkHorizontalAlignment=.*$',
+                           'WatermarkHorizontalAlignment=' ~
+                           boot_branding_watermark_horizontal_alignment) |
+             regex_replace('(?m)^WatermarkVerticalAlignment=.*$',
+                           'WatermarkVerticalAlignment=' ~
+                           boot_branding_watermark_vertical_alignment) }}
         boot_branding_clone_files: >-
           {{ boot_branding_source_files.files |
              rejectattr('path', 'equalto', boot_branding_source_descriptor) |
@@ -632,6 +646,16 @@
             regex_findall('(?m)^ImageDir=' ~
                           (boot_branding_theme_dir | regex_escape) ~ '$') |
             length == 1
+          - >-
+            (boot_branding_completed_descriptor_content.content | b64decode) |
+            regex_findall('(?m)^WatermarkHorizontalAlignment=' ~
+                          (boot_branding_watermark_horizontal_alignment |
+                           regex_escape) ~ '$') | length == 1
+          - >-
+            (boot_branding_completed_descriptor_content.content | b64decode) |
+            regex_findall('(?m)^WatermarkVerticalAlignment=' ~
+                          (boot_branding_watermark_vertical_alignment |
+                           regex_escape) ~ '$') | length == 1
         fail_msg: "Managed Plymouth theme validation failed; it was not activated."
         quiet: true
       when: not ansible_check_mode

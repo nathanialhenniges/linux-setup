@@ -54,7 +54,8 @@ if grep -Fq 'cd ~/Developer/nathanialhenniges/linux-setup' "$readme" &&
    grep -Fq './setup.sh keybinds && ./setup.sh verify' "$readme" &&
    grep -Fq 'Resume after a stopped action' "$readme" &&
    grep -Fq 'Manual acceptance checklist' "$readme" &&
-   grep -Fq 'Do not run `./setup.sh boot` yet' "$readme" &&
+   grep -Fq '240 x 240 px' "$readme" &&
+   grep -Fq 'WatermarkVerticalAlignment=.34' "$readme" &&
    grep -Fq 'paste the complete error output' "$readme" &&
    grep -Fq 'Do not manually delete or edit APT source files' "$readme"; then
   pass 'README is the complete MBA setup and recovery guide'
@@ -200,7 +201,10 @@ if grep -A24 -F 'run_boot() {' "$setup" | grep -Fq -- '--tags boot' &&
    grep -Fq "when: setup_action == 'boot'" "$repo_dir/site.yml" &&
    grep -Fq 'file: tasks/boot_branding.yml' "$repo_dir/site.yml" &&
    grep -Fxq '  - boot' "$repo_dir/vars.yml" &&
-   [[ "$(shasum -a 256 "$repo_dir/assets/boot-branding/mrdemonwolf-logo.png" | awk '{print $1}')" == 'a2f33874bac053cd508a7f68cf57117dacf40f983e8a0286c2fee1579ebe23f4' ]] &&
+   [[ "$(shasum -a 256 "$repo_dir/assets/boot-branding/mrdemonwolf-logo.png" | awk '{print $1}')" == '860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406' ]] &&
+   file "$repo_dir/assets/boot-branding/mrdemonwolf-logo.png" | grep -Fq 'PNG image data, 240 x 240' &&
+   grep -Fq "boot_branding_watermark_horizontal_alignment: '.5'" "$repo_dir/tasks/boot_branding.yml" &&
+   grep -Fq "boot_branding_watermark_vertical_alignment: '.34'" "$repo_dir/tasks/boot_branding.yml" &&
    grep -Fq 'boot_branding_requested_mode in' "$repo_dir/tasks/boot_branding.yml" &&
    grep -Fq 'Skipping boot branding on an unsupported TPM-backed FDE or UKI layout' "$repo_dir/tasks/boot_branding.yml" &&
    grep -Fq 'Refusing unmanaged Plymouth theme directory' "$repo_dir/tasks/boot_branding.yml" &&

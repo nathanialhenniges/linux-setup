@@ -14,7 +14,7 @@ FROM ubuntu:26.04
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends \
-      ansible-core plymouth plymouth-theme-spinner python3-apt sudo \
+      ansible-core file plymouth plymouth-theme-spinner python3-apt sudo \
  && find /usr/share/plymouth/themes/spinner -maxdepth 1 -type f \
       \( -name 'animation-*.png' -o -name 'throbber-*.png' \) \
       ! -name '*-0001.png' -delete \
@@ -63,6 +63,9 @@ test "$(readlink -f /usr/share/plymouth/themes/default.plymouth)" = \
   "$theme/mrdemonwolf.plymouth"
 grep -Fxq 'ModuleName=two-step' "$theme/mrdemonwolf.plymouth"
 grep -Fxq "ImageDir=$theme" "$theme/mrdemonwolf.plymouth"
+grep -Fxq 'WatermarkHorizontalAlignment=.5' "$theme/mrdemonwolf.plymouth"
+grep -Fxq 'WatermarkVerticalAlignment=.34' "$theme/mrdemonwolf.plymouth"
+file "$theme/watermark.png" | grep -Fq 'PNG image data, 240 x 240'
 cmp /usr/share/plymouth/themes/spinner/bullet.png "$theme/bullet.png"
 cmp /usr/share/plymouth/themes/spinner/entry.png "$theme/entry.png"
 cmp /usr/share/plymouth/themes/spinner/lock.png "$theme/lock.png"
