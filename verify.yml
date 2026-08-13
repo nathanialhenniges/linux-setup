@@ -62,6 +62,70 @@
         missing_base_packages: "{{ base_packages | difference(ansible_facts.packages.keys() | list) }}"
         missing_core_app_packages: "{{ core_app_packages | difference(ansible_facts.packages.keys() | list) }}"
 
+    - name: Inspect reviewed Dock launcher candidates
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: true
+      loop: "{{ gnome_dock_favorite_candidates }}"
+      loop_control:
+        label: "{{ item.desktop_id }}"
+      register: verified_gnome_dock_candidate_launchers
+
+    - name: Read GNOME Dock favorites
+      ansible.builtin.command:
+        argv: [gsettings, get, org.gnome.shell, favorite-apps]
+      register: verified_gnome_dock_favorites
+      changed_when: false
+      failed_when: false
+
+    - name: Read GNOME Dock icon size
+      ansible.builtin.command:
+        argv: [gsettings, get, org.gnome.shell.extensions.dash-to-dock, dash-max-icon-size]
+      register: verified_gnome_dock_icon_size
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect applied personal images
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - path: "{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png"
+          sha256: 1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840
+        - path: "{{ workstation_home }}/Pictures/Profile Pictures/nathanial-henniges-profile-picture.jpg"
+          sha256: 1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673
+        - path: "/var/lib/AccountsService/icons/{{ workstation_user }}"
+          sha256: 1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673
+      loop_control:
+        label: "{{ item.path }}"
+      register: verified_personal_images
+
+    - name: Read applied GNOME wallpaper values
+      ansible.builtin.command:
+        argv: [gsettings, get, "{{ item.schema }}", "{{ item.key }}"]
+      loop:
+        - { schema: org.gnome.desktop.background, key: picture-uri, value: "'file://{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png'" }
+        - { schema: org.gnome.desktop.background, key: picture-uri-dark, value: "'file://{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png'" }
+        - { schema: org.gnome.desktop.background, key: picture-options, value: "'zoom'" }
+      register: verified_wallpaper_values
+      changed_when: false
+      failed_when: false
+
+    - name: Read applied Ubuntu profile picture
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/busctl
+          - --system
+          - get-property
+          - org.freedesktop.Accounts
+          - "/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}"
+          - org.freedesktop.Accounts.User
+          - IconFile
+      register: verified_profile_picture
+      changed_when: false
+      failed_when: false
+
     - name: Inspect the Snap executable
       ansible.builtin.stat:
         path: /usr/bin/snap
@@ -126,6 +190,21 @@
           - --show-origin
           - tv.plex.PlexDesktop
       register: verified_plex_flatpak
+      changed_when: false
+      failed_when: false
+      when:
+        - verified_flatpak_executable.stat.isreg | default(false)
+        - verified_flatpak_executable.stat.executable | default(false)
+
+    - name: Check whether Cider is installed from Flathub
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - info
+          - --system
+          - --show-origin
+          - sh.cider.Cider
+      register: verified_cider_flatpak
       changed_when: false
       failed_when: false
       when:
@@ -486,6 +565,14 @@
       changed_when: false
       failed_when: false
 
+    - name: Calculate installed reviewed Dock favorites
+      ansible.builtin.set_fact:
+        verified_installed_gnome_dock_favorites: >-
+          {{ verified_gnome_dock_candidate_launchers.results |
+             selectattr('stat.isreg', 'defined') |
+             selectattr('stat.isreg') |
+             map(attribute='item.desktop_id') | list | unique }}
+
     - name: Calculate workstation readiness
       ansible.builtin.set_fact:
         prompt_ready: >-
@@ -539,6 +626,9 @@
         plex_ready: >-
           {{ verified_plex_flatpak.rc | default(1) == 0 and
              verified_plex_flatpak.stdout | default('') | trim == core_flatpak_remote.name }}
+        cider_ready: >-
+          {{ verified_cider_flatpak.rc | default(1) == 0 and
+             verified_cider_flatpak.stdout | default('') | trim == core_flatpak_remote.name }}
         upscayl_legacy_routes_ready: >-
           {{ 'upscayl' not in ansible_facts.packages and
              verified_legacy_upscayl_snaps.rc | default(1) == 0 and
@@ -557,6 +647,27 @@
              workstation_files.results[11].stat.checksum | default('') == (librepods.desktop_entry | hash('sha256')) }}
         chatgpt_ready: >-
           {{ 'chatgpt' in ansible_facts.packages and chatgpt_repository_ready }}
+        gnome_dock_ready: >-
+          {{ verified_gnome_dock_favorites.rc | default(1) == 0 and
+             verified_gnome_dock_icon_size.rc | default(1) == 0 and
+             verified_gnome_dock_icon_size.stdout | default('') == '32' and
+             (verified_gnome_dock_favorites.stdout |
+              regex_replace('^@as ', '') | from_yaml)[0:verified_installed_gnome_dock_favorites | length] ==
+             verified_installed_gnome_dock_favorites }}
+        desktop_images_ready: >-
+          {{ verified_personal_images.results | length == 3 and
+             verified_personal_images.results |
+             selectattr('stat.isreg', 'defined') |
+             selectattr('stat.isreg') | list | length == 3 and
+             verified_personal_images.results[0].stat.checksum | default('') == verified_personal_images.results[0].item.sha256 and
+             verified_personal_images.results[1].stat.checksum | default('') == verified_personal_images.results[1].item.sha256 and
+             verified_personal_images.results[2].stat.checksum | default('') == verified_personal_images.results[2].item.sha256 and
+             verified_wallpaper_values.results | length == 3 and
+             verified_wallpaper_values.results[0].stdout | default('') == verified_wallpaper_values.results[0].item.value and
+             verified_wallpaper_values.results[1].stdout | default('') == verified_wallpaper_values.results[1].item.value and
+             verified_wallpaper_values.results[2].stdout | default('') == verified_wallpaper_values.results[2].item.value and
+             verified_profile_picture.rc | default(1) == 0 and
+             verified_profile_picture.stdout | default('') == 's "/var/lib/AccountsService/icons/' ~ workstation_user ~ '"' }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and
@@ -590,6 +701,8 @@
           - "SELECTED CLI TOOLS {{ 'ready' if selected_tools_ready else 'needs tools action' }}"
           - "MACOS KEY SERVICES {{ 'ready; run manual checklist' if macos_keys_ready else 'needs Focused Window D-Bus + keybinds action' }}"
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
+          - "GNOME DOCK         {{ '32px; reviewed apps pinned' if gnome_dock_ready else 'needs gnome action' }}"
+          - "DESKTOP IMAGES     {{ 'wallpaper and profile ready' if desktop_images_ready else 'needs gnome action' }}"
           - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"
           - "DESKTOP DOTFILES   {{ 'ready' if dotfiles_ready else 'needs dotfiles action or review' }}"
           - "1PASSWORD          {{ 'installed' if '1password' in ansible_facts.packages else 'not installed' }}"
@@ -606,6 +719,7 @@
           - "CLOUDFLARE WARP    {{ 'installed; enrollment manual' if 'cloudflare-warp' in ansible_facts.packages else 'needs apps action' }}"
           - "DISCORD            {{ 'installed' if 'discord' in ansible_facts.packages else 'manual official .deb' }}"
           - "PLEX DESKTOP       {{ 'installed; launch test manual' if plex_ready else 'needs apps action' }}"
+          - "CIDER              {{ 'installed; license and Apple sign-in manual' if cider_ready else 'needs apps action' }}"
 
     - name: Require the completed core workstation state
       ansible.builtin.assert:
@@ -616,6 +730,8 @@
           - prompt_ready
           - font_ready
           - terminal_ready
+          - gnome_dock_ready
+          - desktop_images_ready
           - shell_ready
           - dotfiles_ready
           - core_sources_ready
@@ -624,6 +740,7 @@
           - upscayl_legacy_routes_ready
           - telegram_ready
           - plex_ready
+          - cider_ready
           - chatgpt_ready
         fail_msg: "Core setup is incomplete. Run the action named by the status board, then verify again."
         success_msg: "Core Ubuntu workstation setup is verified."

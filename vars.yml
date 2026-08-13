@@ -7,6 +7,7 @@ supported_actions:
   - terminal
   - dotfiles
   - gnome
+  - boot
 
 base_packages:
   - ca-certificates
@@ -55,6 +56,7 @@ core_flatpak_remote:
 core_flatpak_packages:
   - org.telegram.desktop
   - org.upscayl.Upscayl
+  - sh.cider.Cider
   - tv.plex.PlexDesktop
 
 chatgpt:
@@ -256,3 +258,21 @@ gnome_settings:
   - schema: org.gnome.shell.extensions.dash-to-dock
     key: dock-fixed
     value: "true"
+  - schema: org.gnome.shell.extensions.dash-to-dock
+    key: dash-max-icon-size
+    value: "32"
+
+gnome_dock_favorite_candidates:
+  - { desktop_id: org.gnome.Nautilus.desktop, path: /usr/share/applications/org.gnome.Nautilus.desktop }
+  - { desktop_id: google-chrome.desktop, path: /usr/share/applications/google-chrome.desktop }
+  - { desktop_id: discord.desktop, path: /usr/share/applications/discord.desktop }
+  - { desktop_id: 1password.desktop, path: /usr/share/applications/1password.desktop }
+  - { desktop_id: com.anthropic.Claude.desktop, path: /usr/share/applications/com.anthropic.Claude.desktop }
+  - { desktop_id: chatgpt.desktop, path: /usr/share/applications/chatgpt.desktop }
+  - { desktop_id: sh.cider.Cider.desktop, path: /var/lib/flatpak/exports/share/applications/sh.cider.Cider.desktop }
+  - { desktop_id: org.telegram.desktop.desktop, path: /var/lib/flatpak/exports/share/applications/org.telegram.desktop.desktop }
+  - { desktop_id: com.mitchellh.ghostty.desktop, path: /usr/share/applications/com.mitchellh.ghostty.desktop }
+  - { desktop_id: librepods.desktop, path: "{{ workstation_home }}/.local/share/applications/librepods.desktop" }
+  - { desktop_id: tv.plex.PlexDesktop.desktop, path: /var/lib/flatpak/exports/share/applications/tv.plex.PlexDesktop.desktop }
+  - { desktop_id: code.desktop, path: /usr/share/applications/code.desktop }
+  - { desktop_id: postman_postman.desktop, path: /var/lib/snapd/desktop/applications/postman_postman.desktop }

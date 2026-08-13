@@ -39,6 +39,7 @@ if [[ -f "$notices" ]] &&
    grep -Fq '7d6904cf64dee3bb52f1cea75040ae943bc8fe32' "$notices" &&
    grep -Fq 'focused-window-dbus' "$notices" &&
    grep -Fq 'org.telegram.desktop' "$notices" &&
+   grep -Fq 'sh.cider.Cider' "$notices" &&
    grep -Fq 'tv.plex.PlexDesktop' "$notices"; then
   pass 'third-party notices cover reviewed artifacts and sources'
 else
@@ -130,7 +131,7 @@ if grep -Fq 'start_toshy_services' "$setup" &&
    grep -Fq 'verified_toshy_enabled.results' "$repo_dir/verify.yml" &&
    grep -Fq 'ansible_facts.env.WAYLAND_DISPLAY' "$repo_dir/verify.yml" &&
    grep -Fq 'MACOS KEY SERVICES' "$repo_dir/verify.yml" &&
-   grep -A12 -F 'Require the completed core workstation state' "$repo_dir/verify.yml" | grep -Fq 'macos_keys_ready'; then
+   grep -A18 -F 'Require the completed core workstation state' "$repo_dir/verify.yml" | grep -Fq 'macos_keys_ready'; then
   pass 'macOS key services are repaired, checked, and required'
 else
   fail 'macOS key runtime boundary'
@@ -162,7 +163,7 @@ else
 fi
 
 if grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome keybinds)' "$setup" &&
-   grep -Fq 'bootstrap | all | status | verify | sources | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)' "$setup" &&
+   grep -Fq 'bootstrap | all | status | verify | sources | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds | boot | boot-reset)' "$setup" &&
    grep -Fq "\"\$repo_dir/setup.sh\" bootstrap || die \"all stopped at bootstrap" "$setup" &&
    grep -Fq "[[ \"\$dry_run\" == false ]] || command+=(--dry-run)" "$setup" &&
    grep -Fq 'final_step="status"' "$setup" &&
@@ -171,6 +172,26 @@ if grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome k
   pass 'all sequences only reviewed actions and preserves dry-run safety'
 else
   fail 'all action orchestration'
+fi
+
+# shellcheck disable=SC2016 # Assert the wrapper contains the literal mode expansion.
+if grep -A24 -F 'run_boot() {' "$setup" | grep -Fq -- '--tags boot' &&
+   grep -A24 -F 'run_boot() {' "$setup" | grep -Fq -- '-e setup_action=boot' &&
+   grep -A24 -F 'run_boot() {' "$setup" | grep -Fq -- '-e "boot_branding_mode=$mode"' &&
+   grep -A24 -F 'run_boot() {' "$setup" | grep -Fq 'require_classic_sudo' &&
+   grep -Fq 'boot) run_boot apply ;;' "$setup" &&
+   grep -Fq 'boot-reset) run_boot rollback ;;' "$setup" &&
+   grep -Fq "when: setup_action == 'boot'" "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/boot_branding.yml' "$repo_dir/site.yml" &&
+   grep -Fxq '  - boot' "$repo_dir/vars.yml" &&
+   [[ "$(shasum -a 256 "$repo_dir/assets/boot-branding/mrdemonwolf-logo.png" | awk '{print $1}')" == 'a2f33874bac053cd508a7f68cf57117dacf40f983e8a0286c2fee1579ebe23f4' ]] &&
+   grep -Fq 'boot_branding_requested_mode in' "$repo_dir/tasks/boot_branding.yml" &&
+   grep -Fq 'Skipping boot branding on an unsupported TPM-backed FDE or UKI layout' "$repo_dir/tasks/boot_branding.yml" &&
+   grep -Fq 'Refusing unmanaged Plymouth theme directory' "$repo_dir/tasks/boot_branding.yml" &&
+   [[ -x "$repo_dir/tests/test-boot-branding-docker.sh" ]]; then
+  pass 'Plymouth branding is opt-in, reversible, checksum-pinned, and excluded from all'
+else
+  fail 'Plymouth boot-branding boundary'
 fi
 
 claude_preflight_call_line="$(grep -n -m1 -F '  repair_known_claude_source_conflict' "$setup" | cut -d: -f1 || true)"
@@ -220,7 +241,7 @@ flatpak_package_manifest="$(awk '
 ' "$repo_dir/vars.yml")"
 if [[ "$app_package_manifest" == "$expected_app_packages" ]] &&
    grep -A1 -F 'core_snap_packages:' "$repo_dir/vars.yml" | grep -Fq '  - postman' &&
-   [[ "$flatpak_package_manifest" == $'org.telegram.desktop\norg.upscayl.Upscayl\ntv.plex.PlexDesktop' ]] &&
+   [[ "$flatpak_package_manifest" == $'org.telegram.desktop\norg.upscayl.Upscayl\nsh.cider.Cider\ntv.plex.PlexDesktop' ]] &&
    ! grep -Eq '^  - (dbeaver|localwp|rpi-imager)$' "$repo_dir/vars.yml" &&
    ! grep -Fq '  - optional' "$repo_dir/vars.yml" &&
    ! grep -Fq 'keybinds | optional' "$setup"; then
@@ -242,6 +263,10 @@ if grep -Fq 'Check whether Telegram is installed from Flathub' "$repo_dir/verify
    grep -Fq 'PLEX DESKTOP       ' "$repo_dir/verify.yml" &&
    grep -Fq 'flatpak run org.telegram.desktop' "$repo_dir/README.md" &&
    grep -Fq 'flatpak run tv.plex.PlexDesktop' "$repo_dir/README.md" &&
+   grep -Fq 'Check whether Cider is installed from Flathub' "$repo_dir/verify.yml" &&
+   grep -Fq 'cider_ready:' "$repo_dir/verify.yml" &&
+   grep -Fq 'CIDER              ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - cider_ready' "$repo_dir/verify.yml" &&
    grep -Fq 'sudo apt install rpi-imager' "$repo_dir/README.md" &&
    grep -Fq 'one site at a time' "$repo_dir/README.md"; then
   pass 'selected desktop app routes are explicit and verifiable'
@@ -322,6 +347,52 @@ if grep -A1 -F 'key: dock-fixed' "$repo_dir/vars.yml" | grep -Fq 'value: "true"'
   pass 'Ubuntu Dock stays visible'
 else
   fail 'Ubuntu Dock visibility preference'
+fi
+
+dock_favorite_manifest="$(awk '
+  /^gnome_dock_favorite_candidates:/ { capture=1; next }
+  capture && /^[[:alnum:]_]+:/ { exit }
+  capture && /desktop_id:/ {
+    sub(/^.*desktop_id: /, "")
+    sub(/,.*/, "")
+    print
+  }
+' "$repo_dir/vars.yml")"
+expected_dock_favorites=$'org.gnome.Nautilus.desktop\ngoogle-chrome.desktop\ndiscord.desktop\n1password.desktop\ncom.anthropic.Claude.desktop\nchatgpt.desktop\nsh.cider.Cider.desktop\norg.telegram.desktop.desktop\ncom.mitchellh.ghostty.desktop\nlibrepods.desktop\ntv.plex.PlexDesktop.desktop\ncode.desktop\npostman_postman.desktop'
+if grep -A1 -F 'key: dash-max-icon-size' "$repo_dir/vars.yml" | grep -Fq 'value: "32"' &&
+   [[ "$dock_favorite_manifest" == "$expected_dock_favorites" ]] &&
+   grep -Fq 'gnome_dock_favorite_candidates:' "$repo_dir/vars.yml" &&
+   grep -Fq 'Inspect reviewed Dock launcher candidates' "$repo_dir/site.yml" &&
+   grep -Fq 'Build additive GNOME Dock favorites' "$repo_dir/site.yml" &&
+   grep -Fq 'Pin installed reviewed applications to the GNOME Dock' "$repo_dir/site.yml" &&
+   grep -A10 -F 'Parse current GNOME Dock favorites' "$repo_dir/site.yml" | grep -Fq 'current_gnome_dock_favorites.stdout' &&
+   grep -A16 -F 'Build additive GNOME Dock favorites' "$repo_dir/site.yml" | grep -Fq '| unique' &&
+   grep -Fq 'Require applied GNOME Dock favorites' "$repo_dir/site.yml" &&
+   grep -Fq 'gnome_dock_ready:' "$repo_dir/verify.yml" &&
+   grep -A8 -F 'gnome_dock_ready:' "$repo_dir/verify.yml" | grep -Fq '[0:verified_installed_gnome_dock_favorites | length]' &&
+   grep -Fq 'GNOME DOCK         ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - gnome_dock_ready' "$repo_dir/verify.yml" &&
+   grep -Fq '32 px' "$repo_dir/README.md"; then
+  pass 'GNOME Dock pins installed reviewed apps additively at the MBP-sized icon setting'
+else
+  fail 'GNOME Dock favorites and icon-size policy'
+fi
+
+if [[ "$(shasum -a 256 "$repo_dir/assets/mrdemonwolf-desktop-wallpaper.png" | awk '{print $1}')" == '1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840' ]] &&
+   [[ "$(shasum -a 256 "$repo_dir/assets/nathanial-henniges-profile-picture.jpg" | awk '{print $1}')" == '1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673' ]] &&
+   grep -Fq 'Install and apply reviewed personal desktop images' "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/desktop_personalization.yml' "$repo_dir/site.yml" &&
+   grep -Fq 'picture-uri-dark' "$repo_dir/tasks/desktop_personalization.yml" &&
+   grep -Fq 'SetIconFile' "$repo_dir/tasks/desktop_personalization.yml" &&
+   grep -Fq 'desktop_images_ready:' "$repo_dir/verify.yml" &&
+   grep -Fq 'DESKTOP IMAGES     ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - desktop_images_ready' "$repo_dir/verify.yml" &&
+   grep -Fq '/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}' "$repo_dir/tasks/desktop_personalization.yml" &&
+   grep -A18 -F 'Set current Ubuntu user profile picture through AccountsService' "$repo_dir/tasks/desktop_personalization.yml" | grep -Fq 'become: true' &&
+   grep -A24 -F 'Set current Ubuntu user profile picture through AccountsService' "$repo_dir/tasks/desktop_personalization.yml" | grep -Fq 'not ansible_check_mode'; then
+  pass 'reviewed wallpaper and Ubuntu profile picture apply safely'
+else
+  fail 'desktop image personalization policy'
 fi
 
 if grep -A5 -F 'Make Ghostty the Ubuntu default terminal' "$repo_dir/site.yml" |
@@ -539,7 +610,8 @@ if command -v ansible-playbook >/dev/null 2>&1; then
   if (cd "$repo_dir" &&
       ansible-playbook site.yml --list-tasks --tags dotfiles -e setup_action=dotfiles >/dev/null &&
       ansible-playbook site.yml --list-tasks --tags apps -e setup_action=apps >/dev/null &&
-      ansible-playbook site.yml --list-tasks --tags tools -e setup_action=tools >/dev/null); then
+      ansible-playbook site.yml --list-tasks --tags tools -e setup_action=tools >/dev/null &&
+      ansible-playbook site.yml --list-tasks --tags boot -e setup_action=boot >/dev/null); then
     pass 'tagged task graph resolves'
   else
     fail 'tagged task graph'

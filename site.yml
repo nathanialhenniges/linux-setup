@@ -1017,6 +1017,7 @@
           - "Telegram launch command: flatpak run org.telegram.desktop. Sign-in stays manual; leave launch at login disabled."
           - "Upscayl launch test: run vulkaninfo --summary, then flatpak run org.upscayl.Upscayl and upscale one small image. Intel HD 6000 support is not guaranteed."
           - "Plex launch command: flatpak run tv.plex.PlexDesktop. Test local discovery with WARP; keep Plex, OBS, and Upscayl from running together."
+          - "Cider launch command: flatpak run sh.cider.Cider. License activation and Apple sign-in stay manual; autostart stays off."
           - "Discord stays manual: download its official .deb from https://discord.com/download and open it with App Center."
           - "LocalWP and Raspberry Pi Imager stay on-demand; Chrome PWAs and replacement workflows stay manual."
           - "Account sign-ins and Cloudflare enrollment remain manual."
@@ -1342,6 +1343,14 @@
         - ansible_facts.getent_passwd[workstation_user][-1] not in ['/bin/zsh', '/usr/bin/zsh']
       tags: dotfiles
 
+    - name: Apply or roll back the reviewed Plymouth boot branding
+      ansible.builtin.include_tasks:
+        file: tasks/boot_branding.yml
+        apply:
+          tags: boot
+      when: setup_action == 'boot'
+      tags: boot
+
     - name: Require a live Ubuntu desktop session for GNOME settings
       ansible.builtin.assert:
         that:
@@ -1353,6 +1362,114 @@
         fail_msg: "Run the gnome action from a terminal inside the logged-in Ubuntu desktop session."
         quiet: true
       when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Install and apply reviewed personal desktop images
+      ansible.builtin.include_tasks:
+        file: tasks/desktop_personalization.yml
+        apply:
+          tags: gnome
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Inspect reviewed Dock launcher candidates
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: true
+      loop: "{{ gnome_dock_favorite_candidates }}"
+      loop_control:
+        label: "{{ item.desktop_id }}"
+      register: gnome_dock_candidate_launchers
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Record installed reviewed Dock launchers
+      ansible.builtin.set_fact:
+        installed_gnome_dock_favorites: >-
+          {{ gnome_dock_candidate_launchers.results |
+             selectattr('stat.isreg', 'defined') |
+             selectattr('stat.isreg') |
+             map(attribute='item.desktop_id') | list | unique }}
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Read current GNOME Dock favorites
+      ansible.builtin.command:
+        argv: [gsettings, get, org.gnome.shell, favorite-apps]
+      register: current_gnome_dock_favorites
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Require readable GNOME Dock favorites
+      ansible.builtin.assert:
+        that:
+          - current_gnome_dock_favorites.rc == 0
+        fail_msg: "Could not read GNOME Dock favorites; no Dock pins were changed."
+        quiet: true
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Parse current GNOME Dock favorites
+      ansible.builtin.set_fact:
+        current_gnome_dock_favorite_ids: >-
+          {{ current_gnome_dock_favorites.stdout |
+             regex_replace('^@as ', '') | from_yaml }}
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Build additive GNOME Dock favorites
+      ansible.builtin.set_fact:
+        desired_gnome_dock_favorites: >-
+          {{ (installed_gnome_dock_favorites + current_gnome_dock_favorite_ids) | unique }}
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Preview GNOME Dock favorite additions
+      ansible.builtin.debug:
+        msg: "Would pin installed reviewed apps while preserving current Dock favorites: {{ desired_gnome_dock_favorites | join(', ') }}"
+      changed_when: true
+      when:
+        - setup_action == 'gnome'
+        - ansible_check_mode
+        - current_gnome_dock_favorite_ids != desired_gnome_dock_favorites
+      tags: gnome
+
+    - name: Pin installed reviewed applications to the GNOME Dock
+      ansible.builtin.command:
+        argv: [gsettings, set, org.gnome.shell, favorite-apps, "{{ desired_gnome_dock_favorites | string }}"]
+      changed_when: true
+      when:
+        - setup_action == 'gnome'
+        - not ansible_check_mode
+        - current_gnome_dock_favorite_ids != desired_gnome_dock_favorites
+      tags: gnome
+
+    - name: Read applied GNOME Dock favorites
+      ansible.builtin.command:
+        argv: [gsettings, get, org.gnome.shell, favorite-apps]
+      register: applied_gnome_dock_favorites
+      changed_when: false
+      failed_when: false
+      when:
+        - setup_action == 'gnome'
+        - not ansible_check_mode
+      tags: gnome
+
+    - name: Require applied GNOME Dock favorites
+      ansible.builtin.assert:
+        that:
+          - applied_gnome_dock_favorites.rc == 0
+          - >-
+            (applied_gnome_dock_favorites.stdout |
+             regex_replace('^@as ', '') | from_yaml) == desired_gnome_dock_favorites
+        fail_msg: "GNOME did not retain the requested additive Dock favorites."
+        quiet: true
+      when:
+        - setup_action == 'gnome'
+        - not ansible_check_mode
       tags: gnome
 
     - name: Read current GNOME values
