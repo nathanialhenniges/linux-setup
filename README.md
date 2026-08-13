@@ -137,7 +137,7 @@ GNOME's built-in screenshot and recording UI replaces Shottr. Files plus SFTP re
 
 This 8 GB machine should not keep LocalWP, Chrome PWAs, Claude, Discord, Postman, and VS Code open together. Do not run OBS capture, Upscayl processing, and Plex playback together. If Plex cannot discover local servers while WARP is connected, review Cloudflare local-network access or split-tunnel policy before changing Plex.
 
-The `gnome` action uses 32 px Dock icons for the MBA's 1366×768 display. It puts installed reviewed launchers first in the Mac-like order—Files, Chrome, Telegram (Messages replacement), Discord, Notion, Claude, ChatGPT, Cider, Ghostty, LibrePods, Plex, VS Code, Postman, Docs, Drive, Sheets, Slides, and Quo—then preserves every unrelated favorite. It explicitly removes 1Password from favorites because the MBP screenshot showed it running, not pinned; the application stays installed. Safari was also only running and has no Ubuntu pin. A native or managed launcher must exist before it is pinned.
+The `gnome` action uses 32 px Dock icons for the MBA's 1366×768 display. It puts installed reviewed launchers first in the Mac-like order—Files, Chrome, Discord, Notion, Claude, ChatGPT, Cider, Ghostty, VS Code, and Postman—then preserves every unrelated favorite. It explicitly removes 1Password, Telegram, LibrePods, Plex, Docs, Drive, Sheets, Slides, and Quo from favorites while leaving them installed and visible in the app drawer. Safari was also only running and has no Ubuntu pin. A native or managed launcher must exist before it is pinned.
 
 The remaining MBP-only pins stay intentionally absent: Files already covers Finder and the selected Transmit replacement; no Reminders replacement was selected; Affinity and Xcode have no supported Linux releases; no Pixelmator Pro or Final Cut Pro replacement was selected; and DBeaver remains on-demand instead of replacing TablePro before a real database task exists.
 
@@ -179,7 +179,7 @@ Docker verifies package setup, the cloned password assets, exact activation, ide
 Automation verifies package origin and managed state. Finish these user-session and hardware checks on the MBA:
 
 - [ ] Run `./setup.sh status`, resolve every required action, then make `./setup.sh verify` pass.
-- [ ] Confirm the MrDemonWolf wallpaper, Ubuntu account photo, always-visible 32 px Dock, and installed-app pins appear correctly.
+- [ ] Confirm the MrDemonWolf wallpaper, Ubuntu account photo, always-visible 32 px Dock, and ten managed pins appear correctly. Confirm Telegram, LibrePods, Plex, Docs, Drive, Sheets, Slides, and Quo remain available from the app drawer.
 - [ ] Launch Ghostty from the Dock and confirm Ubuntu opens it as the default terminal. Confirm Chrome and 1Password still use their existing profiles; 1Password should be installed but not pinned.
 - [ ] Open ChatGPT and Claude Desktop and complete their sign-ins.
 - [ ] Open Cider, activate its license, sign in to Apple Music, and play one track. Keep `https://music.apple.com/` as the fallback.

@@ -379,7 +379,7 @@ dock_favorite_manifest="$(awk '
     print
   }
 ' "$repo_dir/vars.yml")"
-expected_dock_favorites=$'org.gnome.Nautilus.desktop\ngoogle-chrome.desktop\norg.telegram.desktop.desktop\ndiscord.desktop\nlinux-setup-notion.desktop\ncom.anthropic.Claude.desktop\nchatgpt.desktop\nsh.cider.Cider.desktop\ncom.mitchellh.ghostty.desktop\nlibrepods.desktop\ntv.plex.PlexDesktop.desktop\ncode.desktop\npostman_postman.desktop\nlinux-setup-google-docs.desktop\nlinux-setup-google-drive.desktop\nlinux-setup-google-sheets.desktop\nlinux-setup-google-slides.desktop\nlinux-setup-quo.desktop'
+expected_dock_favorites=$'org.gnome.Nautilus.desktop\ngoogle-chrome.desktop\ndiscord.desktop\nlinux-setup-notion.desktop\ncom.anthropic.Claude.desktop\nchatgpt.desktop\nsh.cider.Cider.desktop\ncom.mitchellh.ghostty.desktop\ncode.desktop\npostman_postman.desktop'
 web_app_manifest="$(awk '
   /^chrome_web_app_launchers:/ { capture=1; next }
   capture && /^[[:alnum:]_]+:/ { exit }
@@ -393,7 +393,12 @@ expected_web_apps=$'linux-setup-google-docs.desktop\nlinux-setup-google-drive.de
 if grep -A1 -F 'key: dash-max-icon-size' "$repo_dir/vars.yml" | grep -Fq 'value: "32"' &&
    [[ "$dock_favorite_manifest" == "$expected_dock_favorites" ]] &&
    [[ "$web_app_manifest" == "$expected_web_apps" ]] &&
-   grep -A2 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq '1password.desktop' &&
+   [[ "$(sed -n '/^gnome_dock_managed_unpinned_ids:/,/^gnome_dock_favorite_candidates:/p' "$repo_dir/vars.yml" | grep -c '^  - ')" == 9 ]] &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq '1password.desktop' &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq 'org.telegram.desktop.desktop' &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq 'librepods.desktop' &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq 'tv.plex.PlexDesktop.desktop' &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq 'linux-setup-quo.desktop' &&
    grep -Fq 'Install reviewed Chrome web-app launchers' "$repo_dir/site.yml" &&
    grep -Fq 'file: tasks/chrome_web_apps.yml' "$repo_dir/site.yml" &&
    grep -Fq -- '--app={{ chrome_web_app.url }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
