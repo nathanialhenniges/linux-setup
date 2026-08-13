@@ -422,6 +422,12 @@ if grep -Fq 'Install supported Ubuntu machine branding' "$repo_dir/site.yml" &&
    grep -Fq 'Set the supported pretty device name' "$repo_dir/tasks/desktop_branding.yml" &&
    grep -Fq 'org/gnome/login-screen' "$repo_dir/tasks/desktop_branding.yml" &&
    grep -Fq "logo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq 'banner-message-enable=true' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq "banner-message-text='Managed by MrDemonWolf, Inc.'" "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq 'desktop_branding_gdm_keyfile_legacy_content:' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq '[desktop_branding_gdm_keyfile_legacy_content, desktop_branding_gdm_keyfile_content]' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq '/org/gnome/login-screen/banner-message-enable' "$repo_dir/verify.yml" &&
+   grep -Fq '/org/gnome/login-screen/banner-message-text' "$repo_dir/verify.yml" &&
    grep -Fq "verified_desktop_branding_values.results[0].stdout | default('') | trim == 'Nathanials Air'" "$repo_dir/verify.yml" &&
    grep -Fq "verified_desktop_branding_values.results[1].stdout | default('') | trim ==" "$repo_dir/verify.yml" &&
    grep -Fq "verified_gdm_branding_key.content | default('') | b64decode | trim ==" "$repo_dir/verify.yml" &&

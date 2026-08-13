@@ -148,6 +148,12 @@
         - argv: [/usr/bin/dconf, read, /org/gnome/login-screen/logo]
           environment:
             DCONF_PROFILE: /etc/dconf/profile/gdm
+        - argv: [/usr/bin/dconf, read, /org/gnome/login-screen/banner-message-enable]
+          environment:
+            DCONF_PROFILE: /etc/dconf/profile/gdm
+        - argv: [/usr/bin/dconf, read, /org/gnome/login-screen/banner-message-text]
+          environment:
+            DCONF_PROFILE: /etc/dconf/profile/gdm
       register: verified_desktop_branding_values
       changed_when: false
       failed_when: false
@@ -701,14 +707,19 @@
              verified_desktop_branding_files.results[0].item.sha256 and
              verified_desktop_branding_files.results[1].stat.isreg | default(false) and
              not (verified_desktop_branding_files.results[1].stat.islnk | default(false)) and
-             verified_desktop_branding_values.results | length == 2 and
+             verified_desktop_branding_values.results | length == 4 and
              verified_desktop_branding_values.results[0].rc | default(1) == 0 and
              verified_desktop_branding_values.results[0].stdout | default('') | trim == 'Nathanials Air' and
              verified_desktop_branding_values.results[1].rc | default(1) == 0 and
              verified_desktop_branding_values.results[1].stdout | default('') | trim ==
              "'/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" and
+             verified_desktop_branding_values.results[2].rc | default(1) == 0 and
+             verified_desktop_branding_values.results[2].stdout | default('') | trim == 'true' and
+             verified_desktop_branding_values.results[3].rc | default(1) == 0 and
+             verified_desktop_branding_values.results[3].stdout | default('') | trim ==
+             "'Managed by MrDemonWolf, Inc.'" and
              verified_gdm_branding_key.content | default('') | b64decode | trim ==
-             "# Managed by nathanialhenniges/linux-setup.\n[org/gnome/login-screen]\nlogo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" }}
+             "# Managed by nathanialhenniges/linux-setup.\n[org/gnome/login-screen]\nlogo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'\nbanner-message-enable=true\nbanner-message-text='Managed by MrDemonWolf, Inc.'" }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and
@@ -744,7 +755,7 @@
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
           - "GNOME DOCK         {{ '32px; reviewed apps pinned' if gnome_dock_ready else 'needs gnome action' }}"
           - "DESKTOP IMAGES     {{ 'wallpaper and profile ready' if desktop_images_ready else 'needs gnome action' }}"
-          - "MACHINE BRANDING   {{ 'Nathanials Air; GDM logo ready' if desktop_branding_ready else 'needs gnome action' }}"
+          - "MACHINE BRANDING   {{ 'Nathanials Air; GDM logo + managed banner ready' if desktop_branding_ready else 'needs gnome action' }}"
           - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"
           - "DESKTOP DOTFILES   {{ 'ready' if dotfiles_ready else 'needs dotfiles action or review' }}"
           - "1PASSWORD          {{ 'installed' if '1password' in ansible_facts.packages else 'not installed' }}"
