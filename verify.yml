@@ -126,6 +126,38 @@
       changed_when: false
       failed_when: false
 
+    - name: Inspect supported Ubuntu machine-branding files
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - path: /usr/local/share/linux-setup/branding/mrdemonwolf-logo.png
+          sha256: 860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406
+        - path: /etc/dconf/db/gdm.d/01-linux-setup-branding
+      loop_control:
+        label: "{{ item.path }}"
+      register: verified_desktop_branding_files
+
+    - name: Read supported Ubuntu machine-branding values
+      ansible.builtin.command:
+        argv: "{{ item.argv }}"
+      environment: "{{ item.environment | default({}) }}"
+      loop:
+        - argv: [/usr/bin/hostnamectl, --pretty]
+        - argv: [/usr/bin/dconf, read, /org/gnome/login-screen/logo]
+          environment:
+            DCONF_PROFILE: /etc/dconf/profile/gdm
+      register: verified_desktop_branding_values
+      changed_when: false
+      failed_when: false
+
+    - name: Read the managed GDM branding key
+      ansible.builtin.slurp:
+        src: /etc/dconf/db/gdm.d/01-linux-setup-branding
+      register: verified_gdm_branding_key
+      when: verified_desktop_branding_files.results[1].stat.isreg | default(false)
+
     - name: Inspect the Snap executable
       ansible.builtin.stat:
         path: /usr/bin/snap
@@ -668,6 +700,22 @@
              verified_wallpaper_values.results[2].stdout | default('') == verified_wallpaper_values.results[2].item.value and
              verified_profile_picture.rc | default(1) == 0 and
              verified_profile_picture.stdout | default('') == 's "/var/lib/AccountsService/icons/' ~ workstation_user ~ '"' }}
+        desktop_branding_ready: >-
+          {{ verified_desktop_branding_files.results | length == 2 and
+             verified_desktop_branding_files.results[0].stat.isreg | default(false) and
+             not (verified_desktop_branding_files.results[0].stat.islnk | default(false)) and
+             verified_desktop_branding_files.results[0].stat.checksum | default('') ==
+             verified_desktop_branding_files.results[0].item.sha256 and
+             verified_desktop_branding_files.results[1].stat.isreg | default(false) and
+             not (verified_desktop_branding_files.results[1].stat.islnk | default(false)) and
+             verified_desktop_branding_values.results | length == 2 and
+             verified_desktop_branding_values.results[0].rc | default(1) == 0 and
+             verified_desktop_branding_values.results[0].stdout | default('') == 'MrDemonWolf, Inc.' and
+             verified_desktop_branding_values.results[1].rc | default(1) == 0 and
+             verified_desktop_branding_values.results[1].stdout | default('') ==
+             "'/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" and
+             (verified_gdm_branding_key.content | default('') | b64decode) ==
+             "# Managed by nathanialhenniges/linux-setup.\n[org/gnome/login-screen]\nlogo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'\n" }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and
@@ -703,6 +751,7 @@
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
           - "GNOME DOCK         {{ '32px; reviewed apps pinned' if gnome_dock_ready else 'needs gnome action' }}"
           - "DESKTOP IMAGES     {{ 'wallpaper and profile ready' if desktop_images_ready else 'needs gnome action' }}"
+          - "MACHINE BRANDING   {{ 'MrDemonWolf, Inc.; GDM logo ready' if desktop_branding_ready else 'needs gnome action' }}"
           - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"
           - "DESKTOP DOTFILES   {{ 'ready' if dotfiles_ready else 'needs dotfiles action or review' }}"
           - "1PASSWORD          {{ 'installed' if '1password' in ansible_facts.packages else 'not installed' }}"
@@ -732,6 +781,7 @@
           - terminal_ready
           - gnome_dock_ready
           - desktop_images_ready
+          - desktop_branding_ready
           - shell_ready
           - dotfiles_ready
           - core_sources_ready

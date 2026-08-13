@@ -1,0 +1,233 @@
+---
+- name: Define the supported Ubuntu branding boundary
+  ansible.builtin.set_fact:
+    desktop_branding_pretty_hostname: 'MrDemonWolf, Inc.'
+    desktop_branding_logo_source: "{{ playbook_dir }}/assets/boot-branding/mrdemonwolf-logo.png"
+    desktop_branding_logo_sha256: 860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406
+    desktop_branding_logo_dir: /usr/local/share/linux-setup/branding
+    desktop_branding_logo_path: /usr/local/share/linux-setup/branding/mrdemonwolf-logo.png
+    desktop_branding_gdm_profile: /etc/dconf/profile/gdm
+    desktop_branding_gdm_profile_content: |
+      user-db:user
+      system-db:gdm
+      file-db:/usr/share/gdm/greeter-dconf-defaults
+    desktop_branding_gdm_keyfile: /etc/dconf/db/gdm.d/01-linux-setup-branding
+    desktop_branding_gdm_keyfile_content: |
+      # Managed by nathanialhenniges/linux-setup.
+      [org/gnome/login-screen]
+      logo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'
+
+- name: Inspect Ubuntu branding inputs and tools
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop:
+    - { path: "{{ desktop_branding_logo_source }}", sha256: "{{ desktop_branding_logo_sha256 }}" }
+    - { path: /usr/bin/hostnamectl, executable: true }
+    - { path: /usr/bin/dconf, executable: true }
+  loop_control:
+    label: "{{ item.path }}"
+  register: desktop_branding_inputs
+
+- name: Require Ubuntu's supported branding tools and reviewed logo
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+      - not (item.stat.islnk | default(false))
+      - item.item.sha256 is not defined or item.stat.checksum == item.item.sha256
+      - item.item.executable is not defined or item.stat.executable | default(false)
+    fail_msg: "Branding input or Ubuntu tool is missing, unsafe, or unreviewed: {{ item.item.path }}"
+    quiet: true
+  loop: "{{ desktop_branding_inputs.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+
+- name: Inspect supported Ubuntu branding paths
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop:
+    - { path: /usr/local/share/linux-setup, kind: directory }
+    - { path: "{{ desktop_branding_logo_dir }}", kind: directory }
+    - { path: "{{ desktop_branding_logo_path }}", kind: file }
+    - { path: /etc/dconf/profile, kind: directory }
+    - { path: "{{ desktop_branding_gdm_profile }}", kind: file }
+    - { path: /etc/dconf/db, kind: directory }
+    - { path: /etc/dconf/db/gdm.d, kind: directory }
+    - { path: "{{ desktop_branding_gdm_keyfile }}", kind: file }
+  loop_control:
+    label: "{{ item.path }}"
+  register: desktop_branding_paths
+
+- name: Refuse unsafe Ubuntu branding paths
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - >-
+        not (item.stat.exists | default(false)) or
+        (item.item.kind == 'directory' and item.stat.isdir | default(false)) or
+        (item.item.kind == 'file' and item.stat.isreg | default(false))
+      - not (item.stat.exists | default(false)) or item.stat.uid | default(-1) == 0
+    fail_msg: "Refusing unsafe Ubuntu branding path: {{ item.item.path }}"
+    quiet: true
+  loop: "{{ desktop_branding_paths.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+
+- name: Read existing GDM branding configuration
+  ansible.builtin.slurp:
+    src: "{{ item.path }}"
+  loop:
+    - path: "{{ desktop_branding_gdm_profile }}"
+      index: 4
+    - path: "{{ desktop_branding_gdm_keyfile }}"
+      index: 7
+  loop_control:
+    label: "{{ item.path }}"
+  register: desktop_branding_existing_content
+  when: desktop_branding_paths.results[item.index].stat.isreg | default(false)
+
+- name: Require a compatible GDM profile and owned branding key
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (desktop_branding_paths.results[4].stat.isreg | default(false)) or
+        ('system-db:gdm' in
+         (desktop_branding_existing_content.results[0].content | default('') | b64decode).splitlines())
+      - >-
+        not (desktop_branding_paths.results[7].stat.isreg | default(false)) or
+        (desktop_branding_existing_content.results[1].content | default('') | b64decode) ==
+        desktop_branding_gdm_keyfile_content
+    fail_msg: "Refusing unknown GDM profile or linux-setup branding key content."
+    quiet: true
+
+- name: Read the current pretty device name
+  ansible.builtin.command:
+    argv: [/usr/bin/hostnamectl, --pretty]
+  register: desktop_branding_current_pretty_hostname
+  changed_when: false
+  check_mode: false
+
+- name: Preview supported Ubuntu branding changes
+  ansible.builtin.debug:
+    msg: >-
+      Would set Device Name to {{ desktop_branding_pretty_hostname }} and show the
+      reviewed MrDemonWolf logo in GDM.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - >-
+      desktop_branding_current_pretty_hostname.stdout != desktop_branding_pretty_hostname or
+      not (desktop_branding_paths.results[2].stat.isreg | default(false)) or
+      desktop_branding_paths.results[2].stat.checksum | default('') != desktop_branding_logo_sha256 or
+      not (desktop_branding_paths.results[7].stat.isreg | default(false))
+
+- name: Create supported Ubuntu branding directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /usr/local/share/linux-setup
+    - "{{ desktop_branding_logo_dir }}"
+    - /etc/dconf/profile
+    - /etc/dconf/db/gdm.d
+  become: true
+  when: not ansible_check_mode
+
+- name: Install the reviewed GDM logo
+  ansible.builtin.copy:
+    src: "{{ desktop_branding_logo_source }}"
+    dest: "{{ desktop_branding_logo_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  register: desktop_branding_logo_result
+  when: not ansible_check_mode
+
+- name: Install the standard GDM dconf profile when absent
+  ansible.builtin.copy:
+    content: "{{ desktop_branding_gdm_profile_content }}"
+    dest: "{{ desktop_branding_gdm_profile }}"
+    owner: root
+    group: root
+    mode: "0644"
+    force: false
+  become: true
+  register: desktop_branding_gdm_profile_result
+  when: not ansible_check_mode
+
+- name: Install the owned GDM branding key
+  ansible.builtin.copy:
+    content: "{{ desktop_branding_gdm_keyfile_content }}"
+    dest: "{{ desktop_branding_gdm_keyfile }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  register: desktop_branding_gdm_keyfile_result
+  when: not ansible_check_mode
+
+- name: Set the supported pretty device name
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/hostnamectl
+      - set-hostname
+      - --pretty
+      - "{{ desktop_branding_pretty_hostname }}"
+  become: true
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - desktop_branding_current_pretty_hostname.stdout != desktop_branding_pretty_hostname
+
+- name: Compile the GDM branding database
+  ansible.builtin.command:
+    argv: [/usr/bin/dconf, update]
+  become: true
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - >-
+      desktop_branding_gdm_profile_result.changed | default(false) or
+      desktop_branding_gdm_keyfile_result.changed | default(false)
+
+- name: Read applied supported Ubuntu branding
+  when: not ansible_check_mode
+  block:
+    - name: Read the applied pretty device name
+      ansible.builtin.command:
+        argv: [/usr/bin/hostnamectl, --pretty]
+      register: desktop_branding_applied_pretty_hostname
+      changed_when: false
+
+    - name: Read the applied GDM greeter logo
+      ansible.builtin.command:
+        argv: [/usr/bin/dconf, read, /org/gnome/login-screen/logo]
+      environment:
+        DCONF_PROFILE: /etc/dconf/profile/gdm
+      register: desktop_branding_applied_gdm_logo
+      changed_when: false
+
+    - name: Inspect the applied GDM logo
+      ansible.builtin.stat:
+        path: "{{ desktop_branding_logo_path }}"
+        follow: false
+        checksum_algorithm: sha256
+      register: desktop_branding_applied_logo
+
+    - name: Require exact supported Ubuntu branding
+      ansible.builtin.assert:
+        that:
+          - desktop_branding_applied_pretty_hostname.stdout == desktop_branding_pretty_hostname
+          - desktop_branding_applied_gdm_logo.stdout == "'" ~ desktop_branding_logo_path ~ "'"
+          - desktop_branding_applied_logo.stat.isreg | default(false)
+          - not (desktop_branding_applied_logo.stat.islnk | default(false))
+          - desktop_branding_applied_logo.stat.checksum | default('') == desktop_branding_logo_sha256
+        fail_msg: "Ubuntu did not retain the supported Device Name or GDM logo."
+        quiet: true
