@@ -31,7 +31,8 @@ The preview skips bootstrap so it never uses the network or `sudo`, previews all
 - [ ] 9. Apply the GNOME look and always-visible bottom dock: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
 - [ ] 10. Set up Mac mode: enable Focused Window D-Bus, run `./setup.sh --dry-run keybinds` and `./setup.sh keybinds`, reboot only if Toshy says so, then rerun `keybinds`
 - [ ] 11. Confirm the core workstation: `./setup.sh verify`
-- [ ] 12. Manually add Discord's official `.deb` and the Plex Chrome app
+- [ ] 12. Manually add Discord's official `.deb`
+- [ ] 13. Add LocalWP, Raspberry Pi Imager, PWAs, and replacement tools only when their real workflow is ready
 
 ## If you only see VS Code and Ghostty
 
@@ -45,13 +46,13 @@ git pull --ff-only
 ./setup.sh apps
 ```
 
-The updated action adds the official ChatGPT Linux preview, Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, Upscayl, and LibrePods. Launch ChatGPT with `chatgpt` and sign in manually. OpenAI supports Ubuntu 26.04 AMD64; the preview uses XWayland by default because native Wayland support remains experimental. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
+The updated action adds the official ChatGPT Linux preview, Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, Telegram, Upscayl, Plex Desktop, and LibrePods. Launch ChatGPT with `chatgpt` and sign in manually. OpenAI supports Ubuntu 26.04 AMD64; the preview uses XWayland by default because native Wayland support remains experimental. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
 
 ChatGPT's first install downloads about 334 MiB and occupies about 1.23 GiB. Setup pins the reviewed package bytes and fails safely when OpenAI updates the mutable `latest` URL, so a changed release must be reviewed before installation.
 
 Upscayl needs a working Vulkan driver. The `apps` action installs Ubuntu's Mesa Vulkan driver and `vulkaninfo`; run `vulkaninfo --summary` before expecting it to upscale anything.
 
-Discord remains a manual official `.deb` because its download URL changes without a stable published checksum. Plex remains a manual Chrome site app. The action prints both steps when it finishes.
+Discord remains a manual official `.deb` because its download URL changes without a stable published checksum. LocalWP and Raspberry Pi Imager stay on-demand. The action prints the remaining manual steps when it finishes.
 
 Stop after any failed box. Do not keep stacking fixes.
 
@@ -116,12 +117,12 @@ If any Claude entry exists outside the managed `.sources` file, `--dry-run all` 
 | Command | Installs or changes | Does **not** do |
 |---|---|---|
 | `bootstrap` | When Ansible is already present, guarded repair of the exact reviewed Claude APT duplicate; then minimal `ansible-core`, Python APT bindings, and Ubuntu's supported classic `sudo.ws` provider | No full Ansible collection bundle, global `sudo` switch, or seven workstation actions |
-| `all` | Bootstraps and runs the seven reviewed setup actions in order, then strict verification | No Codex installer, server/devbox setup, credentials, account sign-ins, Discord download, or Plex PWA |
+| `all` | Bootstraps and runs the seven reviewed setup actions in order, then strict verification | No Codex installer, server/devbox setup, credentials, account sign-ins, Discord download, LocalWP, Raspberry Pi Imager, or PWA creation |
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `sources` | Verifies and repairs reviewed vendor keys and APT source files without refreshing APT | No package refresh, package install, account change, or unreviewed source deletion |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Flatpak, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, developer language runtimes, upgrade, or login |
-| `apps` | Official pinned ChatGPT Linux preview bootstrap plus its signed OpenAI APT repo; GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Upscayl from verified Flathub; pinned LibrePods AppImage | No sign-ins, WARP enrollment, automatic Upscayl GPU claims, LibrePods autostart or Bluetooth spoofing, Discord download, Plex PWA, or default-terminal change |
+| `apps` | Official pinned ChatGPT Linux preview bootstrap plus its signed OpenAI APT repo; GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Telegram, Upscayl, and Plex Desktop from reviewed Flathub; pinned LibrePods AppImage | No sign-ins, autostart, WARP enrollment, automatic GPU claims, LibrePods Bluetooth spoofing, Discord download, LocalWP, Raspberry Pi Imager, PWA creation, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
@@ -130,6 +131,20 @@ If any Claude entry exists outside the managed `.sources` file, `--dry-run all` 
 | `keybinds` | Installs or repairs pinned Toshy, starts its user services, and prints the Mac-mode check board | Requires live GNOME; refuses competing remappers and unverified sources |
 
 Chrome and 1Password are already installed on the target laptop. `status` detects them; this repo does not replace their working repositories or sign-ins.
+
+## Selected app routes and limits
+
+The `apps` action already covered 1Password and Chrome detection; Claude Desktop, Cloudflare WARP, Ghostty, OBS, Postman, Upscayl, and VS Code installation; and manual Discord detection. It now also installs Telegram as `org.telegram.desktop` and x86-64 Plex Desktop as `tv.plex.PlexDesktop` from the reviewed system Flathub remote. Every managed Flatpak must report `flathub` as its exact origin. Launch them with `flatpak run org.telegram.desktop` and `flatpak run tv.plex.PlexDesktop`; sign-in and launch tests stay manual, and autostart stays off.
+
+LocalWP stays manual and on-demand. Its publisher provides a Debian package and tests Ubuntu, but it has no signed APT repository and publishes only SHA-1 checksums. Download the reviewed release from `https://localwp.com/releases/` only when a local WordPress task needs it, run one site at a time, stop it afterward, and prefer the existing devbox for sustained work.
+
+Raspberry Pi Imager is available directly from Ubuntu 26.04 as `rpi-imager`, but it is intentionally outside the default manifest. Install it only when imaging media is needed with `sudo apt install rpi-imager`, then launch it on demand.
+
+Docs, Drive, Sheets, Slides, Notion, and Quo remain manual Chrome web/PWA choices because setup must not modify a signed-in browser profile. Before relying on Quo, test microphone permission, desktop notifications, and a real call. Use Drive in the browser; configure `rclone` only for an explicit transfer.
+
+GNOME's built-in screenshot and recording UI replaces Shottr. Files plus SFTP replaces Transmit unless queues or batch transfers prove FileZilla necessary. Color picker and image optimizer selection waits for a real task; test optimizers on copies. DBeaver Community stays absent until a GUI database task exists.
+
+This 8 GB machine should not keep LocalWP, Chrome PWAs, Claude, Discord, Postman, and VS Code open together. Do not run OBS capture, Upscayl processing, and Plex playback together. If Plex cannot discover local servers while WARP is connected, review Cloudflare local-network access or split-tunnel policy before changing Plex.
 
 ## Eight selected Ubuntu APT tools
 
@@ -152,7 +167,7 @@ The action does not run another package manager's uninstall command. If Linuxbre
 
 ## Safety boundary
 
-The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from versioned upstream release assets and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. Upscayl is the one reviewed Flatpak: Flathub verifies `org.upscayl.Upscayl` against `upscayl.org`, its Snap Store publisher is unverified, and the action refuses to run if a `flathub` remote already points somewhere other than Flathub's repository.
+The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from versioned upstream release assets and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. Telegram, Upscayl, and x86-64 Plex Desktop are the three reviewed Flatpaks. The action refuses a `flathub` remote that points anywhere but Flathub's repository and requires each installed app to report that exact origin.
 
 It never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens.
 
@@ -319,6 +334,12 @@ Artifact provenance, reviewed pins, and upstream license links are recorded in [
 - [Upscayl compatibility list](https://github.com/upscayl/upscayl/wiki/Compatibility-List)
 - [Upscayl troubleshooting](https://github.com/upscayl/upscayl/wiki/Troubleshooting)
 - [Upscayl on Flathub](https://flathub.org/apps/org.upscayl.Upscayl)
+- [Telegram Desktop for Linux](https://telegram.org/desktop/linux)
+- [Telegram on Flathub](https://flathub.org/apps/org.telegram.desktop)
+- [Plex Desktop on Flathub](https://flathub.org/apps/tv.plex.PlexDesktop)
+- [LocalWP Linux installation](https://localwp.com/help-docs/getting-started/installing-local/)
+- [LocalWP releases](https://localwp.com/releases/)
+- [Ubuntu 26.04 Raspberry Pi Imager package](https://packages.ubuntu.com/resolute/rpi-imager)
 - [Discord's official Linux installation](https://support.discord.com/hc/en-us/articles/360034561191-Desktop-Installation-Guide)
 - [Claude Desktop for Linux and repository opt-out](https://code.claude.com/docs/en/desktop-linux)
 - [Claude Desktop for Linux](https://support.claude.com/en/articles/10065433-install-claude-desktop)

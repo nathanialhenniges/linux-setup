@@ -53,7 +53,9 @@ core_flatpak_remote:
   repo_url: https://dl.flathub.org/repo/
 
 core_flatpak_packages:
+  - org.telegram.desktop
   - org.upscayl.Upscayl
+  - tv.plex.PlexDesktop
 
 chatgpt:
   version: "26.803.81509"

@@ -767,6 +767,36 @@
         - item.rc | default(1) != 0
       tags: apps
 
+    - name: Verify every approved Flatpak application origin
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - info
+          - --system
+          - --show-origin
+          - "{{ item }}"
+      loop: "{{ core_flatpak_packages }}"
+      register: approved_flatpak_origins
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Require every approved Flatpak application from Flathub
+      ansible.builtin.assert:
+        that:
+          - approved_flatpak_origins.results | selectattr('rc', 'equalto', 0) | list | length == core_flatpak_packages | length
+          - approved_flatpak_origins.results | rejectattr('stdout', 'equalto', core_flatpak_remote.name) | list | length == 0
+        fail_msg: "An approved Flatpak is missing or has an unexpected origin; no application-specific cleanup was attempted."
+        quiet: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
     - name: Verify the reviewed Upscayl Flatpak before migration cleanup
       ansible.builtin.command:
         argv:
@@ -978,15 +1008,17 @@
         - not ansible_check_mode
       tags: apps
 
-    - name: Show the two remaining manual application steps
+    - name: Show application launch and manual steps
       ansible.builtin.debug:
         msg:
           - "ChatGPT launch command: chatgpt. Sign-in stays manual; Linux uses XWayland by default while native Wayland support matures."
           - "Extension Manager launch command: extension-manager"
           - "LibrePods launch command: librepods. Pair AirPods in GNOME Bluetooth first; autostart and Apple VendorID spoofing stay off."
+          - "Telegram launch command: flatpak run org.telegram.desktop. Sign-in stays manual; leave launch at login disabled."
           - "Upscayl launch test: run vulkaninfo --summary, then flatpak run org.upscayl.Upscayl and upscale one small image. Intel HD 6000 support is not guaranteed."
+          - "Plex launch command: flatpak run tv.plex.PlexDesktop. Test local discovery with WARP; keep Plex, OBS, and Upscayl from running together."
           - "Discord stays manual: download its official .deb from https://discord.com/download and open it with App Center."
-          - "Plex stays manual: open https://app.plex.tv in Chrome and install the page as an app."
+          - "LocalWP and Raspberry Pi Imager stay on-demand; Chrome PWAs and replacement workflows stay manual."
           - "Account sign-ins and Cloudflare enrollment remain manual."
       when: setup_action == 'apps'
       tags: apps
