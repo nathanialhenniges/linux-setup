@@ -1019,7 +1019,7 @@
           - "Plex launch command: flatpak run tv.plex.PlexDesktop. Test local discovery with WARP; keep Plex, OBS, and Upscayl from running together."
           - "Cider launch command: flatpak run sh.cider.Cider. License activation and Apple sign-in stay manual; autostart stays off."
           - "Discord stays manual: download its official .deb from https://discord.com/download and open it with App Center."
-          - "LocalWP and Raspberry Pi Imager stay on-demand; Chrome PWAs and replacement workflows stay manual."
+          - "LocalWP and Raspberry Pi Imager stay on-demand; the gnome action adds reviewed Chrome app-mode launchers without changing Chrome profile or policy state."
           - "Account sign-ins and Cloudflare enrollment remain manual."
       when: setup_action == 'apps'
       tags: apps
@@ -1380,6 +1380,14 @@
       when: setup_action == 'gnome'
       tags: gnome
 
+    - name: Install reviewed Chrome web-app launchers
+      ansible.builtin.include_tasks:
+        file: tasks/chrome_web_apps.yml
+        apply:
+          tags: gnome
+      when: setup_action == 'gnome'
+      tags: gnome
+
     - name: Inspect reviewed Dock launcher candidates
       ansible.builtin.stat:
         path: "{{ item.path }}"
@@ -1394,10 +1402,12 @@
     - name: Record installed reviewed Dock launchers
       ansible.builtin.set_fact:
         installed_gnome_dock_favorites: >-
-          {{ gnome_dock_candidate_launchers.results |
-             selectattr('stat.isreg', 'defined') |
-             selectattr('stat.isreg') |
-             map(attribute='item.desktop_id') | list | unique }}
+          {{ (gnome_dock_candidate_launchers.results |
+              selectattr('stat.isreg', 'defined') |
+              selectattr('stat.isreg') |
+              map(attribute='item.desktop_id') | list +
+              (chrome_web_app_launchers | map(attribute='desktop_id') | list
+               if ansible_check_mode else [])) | unique }}
       when: setup_action == 'gnome'
       tags: gnome
 
@@ -1431,13 +1441,15 @@
     - name: Build additive GNOME Dock favorites
       ansible.builtin.set_fact:
         desired_gnome_dock_favorites: >-
-          {{ (installed_gnome_dock_favorites + current_gnome_dock_favorite_ids) | unique }}
+          {{ (installed_gnome_dock_favorites +
+              (current_gnome_dock_favorite_ids |
+               reject('in', gnome_dock_managed_unpinned_ids) | list)) | unique }}
       when: setup_action == 'gnome'
       tags: gnome
 
     - name: Preview GNOME Dock favorite additions
       ansible.builtin.debug:
-        msg: "Would pin installed reviewed apps while preserving current Dock favorites: {{ desired_gnome_dock_favorites | join(', ') }}"
+        msg: "Would pin the reviewed apps, remove explicitly unpinned apps, and preserve other Dock favorites: {{ desired_gnome_dock_favorites | join(', ') }}"
       changed_when: true
       when:
         - setup_action == 'gnome'
@@ -1473,7 +1485,7 @@
           - >-
             (applied_gnome_dock_favorites.stdout |
              regex_replace('^@as ', '') | from_yaml) == desired_gnome_dock_favorites
-        fail_msg: "GNOME did not retain the requested additive Dock favorites."
+        fail_msg: "GNOME did not retain the requested managed Dock favorites."
         quiet: true
       when:
         - setup_action == 'gnome'

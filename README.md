@@ -28,7 +28,7 @@ cd linux-setup
 ./setup.sh all
 ```
 
-`all` runs `base`, `apps`, `tools`, `terminal`, `dotfiles`, `gnome`, and `keybinds` in that order, stops on the first failure, and finishes with strict `verify`. It deliberately excludes the optional boot logo, Codex installation, sign-ins, Discord, PWAs, LocalWP, and Raspberry Pi Imager.
+`all` runs `base`, `apps`, `tools`, `terminal`, `dotfiles`, `gnome`, and `keybinds` in that order, stops on the first failure, and finishes with strict `verify`. It deliberately excludes the optional boot logo, Codex installation, sign-ins, Discord, browser-managed PWA installation, LocalWP, and Raspberry Pi Imager.
 
 The preview never uses `sudo`, downloads packages, or changes managed state. It skips bootstrap and ends with the non-strict status board. Run `./setup.sh bootstrap` first when Ansible is absent.
 
@@ -106,7 +106,7 @@ It requires the expected origin, `main`, and a clean worktree; fast-forwards onl
 | Command | Installs or changes | Does **not** do |
 |---|---|---|
 | `bootstrap` | When Ansible is already present, guarded repair of the exact reviewed Claude APT duplicate; then minimal `ansible-core`, Python APT bindings, and Ubuntu's supported classic `sudo.ws` provider | No full Ansible collection bundle, global `sudo` switch, or seven workstation actions |
-| `all` | Bootstraps and runs the seven reviewed setup actions in order, then strict verification | No Codex installer, server/devbox setup, credentials, account sign-ins, Discord download, LocalWP, Raspberry Pi Imager, or PWA creation |
+| `all` | Bootstraps and runs the seven reviewed setup actions in order, then strict verification | No Codex installer, server/devbox setup, credentials, account sign-ins, Discord download, LocalWP, Raspberry Pi Imager, or browser-profile PWA installation |
 | `status` | Nothing; shows a short table | No network or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `sources` | Verifies and repairs reviewed vendor keys and APT source files without refreshing APT | No package refresh, package install, account change, or unreviewed source deletion |
@@ -116,7 +116,7 @@ It requires the expected origin, `main`, and a clean worktree; fast-forwards onl
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
-| `gnome` | Dark mode, battery percent, no hot corners, reviewed wallpaper and profile picture, **Nathanials Air** Device Name and GDM logo, bottom always-visible 32 px dock, and additive pins for installed reviewed apps | No OEM/SMBIOS spoofing, Ubuntu renaming, removal of existing favorites, placeholder pins, extensions, or keyboard interception |
+| `gnome` | Dark mode, battery percent, no hot corners, reviewed wallpaper and profile picture, **Nathanials Air** Device Name and GDM logo, six local Chrome app-mode launchers, and the bottom always-visible 32 px Dock | No browser policy/profile edits, OEM/SMBIOS spoofing, Ubuntu renaming, placeholder pins, extensions, or keyboard interception |
 | `keybinds` | Installs or repairs pinned Toshy, starts its user services, and prints the Mac-mode check board | Requires live GNOME; refuses competing remappers and unverified sources |
 | `boot` | Opt-in clone of Ubuntu's packaged two-step Plymouth theme with the checksum-pinned MrDemonWolf logo; records the exact prior selection and rebuilds existing initramfs images | Cannot replace Apple's firmware logo; skips TPM-backed FDE and UKI layouts; never runs from `all` |
 | `boot-reset` | Restores the exact prior Plymouth selection and mode, rebuilds existing initramfs images, then removes only the managed theme and state | Refuses unknown theme or state content |
@@ -131,13 +131,15 @@ LocalWP stays manual and on-demand. Its publisher provides a Debian package and 
 
 Raspberry Pi Imager is available directly from Ubuntu 26.04 as `rpi-imager`, but it is intentionally outside the default manifest. Install it only when imaging media is needed with `sudo apt install rpi-imager`, then launch it on demand.
 
-Docs, Drive, Sheets, Slides, Notion, and Quo remain manual Chrome web/PWA choices because setup must not modify a signed-in browser profile. Before relying on Quo, test microphone permission, desktop notifications, and a real call. Use Drive in the browser; configure `rclone` only for an explicit transfer.
+The `gnome` action creates local `.desktop` launchers for Docs, Drive, Sheets, Slides, Notion, and Quo. Each uses packaged Chrome's app-window mode and the product's canonical HTTPS URL. This gives them their own app-grid and Dock entries without installing a PWA, writing Chrome's signed-in profile, or marking Chrome as enterprise-managed. Sign-ins remain manual. Before relying on Quo, allow its microphone and notification permissions and complete a real call. Use Drive in the browser window; configure `rclone` only for an explicit transfer.
 
 GNOME's built-in screenshot and recording UI replaces Shottr. Files plus SFTP replaces Transmit unless queues or batch transfers prove FileZilla necessary. Color picker and image optimizer selection waits for a real task; test optimizers on copies. DBeaver Community stays absent until a GUI database task exists.
 
 This 8 GB machine should not keep LocalWP, Chrome PWAs, Claude, Discord, Postman, and VS Code open together. Do not run OBS capture, Upscayl processing, and Plex playback together. If Plex cannot discover local servers while WARP is connected, review Cloudflare local-network access or split-tunnel policy before changing Plex.
 
-The `gnome` action uses 32 px Dock icons for the MBA's 1366×768 display. It puts installed reviewed launchers first in the Mac-like order—Files, Chrome, Discord, 1Password, Claude, ChatGPT, Cider, Telegram, Ghostty, LibrePods, Plex, VS Code, and Postman—then preserves every existing favorite. A candidate is pinned only when its real `.desktop` launcher exists, so manual or missing apps never create dead icons.
+The `gnome` action uses 32 px Dock icons for the MBA's 1366×768 display. It puts installed reviewed launchers first in the Mac-like order—Files, Chrome, Telegram (Messages replacement), Discord, Notion, Claude, ChatGPT, Cider, Ghostty, LibrePods, Plex, VS Code, Postman, Docs, Drive, Sheets, Slides, and Quo—then preserves every unrelated favorite. It explicitly removes 1Password from favorites because the MBP screenshot showed it running, not pinned; the application stays installed. Safari was also only running and has no Ubuntu pin. A native or managed launcher must exist before it is pinned.
+
+The remaining MBP-only pins stay intentionally absent: Files already covers Finder and the selected Transmit replacement; no Reminders replacement was selected; Affinity and Xcode have no supported Linux releases; no Pixelmator Pro or Final Cut Pro replacement was selected; and DBeaver remains on-demand instead of replacing TablePro before a real database task exists.
 
 The same action copies the reviewed wallpaper to `~/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png`, the profile photo to `~/Pictures/Profile Pictures/nathanial-henniges-profile-picture.jpg`, applies the wallpaper to light and dark GNOME modes, and sets the Ubuntu account/login avatar through AccountsService. Setup checksum-verifies the source, destination, wallpaper values, and AccountsService cache.
 
@@ -178,7 +180,7 @@ Automation verifies package origin and managed state. Finish these user-session 
 
 - [ ] Run `./setup.sh status`, resolve every required action, then make `./setup.sh verify` pass.
 - [ ] Confirm the MrDemonWolf wallpaper, Ubuntu account photo, always-visible 32 px Dock, and installed-app pins appear correctly.
-- [ ] Launch Ghostty from the Dock and confirm Ubuntu opens it as the default terminal. Confirm Chrome and 1Password still use their existing profiles.
+- [ ] Launch Ghostty from the Dock and confirm Ubuntu opens it as the default terminal. Confirm Chrome and 1Password still use their existing profiles; 1Password should be installed but not pinned.
 - [ ] Open ChatGPT and Claude Desktop and complete their sign-ins.
 - [ ] Open Cider, activate its license, sign in to Apple Music, and play one track. Keep `https://music.apple.com/` as the fallback.
 - [ ] Enroll Cloudflare WARP manually. With WARP connected, confirm Plex can still discover the local server; review local-network or split-tunnel policy if it cannot.
@@ -188,8 +190,8 @@ Automation verifies package origin and managed state. Finish these user-session 
 - [ ] Pair AirPods in GNOME Bluetooth, open LibrePods, test battery data and listening-mode controls, suspend the MBA, resume it, and confirm reconnection. Leave autostart disabled until all checks pass.
 - [ ] Run `vulkaninfo --summary`, launch Upscayl, and upscale a copy of one small image. Never use the only copy of an original for acceptance testing.
 - [ ] Complete the Toshy shortcut board printed by `./setup.sh keybinds`, including Command-C/V, Command-Space, Command-Tab, Command-grave, and Ghostty Control-C.
-- [ ] In Quo's web app, allow the microphone and notifications, then complete a real inbound and outbound call before treating the PWA route as ready.
-- [ ] Add Docs, Drive, Sheets, Slides, and Notion as Chrome web apps only after signing in; setup intentionally does not modify the Chrome profile.
+- [ ] Open the managed Docs, Drive, Sheets, Slides, and Notion launchers, sign in, and confirm each opens in its own Chrome app window.
+- [ ] In the managed Quo launcher, allow the microphone and notifications, then complete a real inbound and outbound call before treating the web route as ready.
 - [ ] Install Discord only from its official `.deb`. Keep LocalWP and Raspberry Pi Imager on-demand.
 - [ ] Keep autostart disabled for heavy apps. On this 8 GB MBA, do not leave LocalWP, Chrome PWAs, Claude, Discord, Postman, and VS Code open together.
 
