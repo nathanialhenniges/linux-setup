@@ -1,7 +1,7 @@
 ---
 - name: Define the supported Ubuntu branding boundary
   ansible.builtin.set_fact:
-    desktop_branding_pretty_hostname: 'MrDemonWolf, Inc.'
+    desktop_branding_pretty_hostname: 'Nathanials Air'
     desktop_branding_logo_source: "{{ playbook_dir }}/assets/boot-branding/mrdemonwolf-logo.png"
     desktop_branding_logo_sha256: 860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406
     desktop_branding_logo_dir: /usr/local/share/linux-setup/branding
