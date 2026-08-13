@@ -37,7 +37,9 @@ if [[ -f "$notices" ]] &&
    grep -Fq 'linux-v0.1.0' "$notices" &&
    grep -Fq 'Toshy_v26.08.0' "$notices" &&
    grep -Fq '7d6904cf64dee3bb52f1cea75040ae943bc8fe32' "$notices" &&
-   grep -Fq 'focused-window-dbus' "$notices"; then
+   grep -Fq 'focused-window-dbus' "$notices" &&
+   grep -Fq 'org.telegram.desktop' "$notices" &&
+   grep -Fq 'tv.plex.PlexDesktop' "$notices"; then
   pass 'third-party notices cover reviewed artifacts and sources'
 else
   fail 'third-party notices coverage'
@@ -218,12 +220,33 @@ flatpak_package_manifest="$(awk '
 ' "$repo_dir/vars.yml")"
 if [[ "$app_package_manifest" == "$expected_app_packages" ]] &&
    grep -A1 -F 'core_snap_packages:' "$repo_dir/vars.yml" | grep -Fq '  - postman' &&
-   [[ "$flatpak_package_manifest" == 'org.upscayl.Upscayl' ]] &&
+   [[ "$flatpak_package_manifest" == $'org.telegram.desktop\norg.upscayl.Upscayl\ntv.plex.PlexDesktop' ]] &&
+   ! grep -Eq '^  - (dbeaver|localwp|rpi-imager)$' "$repo_dir/vars.yml" &&
    ! grep -Fq '  - optional' "$repo_dir/vars.yml" &&
    ! grep -Fq 'keybinds | optional' "$setup"; then
   pass 'approved desktop application manifests are exact'
 else
   fail 'approved desktop application manifests'
+fi
+
+if grep -Fq 'Check whether Telegram is installed from Flathub' "$repo_dir/verify.yml" &&
+   grep -Fq 'Check whether Plex Desktop is installed from Flathub' "$repo_dir/verify.yml" &&
+   grep -Fq 'Verify every approved Flatpak application origin' "$repo_dir/site.yml" &&
+   grep -Fq 'Require every approved Flatpak application from Flathub' "$repo_dir/site.yml" &&
+   grep -A16 -F 'Require every approved Flatpak application from Flathub' "$repo_dir/site.yml" | grep -Fq "rejectattr('stdout', 'equalto', core_flatpak_remote.name)" &&
+   grep -Fq 'telegram_ready:' "$repo_dir/verify.yml" &&
+   grep -Fq 'plex_ready:' "$repo_dir/verify.yml" &&
+   grep -Fq '          - telegram_ready' "$repo_dir/verify.yml" &&
+   grep -Fq '          - plex_ready' "$repo_dir/verify.yml" &&
+   grep -Fq 'TELEGRAM           ' "$repo_dir/verify.yml" &&
+   grep -Fq 'PLEX DESKTOP       ' "$repo_dir/verify.yml" &&
+   grep -Fq 'flatpak run org.telegram.desktop' "$repo_dir/README.md" &&
+   grep -Fq 'flatpak run tv.plex.PlexDesktop' "$repo_dir/README.md" &&
+   grep -Fq 'sudo apt install rpi-imager' "$repo_dir/README.md" &&
+   grep -Fq 'one site at a time' "$repo_dir/README.md"; then
+  pass 'selected desktop app routes are explicit and verifiable'
+else
+  fail 'selected desktop app route policy'
 fi
 
 if grep -Fq 'version: "26.803.81509"' "$repo_dir/vars.yml" &&
