@@ -1,0 +1,280 @@
+---
+- name: Inspect personal image sources and required desktop tools
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop:
+    - path: "{{ playbook_dir }}/assets/mrdemonwolf-desktop-wallpaper.png"
+      sha256: 1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840
+    - path: "{{ playbook_dir }}/assets/nathanial-henniges-profile-picture.jpg"
+      sha256: 1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673
+    - path: /usr/bin/gsettings
+      executable: true
+    - path: /usr/bin/busctl
+      executable: true
+  loop_control:
+    label: "{{ item.path }}"
+  register: personal_image_sources
+
+- name: Require reviewed personal images and packaged desktop tools
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+      - not (item.stat.islnk | default(false))
+      - item.item.sha256 is not defined or item.stat.checksum == item.item.sha256
+      - item.item.executable is not defined or item.stat.executable | default(false)
+    fail_msg: "Personalization source or desktop tool is missing, unsafe, or unreviewed: {{ item.item.path }}"
+    quiet: true
+  loop: "{{ personal_image_sources.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+
+- name: Inspect managed personal image paths
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop:
+    - path: "{{ workstation_home }}/Pictures"
+      kind: directory
+    - path: "{{ workstation_home }}/Pictures/Wallpapers"
+      kind: directory
+    - path: "{{ workstation_home }}/Pictures/Profile Pictures"
+      kind: directory
+    - path: "{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png"
+      kind: file
+      sha256: 1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840
+    - path: "{{ workstation_home }}/Pictures/Profile Pictures/nathanial-henniges-profile-picture.jpg"
+      kind: file
+      sha256: 1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673
+  loop_control:
+    label: "{{ item.path }}"
+  register: personal_image_paths
+
+- name: Refuse unsafe personal image paths
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - >-
+        not (item.stat.exists | default(false)) or
+        (item.item.kind == 'directory' and item.stat.isdir | default(false)) or
+        (item.item.kind == 'file' and item.stat.isreg | default(false))
+    fail_msg: "Refusing unsafe personal image path: {{ item.item.path }}"
+    quiet: true
+  loop: "{{ personal_image_paths.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+
+- name: Ensure personal image directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ workstation_home }}/Pictures"
+    - "{{ workstation_home }}/Pictures/Wallpapers"
+    - "{{ workstation_home }}/Pictures/Profile Pictures"
+
+- name: Preview personal image installation
+  ansible.builtin.debug:
+    msg: "Would install reviewed image: {{ item.item.path }}"
+  changed_when: true
+  loop: "{{ personal_image_paths.results[3:] }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+  when:
+    - ansible_check_mode
+    - not (item.stat.isreg | default(false)) or item.stat.checksum | default('') != item.item.sha256
+
+- name: Install reviewed personal images
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+  loop:
+    - src: "{{ playbook_dir }}/assets/mrdemonwolf-desktop-wallpaper.png"
+      dest: "{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png"
+    - src: "{{ playbook_dir }}/assets/nathanial-henniges-profile-picture.jpg"
+      dest: "{{ workstation_home }}/Pictures/Profile Pictures/nathanial-henniges-profile-picture.jpg"
+  loop_control:
+    label: "{{ item.dest }}"
+  when: not ansible_check_mode
+
+- name: Read current GNOME wallpaper values
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/gsettings
+      - get
+      - "{{ item.schema }}"
+      - "{{ item.key }}"
+  loop:
+    - schema: org.gnome.desktop.background
+      key: picture-uri
+      value: "'file://{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png'"
+    - schema: org.gnome.desktop.background
+      key: picture-uri-dark
+      value: "'file://{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png'"
+    - schema: org.gnome.desktop.background
+      key: picture-options
+      value: "'zoom'"
+  loop_control:
+    label: "{{ item.schema }} {{ item.key }}"
+  register: current_wallpaper_values
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Require Ubuntu GNOME wallpaper keys
+  ansible.builtin.assert:
+    that:
+      - item.rc == 0
+    fail_msg: "Required GNOME wallpaper key is unavailable: {{ item.item.schema }} {{ item.item.key }}"
+    quiet: true
+  loop: "{{ current_wallpaper_values.results }}"
+  loop_control:
+    label: "{{ item.item.schema }} {{ item.item.key }}"
+
+- name: Preview GNOME wallpaper changes
+  ansible.builtin.debug:
+    msg: "Would set {{ item.item.schema }} {{ item.item.key }} to {{ item.item.value }}"
+  changed_when: true
+  loop: "{{ current_wallpaper_values.results }}"
+  loop_control:
+    label: "{{ item.item.schema }} {{ item.item.key }}"
+  when:
+    - ansible_check_mode
+    - item.stdout != item.item.value
+
+- name: Set GNOME wallpaper
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/gsettings
+      - set
+      - "{{ item.item.schema }}"
+      - "{{ item.item.key }}"
+      - "{{ item.item.value }}"
+  loop: "{{ current_wallpaper_values.results }}"
+  loop_control:
+    label: "{{ item.item.schema }} {{ item.item.key }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - item.stdout != item.item.value
+
+- name: Inspect AccountsService profile-picture cache
+  ansible.builtin.stat:
+    path: "/var/lib/AccountsService/icons/{{ workstation_user }}"
+    follow: false
+    checksum_algorithm: sha256
+  register: profile_picture_cache
+
+- name: Refuse an unsafe AccountsService profile-picture cache
+  ansible.builtin.assert:
+    that:
+      - not (profile_picture_cache.stat.islnk | default(false))
+      - >-
+        not (profile_picture_cache.stat.exists | default(false)) or
+        profile_picture_cache.stat.isreg | default(false)
+    fail_msg: "Refusing unsafe AccountsService profile-picture cache for {{ workstation_user }}"
+    quiet: true
+
+- name: Read current AccountsService profile picture
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/busctl
+      - --system
+      - get-property
+      - org.freedesktop.Accounts
+      - "/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}"
+      - org.freedesktop.Accounts.User
+      - IconFile
+  register: current_profile_picture
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Preview Ubuntu profile-picture change
+  ansible.builtin.debug:
+    msg: "Would set {{ workstation_user }}'s Ubuntu profile picture"
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - >-
+      current_profile_picture.rc != 0 or
+      current_profile_picture.stdout != 's "/var/lib/AccountsService/icons/' ~ workstation_user ~ '"' or
+      not (profile_picture_cache.stat.isreg | default(false)) or
+      profile_picture_cache.stat.checksum | default('') != '1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673'
+
+- name: Set current Ubuntu user profile picture through AccountsService
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/busctl
+      - --system
+      - --quiet
+      - call
+      - org.freedesktop.Accounts
+      - "/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}"
+      - org.freedesktop.Accounts.User
+      - SetIconFile
+      - s
+      - "{{ workstation_home }}/Pictures/Profile Pictures/nathanial-henniges-profile-picture.jpg"
+  become: true
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - >-
+      current_profile_picture.rc != 0 or
+      current_profile_picture.stdout != 's "/var/lib/AccountsService/icons/' ~ workstation_user ~ '"' or
+      not (profile_picture_cache.stat.isreg | default(false)) or
+      profile_picture_cache.stat.checksum | default('') != '1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673'
+
+- name: Read applied personal desktop values
+  when: not ansible_check_mode
+  block:
+    - name: Read applied GNOME wallpaper values
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/gsettings
+          - get
+          - "{{ item.item.schema }}"
+          - "{{ item.item.key }}"
+      loop: "{{ current_wallpaper_values.results }}"
+      loop_control:
+        label: "{{ item.item.schema }} {{ item.item.key }}"
+      register: applied_wallpaper_values
+      changed_when: false
+
+    - name: Read applied AccountsService profile picture
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/busctl
+          - --system
+          - get-property
+          - org.freedesktop.Accounts
+          - "/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}"
+          - org.freedesktop.Accounts.User
+          - IconFile
+      register: applied_profile_picture
+      changed_when: false
+
+    - name: Inspect applied AccountsService profile-picture cache
+      ansible.builtin.stat:
+        path: "/var/lib/AccountsService/icons/{{ workstation_user }}"
+        follow: false
+        checksum_algorithm: sha256
+      register: applied_profile_picture_cache
+
+    - name: Require personal desktop values to be applied
+      ansible.builtin.assert:
+        that:
+          - applied_wallpaper_values.results | length == 3
+          - applied_wallpaper_values.results[0].stdout == applied_wallpaper_values.results[0].item.item.value
+          - applied_wallpaper_values.results[1].stdout == applied_wallpaper_values.results[1].item.item.value
+          - applied_wallpaper_values.results[2].stdout == applied_wallpaper_values.results[2].item.item.value
+          - applied_profile_picture.stdout == 's "/var/lib/AccountsService/icons/' ~ workstation_user ~ '"'
+          - applied_profile_picture_cache.stat.isreg | default(false)
+          - not (applied_profile_picture_cache.stat.islnk | default(false))
+          - applied_profile_picture_cache.stat.checksum | default('') == '1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673'
+        fail_msg: "GNOME wallpaper or Ubuntu profile picture did not apply exactly"
+        quiet: true

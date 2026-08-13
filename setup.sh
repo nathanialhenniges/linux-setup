@@ -43,6 +43,8 @@ Usage:
   ./setup.sh [--dry-run] dotfiles
   ./setup.sh [--dry-run] gnome
   ./setup.sh [--dry-run] keybinds
+  ./setup.sh [--dry-run] boot
+  ./setup.sh [--dry-run] boot-reset
 
 Commands:
   bootstrap  With Ansible present, repair a reviewed APT conflict; then bootstrap
@@ -58,6 +60,8 @@ Commands:
   dotfiles   Fast-forward and run only dotfiles/linux-desktop.sh; set user Zsh
   gnome      Small, reversible macOS-friendly GNOME preferences
   keybinds   Guarded interactive Toshy install for physical Command shortcuts
+  boot       Opt-in guarded Plymouth logo after Apple firmware hands off
+  boot-reset Restore the exact prior Plymouth selection and remove our theme
 
 --dry-run previews without network, sudo, downloads, or managed-state writes.
 Ansible actions may create their ignored local temporary directory.
@@ -79,7 +83,7 @@ parse_args() {
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="help"
         ;;
-      bootstrap | all | status | verify | sources | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)
+      bootstrap | all | status | verify | sources | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds | boot | boot-reset)
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="$argument"
         ;;
@@ -405,6 +409,23 @@ run_action() {
   exec "${command[@]}"
 }
 
+run_boot() {
+  local mode="$1"
+  target_preflight
+  require_ansible_files
+  cd "$repo_dir"
+  local -a command=(ansible-playbook site.yml --limit localhost --tags boot
+    -e setup_action=boot -e "boot_branding_mode=$mode")
+
+  if [[ "$dry_run" == true ]]; then
+    command+=(--check --diff)
+  else
+    require_classic_sudo
+    command+=(--ask-become-pass)
+  fi
+  exec "${command[@]}"
+}
+
 run_all() {
   local step final_step="verify" step_number=0
   local total_steps=$(( ${#all_actions[@]} + 1 ))
@@ -460,6 +481,8 @@ main() {
       printf '%s\n' 'Then run codex and choose Sign in with ChatGPT.'
       ;;
     keybinds) install_keybinds ;;
+    boot) run_boot apply ;;
+    boot-reset) run_boot rollback ;;
     *) run_action ;;
   esac
 }

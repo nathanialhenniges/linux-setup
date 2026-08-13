@@ -46,7 +46,7 @@ git pull --ff-only
 ./setup.sh apps
 ```
 
-The updated action adds the official ChatGPT Linux preview, Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, Telegram, Upscayl, Plex Desktop, and LibrePods. Launch ChatGPT with `chatgpt` and sign in manually. OpenAI supports Ubuntu 26.04 AMD64; the preview uses XWayland by default because native Wayland support remains experimental. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
+The updated action adds the official ChatGPT Linux preview, Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, Telegram, Cider, Upscayl, Plex Desktop, and LibrePods. Launch ChatGPT with `chatgpt` and sign in manually. OpenAI supports Ubuntu 26.04 AMD64; the preview uses XWayland by default because native Wayland support remains experimental. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
 
 ChatGPT's first install downloads about 334 MiB and occupies about 1.23 GiB. Setup pins the reviewed package bytes and fails safely when OpenAI updates the mutable `latest` URL, so a changed release must be reviewed before installation.
 
@@ -122,13 +122,15 @@ If any Claude entry exists outside the managed `.sources` file, `--dry-run all` 
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `sources` | Verifies and repairs reviewed vendor keys and APT source files without refreshing APT | No package refresh, package install, account change, or unreviewed source deletion |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Flatpak, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, developer language runtimes, upgrade, or login |
-| `apps` | Official pinned ChatGPT Linux preview bootstrap plus its signed OpenAI APT repo; GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Telegram, Upscayl, and Plex Desktop from reviewed Flathub; pinned LibrePods AppImage | No sign-ins, autostart, WARP enrollment, automatic GPU claims, LibrePods Bluetooth spoofing, Discord download, LocalWP, Raspberry Pi Imager, PWA creation, or default-terminal change |
+| `apps` | Official pinned ChatGPT Linux preview bootstrap plus its signed OpenAI APT repo; GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Telegram, Cider, Upscayl, and Plex Desktop from reviewed Flathub; pinned LibrePods AppImage | No sign-ins, license activation, autostart, WARP enrollment, automatic GPU claims, LibrePods Bluetooth spoofing, Discord download, LocalWP, Raspberry Pi Imager, PWA creation, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
-| `gnome` | Dark mode, battery percent, no hot corners, bottom always-visible dock | No extensions or keyboard interception |
+| `gnome` | Dark mode, battery percent, no hot corners, reviewed wallpaper and profile picture, bottom always-visible 32 px dock, and additive pins for installed reviewed apps | No removal of existing favorites, placeholder pins, extensions, or keyboard interception |
 | `keybinds` | Installs or repairs pinned Toshy, starts its user services, and prints the Mac-mode check board | Requires live GNOME; refuses competing remappers and unverified sources |
+| `boot` | Opt-in clone of Ubuntu's packaged two-step Plymouth theme with the checksum-pinned MrDemonWolf logo; records the exact prior selection and rebuilds existing initramfs images | Cannot replace Apple's firmware logo; skips TPM-backed FDE and UKI layouts; never runs from `all` |
+| `boot-reset` | Restores the exact prior Plymouth selection and mode, rebuilds existing initramfs images, then removes only the managed theme and state | Refuses unknown theme or state content |
 
 Chrome and 1Password are already installed on the target laptop. `status` detects them; this repo does not replace their working repositories or sign-ins.
 
@@ -145,6 +147,30 @@ Docs, Drive, Sheets, Slides, Notion, and Quo remain manual Chrome web/PWA choice
 GNOME's built-in screenshot and recording UI replaces Shottr. Files plus SFTP replaces Transmit unless queues or batch transfers prove FileZilla necessary. Color picker and image optimizer selection waits for a real task; test optimizers on copies. DBeaver Community stays absent until a GUI database task exists.
 
 This 8 GB machine should not keep LocalWP, Chrome PWAs, Claude, Discord, Postman, and VS Code open together. Do not run OBS capture, Upscayl processing, and Plex playback together. If Plex cannot discover local servers while WARP is connected, review Cloudflare local-network access or split-tunnel policy before changing Plex.
+
+The `gnome` action uses 32 px Dock icons for the MBA's 1366×768 display. It puts installed reviewed launchers first in the Mac-like order—Files, Chrome, Discord, 1Password, Claude, ChatGPT, Cider, Telegram, Ghostty, LibrePods, Plex, VS Code, and Postman—then preserves every existing favorite. A candidate is pinned only when its real `.desktop` launcher exists, so manual or missing apps never create dead icons.
+
+The same action copies the reviewed wallpaper to `~/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png`, the profile photo to `~/Pictures/Profile Pictures/nathanial-henniges-profile-picture.jpg`, applies the wallpaper to light and dark GNOME modes, and sets the Ubuntu account/login avatar through AccountsService. Setup checksum-verifies the source, destination, wallpaper values, and AccountsService cache.
+
+Cider is the selected Apple Music client. `apps` installs `sh.cider.Cider` from the reviewed system Flathub remote and `gnome` pins it when its launcher exists. Cider is proprietary and license-gated; license activation and Apple sign-in stay manual. It is the primary streaming-music app, but setup does not claim local MP3/FLAC MIME types because Cider is not a general local-file player. Keep Apple's supported `https://music.apple.com/` web player as the fallback.
+
+## Optional boot logo
+
+Apple's firmware draws the first Apple logo before Ubuntu starts, so Linux cannot safely replace that image. The supported customization begins at Plymouth after the kernel and initramfs take control. It clones Ubuntu's packaged `two-step` spinner theme, preserving its password and disk-unlock assets, and replaces only the watermark with the reviewed transparent logo.
+
+Preview and apply it separately from the workstation setup:
+
+```bash
+./setup.sh --dry-run boot
+./setup.sh boot
+```
+
+Reboot to inspect it. The action skips Ubuntu TPM-backed full-disk-encryption and UKI layouts unchanged. Normal password-based LUKS remains supported. To restore the exact prior Plymouth alternative and remove only the managed files:
+
+```bash
+./setup.sh --dry-run boot-reset
+./setup.sh boot-reset
+```
 
 ## Eight selected Ubuntu APT tools
 
@@ -167,7 +193,7 @@ The action does not run another package manager's uninstall command. If Linuxbre
 
 ## Safety boundary
 
-The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from versioned upstream release assets and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. Telegram, Upscayl, and x86-64 Plex Desktop are the three reviewed Flatpaks. The action refuses a `flathub` remote that points anywhere but Flathub's repository and requires each installed app to report that exact origin.
+The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from versioned upstream release assets and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. Telegram, proprietary Cider, Upscayl, and x86-64 Plex Desktop are the four reviewed Flatpaks. The action refuses a `flathub` remote that points anywhere but Flathub's repository and requires each installed app to report that exact origin.
 
 It never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens.
 
@@ -288,7 +314,10 @@ gsettings reset org.gnome.desktop.interface enable-hot-corners
 gsettings reset org.gnome.shell.extensions.dash-to-dock dock-position
 gsettings reset org.gnome.shell.extensions.dash-to-dock extend-height
 gsettings reset org.gnome.shell.extensions.dash-to-dock dock-fixed
+gsettings reset org.gnome.shell.extensions.dash-to-dock dash-max-icon-size
 ```
+
+The additive Dock favorites are deliberately not included in the reset block: resetting `favorite-apps` would replace the user's list with GNOME defaults. Remove individual pins from the Dock normally if desired.
 
 To stop using Ghostty as the default, restore the backup path printed by
 `./setup.sh terminal`, or edit `~/.config/ubuntu-xdg-terminals.list` and move
@@ -310,6 +339,13 @@ Changes to sudo or Ansible privilege handling require its focused Ubuntu 26.04 A
 
 ```bash
 ./tests/test_sudo_become_docker.sh
+```
+
+Dock and boot-branding changes have focused Ubuntu 26.04 AMD64 checks:
+
+```bash
+./tests/test_gnome_dock_docker.sh
+./tests/test-boot-branding-docker.sh
 ```
 
 It requires a running Docker-compatible engine plus network access to its image registry, Ubuntu mirrors, the four reviewed vendor key URLs, and the configured vendor APT repositories. It deliberately breaks APT, runs the exact bootstrap preflight used by `all`, simulates Claude package reinstallation, and proves the conflict cannot return. Other fixtures cover a verified Claude line at `/etc/apt/sources.list:41`, a missing managed source, an unmanaged deb822 source, and unsafe root-sourced opt-out content. Preserved files are checked by SHA-256; refusals must not delete or leak their contents.
@@ -337,6 +373,8 @@ Artifact provenance, reviewed pins, and upstream license links are recorded in [
 - [Telegram Desktop for Linux](https://telegram.org/desktop/linux)
 - [Telegram on Flathub](https://flathub.org/apps/org.telegram.desktop)
 - [Plex Desktop on Flathub](https://flathub.org/apps/tv.plex.PlexDesktop)
+- [Cider on Flathub](https://flathub.org/apps/sh.cider.Cider)
+- [Apple Music on the web](https://support.apple.com/guide/music-web/welcome/web)
 - [LocalWP Linux installation](https://localwp.com/help-docs/getting-started/installing-local/)
 - [LocalWP releases](https://localwp.com/releases/)
 - [Ubuntu 26.04 Raspberry Pi Imager package](https://packages.ubuntu.com/resolute/rpi-imager)
