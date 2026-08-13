@@ -210,7 +210,7 @@ app_package_manifest="$(awk '
   capture && /^[[:alnum:]_]+:/ { exit }
   capture && /^  - / { sub(/^  - /, ""); print }
 ' "$repo_dir/vars.yml")"
-expected_app_packages=$'bluez\nclaude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nlibfuse2t64\nmesa-vulkan-drivers\nobs-studio\nvulkan-tools'
+expected_app_packages=$'bluez\nchatgpt\nclaude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nlibfuse2t64\nmesa-vulkan-drivers\nobs-studio\nvulkan-tools'
 flatpak_package_manifest="$(awk '
   /^core_flatpak_packages:/ { capture=1; next }
   capture && /^[[:alnum:]_]+:/ { exit }
@@ -224,6 +224,20 @@ if [[ "$app_package_manifest" == "$expected_app_packages" ]] &&
   pass 'approved desktop application manifests are exact'
 else
   fail 'approved desktop application manifests'
+fi
+
+if grep -Fq 'version: "26.803.81509"' "$repo_dir/vars.yml" &&
+   grep -Fq 'https://persistent.oaistatic.com/codex-app-prod/linux/deb/latest/chatgpt_amd64.deb' "$repo_dir/vars.yml" &&
+   grep -Fq 'a9bf91a368f9f7c4eea38082a9fb8fb46b8d005b719a6d7715d2e5a1982c38eb' "$repo_dir/vars.yml" &&
+   grep -Fq '23e2cfbdef6afe95505f9e95a2cb63585da7ffe9b06a51ec08a32407c847d596' "$repo_dir/vars.yml" &&
+   grep -Fq '9ff8ae7b9e2e73b9fa1a31383c4cde964e159bab39aee762aef4918d1a4f2cfd' "$repo_dir/vars.yml" &&
+   grep -A7 -F 'Download the pinned official ChatGPT package' "$repo_dir/site.yml" | grep -Fq 'checksum: "sha256:{{ chatgpt.sha256 }}"' &&
+   grep -A6 -F 'Install the pinned official ChatGPT package' "$repo_dir/site.yml" | grep -Fq 'deb: "{{ chatgpt_package.path }}"' &&
+   grep -Fq 'CHATGPT DESKTOP    {{' "$repo_dir/verify.yml" &&
+   grep -Fq 'https://learn.chatgpt.com/docs/linux/linux-app' "$repo_dir/README.md"; then
+  pass 'ChatGPT Linux preview uses the pinned official Ubuntu package and repository'
+else
+  fail 'official ChatGPT Linux preview boundary'
 fi
 
 if grep -Fq '  name: flathub' "$repo_dir/vars.yml" &&
