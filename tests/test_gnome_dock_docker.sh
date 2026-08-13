@@ -47,6 +47,8 @@ printf '%s\n' \
   '# Managed by nathanialhenniges/linux-setup.' \
   '[org/gnome/login-screen]' \
   "logo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" \
+  'banner-message-enable=true' \
+  "banner-message-text='Managed by MrDemonWolf, Inc.'" \
   >/etc/dconf/db/gdm.d/01-linux-setup-branding
 dconf update
 test "$(sha256sum /usr/local/share/linux-setup/branding/mrdemonwolf-logo.png | awk '{print $1}')" = \
@@ -62,7 +64,10 @@ test "$(gsettings get org.gnome.shell favorite-apps)" = \
   "['org.gnome.Nautilus.desktop', 'sh.cider.Cider.desktop', 'existing.desktop']"
 test "$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/logo)" = \
   "'/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'"
+test "$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/banner-message-enable)" = true
+test "$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/banner-message-text)" = \
+  "'Managed by MrDemonWolf, Inc.'"
 SESSION
 
-printf '%s\n' 'PASS: Ubuntu 26.04 AMD64 stores Dock settings and the supported GDM logo'
+printf '%s\n' 'PASS: Ubuntu 26.04 AMD64 stores Dock settings, the GDM logo, and the enterprise banner'
 CONTAINER

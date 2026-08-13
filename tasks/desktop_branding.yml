@@ -4,6 +4,7 @@
     desktop_branding_pretty_hostname: 'Nathanials Air'
     desktop_branding_logo_source: "{{ playbook_dir }}/assets/boot-branding/mrdemonwolf-logo.png"
     desktop_branding_logo_sha256: 860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406
+    desktop_branding_banner_text: 'Managed by MrDemonWolf, Inc.'
     desktop_branding_logo_dir: /usr/local/share/linux-setup/branding
     desktop_branding_logo_path: /usr/local/share/linux-setup/branding/mrdemonwolf-logo.png
     desktop_branding_gdm_profile: /etc/dconf/profile/gdm
@@ -12,10 +13,16 @@
       system-db:gdm
       file-db:/usr/share/gdm/greeter-dconf-defaults
     desktop_branding_gdm_keyfile: /etc/dconf/db/gdm.d/01-linux-setup-branding
+    desktop_branding_gdm_keyfile_legacy_content: |
+      # Managed by nathanialhenniges/linux-setup.
+      [org/gnome/login-screen]
+      logo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'
     desktop_branding_gdm_keyfile_content: |
       # Managed by nathanialhenniges/linux-setup.
       [org/gnome/login-screen]
       logo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'
+      banner-message-enable=true
+      banner-message-text='Managed by MrDemonWolf, Inc.'
 
 - name: Inspect Ubuntu branding inputs and tools
   ansible.builtin.stat:
@@ -98,8 +105,8 @@
          (desktop_branding_existing_content.results[0].content | default('') | b64decode).splitlines())
       - >-
         not (desktop_branding_paths.results[7].stat.isreg | default(false)) or
-        (desktop_branding_existing_content.results[1].content | default('') | b64decode) ==
-        desktop_branding_gdm_keyfile_content
+        (desktop_branding_existing_content.results[1].content | default('') | b64decode) in
+        [desktop_branding_gdm_keyfile_legacy_content, desktop_branding_gdm_keyfile_content]
     fail_msg: "Refusing unknown GDM profile or linux-setup branding key content."
     quiet: true
 
@@ -114,7 +121,7 @@
   ansible.builtin.debug:
     msg: >-
       Would set Device Name to {{ desktop_branding_pretty_hostname }} and show the
-      reviewed MrDemonWolf logo in GDM.
+      reviewed MrDemonWolf logo and managed-device banner in GDM.
   changed_when: true
   when:
     - ansible_check_mode
@@ -122,7 +129,9 @@
       desktop_branding_current_pretty_hostname.stdout != desktop_branding_pretty_hostname or
       not (desktop_branding_paths.results[2].stat.isreg | default(false)) or
       desktop_branding_paths.results[2].stat.checksum | default('') != desktop_branding_logo_sha256 or
-      not (desktop_branding_paths.results[7].stat.isreg | default(false))
+      not (desktop_branding_paths.results[7].stat.isreg | default(false)) or
+      (desktop_branding_existing_content.results[1].content | default('') | b64decode) !=
+        desktop_branding_gdm_keyfile_content
 
 - name: Create supported Ubuntu branding directories
   ansible.builtin.file:
@@ -214,6 +223,20 @@
       register: desktop_branding_applied_gdm_logo
       changed_when: false
 
+    - name: Read the applied GDM enterprise banner
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/dconf
+          - read
+          - "/org/gnome/login-screen/{{ item }}"
+      environment:
+        DCONF_PROFILE: /etc/dconf/profile/gdm
+      loop:
+        - banner-message-enable
+        - banner-message-text
+      register: desktop_branding_applied_gdm_banner
+      changed_when: false
+
     - name: Inspect the applied GDM logo
       ansible.builtin.stat:
         path: "{{ desktop_branding_logo_path }}"
@@ -226,8 +249,11 @@
         that:
           - desktop_branding_applied_pretty_hostname.stdout == desktop_branding_pretty_hostname
           - desktop_branding_applied_gdm_logo.stdout == "'" ~ desktop_branding_logo_path ~ "'"
+          - desktop_branding_applied_gdm_banner.results | length == 2
+          - desktop_branding_applied_gdm_banner.results[0].stdout == 'true'
+          - desktop_branding_applied_gdm_banner.results[1].stdout == "'" ~ desktop_branding_banner_text ~ "'"
           - desktop_branding_applied_logo.stat.isreg | default(false)
           - not (desktop_branding_applied_logo.stat.islnk | default(false))
           - desktop_branding_applied_logo.stat.checksum | default('') == desktop_branding_logo_sha256
-        fail_msg: "Ubuntu did not retain the supported Device Name or GDM logo."
+        fail_msg: "Ubuntu did not retain the supported Device Name, GDM logo, or enterprise banner."
         quiet: true
