@@ -394,7 +394,7 @@ run_action() {
     command+=(--check --diff)
   else
     case "$action" in
-      sources | base | apps | tools)
+      sources | base | apps | tools | gnome)
         require_classic_sudo
         command+=(--ask-become-pass)
         ;;

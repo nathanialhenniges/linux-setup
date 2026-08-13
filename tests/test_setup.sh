@@ -416,6 +416,20 @@ else
   fail 'desktop image personalization policy'
 fi
 
+if grep -Fq 'Install supported Ubuntu machine branding' "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/desktop_branding.yml' "$repo_dir/site.yml" &&
+   grep -Fq "desktop_branding_pretty_hostname: 'MrDemonWolf, Inc.'" "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq 'Set the supported pretty device name' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq 'org/gnome/login-screen' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq "logo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq 'MACHINE BRANDING   ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - desktop_branding_ready' "$repo_dir/verify.yml" &&
+   grep -Fq 'sources | base | apps | tools | gnome)' "$setup"; then
+  pass 'Ubuntu-supported device name and GDM branding are managed with prompted sudo'
+else
+  fail 'Ubuntu-supported machine branding policy'
+fi
+
 if grep -A5 -F 'Make Ghostty the Ubuntu default terminal' "$repo_dir/site.yml" |
      grep -Fq 'com.mitchellh.ghostty.desktop' &&
    ! grep -Fq "join('\\n')" "$repo_dir/site.yml"; then

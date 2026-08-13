@@ -1372,6 +1372,14 @@
       when: setup_action == 'gnome'
       tags: gnome
 
+    - name: Install supported Ubuntu machine branding
+      ansible.builtin.include_tasks:
+        file: tasks/desktop_branding.yml
+        apply:
+          tags: gnome
+      when: setup_action == 'gnome'
+      tags: gnome
+
     - name: Inspect reviewed Dock launcher candidates
       ansible.builtin.stat:
         path: "{{ item.path }}"
