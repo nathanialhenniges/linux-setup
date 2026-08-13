@@ -91,9 +91,9 @@ set -Eeuo pipefail
 gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 32
 test "$(gsettings get org.gnome.shell.extensions.dash-to-dock dash-max-icon-size)" = 32
 gsettings set org.gnome.shell favorite-apps \
-  "['org.gnome.Nautilus.desktop', 'google-chrome.desktop', 'org.telegram.desktop.desktop', 'discord.desktop', 'linux-setup-notion.desktop', 'com.anthropic.Claude.desktop', 'chatgpt.desktop', 'sh.cider.Cider.desktop', 'com.mitchellh.ghostty.desktop', 'librepods.desktop', 'tv.plex.PlexDesktop.desktop', 'code.desktop', 'postman_postman.desktop', 'linux-setup-google-docs.desktop', 'linux-setup-google-drive.desktop', 'linux-setup-google-sheets.desktop', 'linux-setup-google-slides.desktop', 'linux-setup-quo.desktop', 'existing.desktop']"
+  "['org.gnome.Nautilus.desktop', 'google-chrome.desktop', 'discord.desktop', 'linux-setup-notion.desktop', 'com.anthropic.Claude.desktop', 'chatgpt.desktop', 'sh.cider.Cider.desktop', 'com.mitchellh.ghostty.desktop', 'code.desktop', 'postman_postman.desktop', 'existing.desktop']"
 test "$(gsettings get org.gnome.shell favorite-apps)" = \
-  "['org.gnome.Nautilus.desktop', 'google-chrome.desktop', 'org.telegram.desktop.desktop', 'discord.desktop', 'linux-setup-notion.desktop', 'com.anthropic.Claude.desktop', 'chatgpt.desktop', 'sh.cider.Cider.desktop', 'com.mitchellh.ghostty.desktop', 'librepods.desktop', 'tv.plex.PlexDesktop.desktop', 'code.desktop', 'postman_postman.desktop', 'linux-setup-google-docs.desktop', 'linux-setup-google-drive.desktop', 'linux-setup-google-sheets.desktop', 'linux-setup-google-slides.desktop', 'linux-setup-quo.desktop', 'existing.desktop']"
+  "['org.gnome.Nautilus.desktop', 'google-chrome.desktop', 'discord.desktop', 'linux-setup-notion.desktop', 'com.anthropic.Claude.desktop', 'chatgpt.desktop', 'sh.cider.Cider.desktop', 'com.mitchellh.ghostty.desktop', 'code.desktop', 'postman_postman.desktop', 'existing.desktop']"
 test "$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/logo)" = \
   "'/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'"
 test "$(DCONF_PROFILE=/etc/dconf/profile/gdm dconf read /org/gnome/login-screen/banner-message-enable)" = true
