@@ -5,76 +5,93 @@ A small, repeatable bootstrap for an Intel MacBook Air running **Ubuntu Desktop 
 > [!IMPORTANT]
 > This is a **desktop workstation** setup. It never configures a server or devbox and never invokes the dotfiles `server.sh`, `server-dev.sh`, `install.sh`, `config/server/**`, or `config/agent/**` paths.
 
-## Fast path: do the whole setup
+## MBA setup guide
 
-On an already-bootstrapped MBA, preview everything and then run it:
+Run every command from a terminal inside the logged-in Ubuntu desktop—not over SSH and not from a text console. Commands that need administrator access ask for the Ubuntu login password through Ansible. Never run `setup.sh` itself with `sudo`.
+
+### Fresh installation
+
+Install Git if Ubuntu does not already have it, clone the repository into the standard workstation path, bootstrap the small Ansible runtime, preview the setup, and then apply it:
 
 ```bash
+sudo apt update
+sudo apt install --yes git
+
+mkdir -p ~/Developer/nathanialhenniges
+cd ~/Developer/nathanialhenniges
+git clone https://github.com/nathanialhenniges/linux-setup.git
+cd linux-setup
+
+./setup.sh bootstrap
+./setup.sh status
 ./setup.sh --dry-run all
 ./setup.sh all
 ```
 
-The real run bootstraps Ansible, then runs `base`, `apps`, `tools`, `terminal`, `dotfiles`, `gnome`, and `keybinds` in that order. It stops on the first failure and finishes with strict `verify`. Keybinds stays last because it is interactive and may ask for a reboot.
+`all` runs `base`, `apps`, `tools`, `terminal`, `dotfiles`, `gnome`, and `keybinds` in that order, stops on the first failure, and finishes with strict `verify`. It deliberately excludes the optional boot logo, Codex installation, sign-ins, Discord, PWAs, LocalWP, and Raspberry Pi Imager.
 
-The preview skips bootstrap so it never uses the network or `sudo`, previews all seven workstation actions, and finishes with the non-strict status board. If it finds a Claude entry outside the managed deb822 source, it previews the guarded source check and stops before APT-backed checks; run `./setup.sh sources`, then preview again. Run `./setup.sh bootstrap` first if Ansible is not installed yet.
+The preview never uses `sudo`, downloads packages, or changes managed state. It skips bootstrap and ends with the non-strict status board. Run `./setup.sh bootstrap` first when Ansible is absent.
 
-## One box at a time: focused repair
+### Update the existing MBA checkout
 
-- [ ] 1. Install the small Ansible runtime: `./setup.sh bootstrap`
-- [ ] 2. See what is already ready: `./setup.sh status`
-- [ ] 3. Preview/install the base: `./setup.sh --dry-run base`, then `./setup.sh base`
-- [ ] 4. Preview/install the approved desktop apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
-- [ ] 5. Preview/install the eight selected Ubuntu APT tools: `./setup.sh --dry-run tools`, then `./setup.sh tools`
-- [ ] 6. After Ghostty launch-tests successfully: `./setup.sh terminal`
-- [ ] 7. Show the reviewed Codex CLI route: `./setup.sh codex`, then follow the official page
-- [ ] 8. Apply desktop-only dotfiles and make Zsh the login shell: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
-- [ ] 9. Apply the GNOME look and always-visible bottom dock: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
-- [ ] 10. Set up Mac mode: enable Focused Window D-Bus, run `./setup.sh --dry-run keybinds` and `./setup.sh keybinds`, reboot only if Toshy says so, then rerun `keybinds`
-- [ ] 11. Confirm the core workstation: `./setup.sh verify`
-- [ ] 12. Manually add Discord's official `.deb`
-- [ ] 13. Add LocalWP, Raspberry Pi Imager, PWAs, and replacement tools only when their real workflow is ready
-
-## If you only see VS Code and Ghostty
-
-That was the complete result of the early `apps` action: GitHub CLI has no launcher, so it produced only those two visible apps. Pull the expanded manifest and rerun the same action:
+Pull only a fast-forwarded `main`, inspect current state, preview the complete reconciliation, and apply it:
 
 ```bash
-cd ~/linux-setup
+cd ~/Developer/nathanialhenniges/linux-setup
+git switch main
+git pull --ff-only
+./setup.sh status
+./setup.sh --dry-run all
+./setup.sh all
+```
+
+To apply only the current app and desktop-personalization update without repeating every action:
+
+```bash
+cd ~/Developer/nathanialhenniges/linux-setup
 git switch main
 git pull --ff-only
 ./setup.sh --dry-run apps
 ./setup.sh apps
+./setup.sh --dry-run gnome
+./setup.sh gnome
+./setup.sh status
+./setup.sh verify
 ```
 
-The updated action adds the official ChatGPT Linux preview, Extension Manager, Claude Desktop, Cloudflare WARP, OBS Studio, Postman, Telegram, Cider, Upscayl, Plex Desktop, and LibrePods. Launch ChatGPT with `chatgpt` and sign in manually. OpenAI supports Ubuntu 26.04 AMD64; the preview uses XWayland by default because native Wayland support remains experimental. Launch Extension Manager with `extension-manager` if GNOME's app grid has not refreshed yet.
+### One action at a time
 
-ChatGPT's first install downloads about 334 MiB and occupies about 1.23 GiB. Setup pins the reviewed package bytes and fails safely when OpenAI updates the mutable `latest` URL, so a changed release must be reviewed before installation.
+- [ ] Bootstrap Ansible: `./setup.sh bootstrap`
+- [ ] Inspect current state: `./setup.sh status`
+- [ ] Repair reviewed vendor sources if requested: `./setup.sh --dry-run sources`, then `./setup.sh sources`
+- [ ] Install the workstation base: `./setup.sh --dry-run base`, then `./setup.sh base`
+- [ ] Install approved desktop apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
+- [ ] Install selected Ubuntu CLI tools: `./setup.sh --dry-run tools`, then `./setup.sh tools`
+- [ ] Make launch-tested Ghostty the default: `./setup.sh terminal`
+- [ ] Show the reviewed Codex route: `./setup.sh codex`
+- [ ] Apply desktop-only dotfiles and Zsh: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
+- [ ] Apply wallpaper, account photo, GNOME preferences, and Dock pins: `./setup.sh --dry-run gnome`, then `./setup.sh gnome`
+- [ ] Install or repair Toshy Mac shortcuts: `./setup.sh --dry-run keybinds`, then `./setup.sh keybinds`
+- [ ] Confirm the required workstation state: `./setup.sh verify`
 
-Upscayl needs a working Vulkan driver. The `apps` action installs Ubuntu's Mesa Vulkan driver and `vulkaninfo`; run `vulkaninfo --summary` before expecting it to upscale anything.
+### Resume after a stopped action
 
-Discord remains a manual official `.deb` because its download URL changes without a stable published checksum. LocalWP and Raspberry Pi Imager stay on-demand. The action prints the remaining manual steps when it finishes.
+Stop at the first error and fix only the reported problem.
 
-Stop after any failed box. Do not keep stacking fixes.
+- If `all` stops during `base`, `apps`, `tools`, `terminal`, `dotfiles`, or `gnome`, correct the reported cause and rerun `./setup.sh all`; completed actions are designed to converge safely.
+- If `keybinds` installs Focused Window D-Bus for the next session, sign out and back in, then run `./setup.sh keybinds && ./setup.sh verify`. The completed setup actions do not run again.
+- If a focused action fails, rerun only that action, then use `./setup.sh status` and `./setup.sh verify`.
+- If anything remains unclear, paste the complete error output. Do not manually delete or edit APT source files, keyrings, or `/etc/default/claude-desktop`.
 
-Real actions always use Ansible's supported `--ask-become-pass` prompt when administrator access is needed. This is intentional even when `sudo.ws` has a cached terminal credential: Ansible's local subprocess cannot reliably reuse that separate timestamp. Enter your Ubuntu login password carefully because Ansible stops after a rejected password instead of prompting again. Ubuntu 26.04 defaults to `sudo-rs`, whose different prompt is not handled by the packaged Ansible release, so this repo scopes Ansible to Ubuntu's supported `/usr/bin/sudo.ws`. It does not change the system-wide `sudo` default, store your password, or add passwordless access. The dotfiles action never changes root and never prompts during a dry run. Sign out and back in once after it changes your login shell.
+### Password prompts
 
-## Update an installed machine later
+Enter the Ubuntu login password carefully at the Ansible `BECOME password` prompt. A rejected password ends that run; rerun the same command and enter it again. Ubuntu 26.04 defaults to `sudo-rs`, so this repository scopes Ansible to Ubuntu's packaged `/usr/bin/sudo.ws`. It never changes the system-wide `sudo` alternative, stores a password, or grants passwordless access.
 
-Run these from the existing MBA checkout whenever this setup changes:
+Sign out and back in after `dotfiles` changes the login shell. Reboot only when Toshy explicitly requests it or after a reviewed boot-logo action.
 
-```bash
-cd ~/linux-setup
-git pull --ff-only
-./setup.sh --dry-run all
-./setup.sh all
-```
+### Dotfiles-only updates
 
-The Git pull updates this trusted setup first. The preview shows the full
-reconciliation, and the real run applies package, app, tool, terminal,
-dotfiles, GNOME, and keybinding changes before strict verification. It is safe
-to rerun and stops on the first failure.
-
-For a dotfiles-only change, use the guarded updater inside that checkout:
+Use the guarded updater in the managed dotfiles checkout:
 
 ```bash
 cd ~/.local/share/dotfiles
@@ -82,35 +99,7 @@ cd ~/.local/share/dotfiles
 ./update.sh
 ```
 
-That updater also works from the normal dotfiles checkout on macOS. It requires the expected origin, `main`, and a clean worktree; fetches and merges only with `--ff-only`; applies only the current platform's reviewed desktop profile; and never commits or pushes.
-
-## Start here
-
-Check for Git first:
-
-```bash
-git --version
-```
-
-If Ubuntu says `git: command not found`, bootstrap only Git:
-
-```bash
-sudo apt update
-sudo apt install --yes git
-```
-
-Then clone the setup:
-
-```bash
-git clone https://github.com/nathanialhenniges/linux-setup.git
-cd linux-setup
-./setup.sh all
-```
-
-That one command includes bootstrap and strict verification. To preview first, run `./setup.sh bootstrap`, which installs prerequisites and can repair the exact reviewed Claude source conflict when Ansible is already present, followed by the no-change `./setup.sh --dry-run all`.
-
-`--dry-run` never uses `sudo`, downloads a key, installs a package, or changes managed state. Ansible actions use check mode; wrapper and interactive actions use explicit read-only previews; `status` and `verify` are already read-only. Ansible may create its ignored `.ansible/` temporary directory inside this checkout.
-If any Claude entry exists outside the managed `.sources` file, `--dry-run all` previews the source check and stops before any APT-backed action. When Ansible is already present, a normal `./setup.sh all` runs that check automatically before bootstrap refreshes APT. Exact Anthropic `.list` lines are migrated; an unreviewed `.sources` file or unknown content is refused unchanged.
+It requires the expected origin, `main`, and a clean worktree; fast-forwards only; applies the current platform's reviewed desktop profile; and never commits or pushes.
 
 ## What each command does
 
@@ -158,19 +147,68 @@ Cider is the selected Apple Music client. `apps` installs `sh.cider.Cider` from 
 
 Apple's firmware draws the first Apple logo before Ubuntu starts, so Linux cannot safely replace that image. The supported customization begins at Plymouth after the kernel and initramfs take control. It clones Ubuntu's packaged `two-step` spinner theme, preserving its password and disk-unlock assets, and replaces only the watermark with the reviewed transparent logo.
 
-Preview and apply it separately from the workstation setup:
+> [!WARNING]
+> The functional Ubuntu 26.04 AMD64 container matrix passes, but the 1366×768 visual preview found that the current 512 px logo overlaps Ubuntu's spinner. **Do not run `./setup.sh boot` yet.** Wait for the reviewed 240 px layout follow-up. If this theme was already applied, use the reset steps below; the normal Ubuntu installation is unaffected.
+
+After that warning is removed by the reviewed layout fix, pull `main`, preview, and apply the boot logo separately from `all`:
 
 ```bash
+cd ~/Developer/nathanialhenniges/linux-setup
+git switch main
+git pull --ff-only
 ./setup.sh --dry-run boot
 ./setup.sh boot
+sudo reboot
 ```
 
-Reboot to inspect it. The action skips Ubuntu TPM-backed full-disk-encryption and UKI layouts unchanged. Normal password-based LUKS remains supported. To restore the exact prior Plymouth alternative and remove only the managed files:
+The action skips Ubuntu TPM-backed full-disk-encryption and UKI layouts unchanged. Normal password-based LUKS remains supported. To restore the exact prior Plymouth alternative, remove only the managed files, and inspect the restored splash:
 
 ```bash
 ./setup.sh --dry-run boot-reset
 ./setup.sh boot-reset
+sudo reboot
 ```
+
+Docker verifies package setup, the cloned password assets, exact activation, idempotence, rollback, unsafe-content refusal, unsupported-layout skipping, and dry-run behavior. A Docker container cannot display the real splash because it does not boot its own kernel or own a DRM/framebuffer device; the final visual acceptance test requires QEMU or a reboot on the MBA.
+
+## Manual acceptance checklist
+
+Automation verifies package origin and managed state. Finish these user-session and hardware checks on the MBA:
+
+- [ ] Run `./setup.sh status`, resolve every required action, then make `./setup.sh verify` pass.
+- [ ] Confirm the MrDemonWolf wallpaper, Ubuntu account photo, always-visible 32 px Dock, and installed-app pins appear correctly.
+- [ ] Launch Ghostty from the Dock and confirm Ubuntu opens it as the default terminal. Confirm Chrome and 1Password still use their existing profiles.
+- [ ] Open ChatGPT and Claude Desktop and complete their sign-ins.
+- [ ] Open Cider, activate its license, sign in to Apple Music, and play one track. Keep `https://music.apple.com/` as the fallback.
+- [ ] Enroll Cloudflare WARP manually. With WARP connected, confirm Plex can still discover the local server; review local-network or split-tunnel policy if it cannot.
+- [ ] Sign in to Plex Desktop and play one short video without also running OBS or Upscayl.
+- [ ] Sign in to Telegram and Postman if those apps are needed.
+- [ ] Record and play back a short OBS test, then close OBS before testing Upscayl or Plex.
+- [ ] Pair AirPods in GNOME Bluetooth, open LibrePods, test battery data and listening-mode controls, suspend the MBA, resume it, and confirm reconnection. Leave autostart disabled until all checks pass.
+- [ ] Run `vulkaninfo --summary`, launch Upscayl, and upscale a copy of one small image. Never use the only copy of an original for acceptance testing.
+- [ ] Complete the Toshy shortcut board printed by `./setup.sh keybinds`, including Command-C/V, Command-Space, Command-Tab, Command-grave, and Ghostty Control-C.
+- [ ] In Quo's web app, allow the microphone and notifications, then complete a real inbound and outbound call before treating the PWA route as ready.
+- [ ] Add Docs, Drive, Sheets, Slides, and Notion as Chrome web apps only after signing in; setup intentionally does not modify the Chrome profile.
+- [ ] Install Discord only from its official `.deb`. Keep LocalWP and Raspberry Pi Imager on-demand.
+- [ ] Keep autostart disabled for heavy apps. On this 8 GB MBA, do not leave LocalWP, Chrome PWAs, Claude, Discord, Postman, and VS Code open together.
+
+## Troubleshooting
+
+Start with the read-only board:
+
+```bash
+cd ~/Developer/nathanialhenniges/linux-setup
+./setup.sh status
+```
+
+- `needs apps action` means preview and rerun `apps`; it does not mean manually repairing APT.
+- `installed; ... manual` means installation passed and the named acceptance check remains. It is not an automation failure.
+- A `BECOME password` or `sudo: a password is required` failure means rerun the same setup action and carefully enter the Ubuntu login password. Do not prefix `setup.sh` with `sudo`.
+- If keybinds says Focused Window D-Bus is ready for the next GNOME session, sign out and back in. Then run `./setup.sh keybinds && ./setup.sh verify` instead of repeating `all`.
+- Run `gnome` and `keybinds` only from a terminal inside the live logged-in desktop. SSH, a virtual console, or a missing D-Bus session is refused.
+- If a newly installed launcher is missing from the app grid or Dock, sign out and back in once, rerun `./setup.sh gnome`, and check again.
+- If `sources` refuses unknown content, leave it untouched and paste the complete error output. Do not manually delete or edit APT source files, signing keys, or Claude defaults.
+- If `verify` fails, use the exact action named by `status`; `verify` never repairs or installs anything.
 
 ## Eight selected Ubuntu APT tools
 
@@ -214,7 +252,7 @@ The desktop entry point must exist as a regular file. An existing dotfiles check
 If Claude failed with a keyring or `Signed-By` conflict, pull the repair, run the focused source action, then resume everything:
 
 ```bash
-cd ~/linux-setup
+cd ~/Developer/nathanialhenniges/linux-setup
 git pull --ff-only
 ./setup.sh --dry-run sources
 ./setup.sh sources
