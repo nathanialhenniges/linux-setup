@@ -262,17 +262,33 @@ gnome_settings:
     key: dash-max-icon-size
     value: "32"
 
+chrome_web_app_launchers:
+  - { name: Google Docs, desktop_id: linux-setup-google-docs.desktop, wm_class: linux-setup-google-docs, url: "https://docs.google.com/document/", icon: x-office-document, categories: "Office;" }
+  - { name: Google Drive, desktop_id: linux-setup-google-drive.desktop, wm_class: linux-setup-google-drive, url: "https://drive.google.com/", icon: folder-remote, categories: "Office;" }
+  - { name: Google Sheets, desktop_id: linux-setup-google-sheets.desktop, wm_class: linux-setup-google-sheets, url: "https://docs.google.com/spreadsheets/", icon: x-office-spreadsheet, categories: "Office;" }
+  - { name: Google Slides, desktop_id: linux-setup-google-slides.desktop, wm_class: linux-setup-google-slides, url: "https://docs.google.com/presentation/", icon: x-office-presentation, categories: "Office;" }
+  - { name: Notion, desktop_id: linux-setup-notion.desktop, wm_class: linux-setup-notion, url: "https://www.notion.so/", icon: accessories-text-editor, categories: "Office;" }
+  - { name: Quo, desktop_id: linux-setup-quo.desktop, wm_class: linux-setup-quo, url: "https://my.quo.com/", icon: call-start, categories: "Network;" }
+
+gnome_dock_managed_unpinned_ids:
+  - 1password.desktop
+
 gnome_dock_favorite_candidates:
   - { desktop_id: org.gnome.Nautilus.desktop, path: /usr/share/applications/org.gnome.Nautilus.desktop }
   - { desktop_id: google-chrome.desktop, path: /usr/share/applications/google-chrome.desktop }
+  - { desktop_id: org.telegram.desktop.desktop, path: /var/lib/flatpak/exports/share/applications/org.telegram.desktop.desktop }
   - { desktop_id: discord.desktop, path: /usr/share/applications/discord.desktop }
-  - { desktop_id: 1password.desktop, path: /usr/share/applications/1password.desktop }
+  - { desktop_id: linux-setup-notion.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-notion.desktop" }
   - { desktop_id: com.anthropic.Claude.desktop, path: /usr/share/applications/com.anthropic.Claude.desktop }
   - { desktop_id: chatgpt.desktop, path: /usr/share/applications/chatgpt.desktop }
   - { desktop_id: sh.cider.Cider.desktop, path: /var/lib/flatpak/exports/share/applications/sh.cider.Cider.desktop }
-  - { desktop_id: org.telegram.desktop.desktop, path: /var/lib/flatpak/exports/share/applications/org.telegram.desktop.desktop }
   - { desktop_id: com.mitchellh.ghostty.desktop, path: /usr/share/applications/com.mitchellh.ghostty.desktop }
   - { desktop_id: librepods.desktop, path: "{{ workstation_home }}/.local/share/applications/librepods.desktop" }
   - { desktop_id: tv.plex.PlexDesktop.desktop, path: /var/lib/flatpak/exports/share/applications/tv.plex.PlexDesktop.desktop }
   - { desktop_id: code.desktop, path: /usr/share/applications/code.desktop }
   - { desktop_id: postman_postman.desktop, path: /var/lib/snapd/desktop/applications/postman_postman.desktop }
+  - { desktop_id: linux-setup-google-docs.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-google-docs.desktop" }
+  - { desktop_id: linux-setup-google-drive.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-google-drive.desktop" }
+  - { desktop_id: linux-setup-google-sheets.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-google-sheets.desktop" }
+  - { desktop_id: linux-setup-google-slides.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-google-slides.desktop" }
+  - { desktop_id: linux-setup-quo.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-quo.desktop" }

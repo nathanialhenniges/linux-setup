@@ -379,14 +379,36 @@ dock_favorite_manifest="$(awk '
     print
   }
 ' "$repo_dir/vars.yml")"
-expected_dock_favorites=$'org.gnome.Nautilus.desktop\ngoogle-chrome.desktop\ndiscord.desktop\n1password.desktop\ncom.anthropic.Claude.desktop\nchatgpt.desktop\nsh.cider.Cider.desktop\norg.telegram.desktop.desktop\ncom.mitchellh.ghostty.desktop\nlibrepods.desktop\ntv.plex.PlexDesktop.desktop\ncode.desktop\npostman_postman.desktop'
+expected_dock_favorites=$'org.gnome.Nautilus.desktop\ngoogle-chrome.desktop\norg.telegram.desktop.desktop\ndiscord.desktop\nlinux-setup-notion.desktop\ncom.anthropic.Claude.desktop\nchatgpt.desktop\nsh.cider.Cider.desktop\ncom.mitchellh.ghostty.desktop\nlibrepods.desktop\ntv.plex.PlexDesktop.desktop\ncode.desktop\npostman_postman.desktop\nlinux-setup-google-docs.desktop\nlinux-setup-google-drive.desktop\nlinux-setup-google-sheets.desktop\nlinux-setup-google-slides.desktop\nlinux-setup-quo.desktop'
+web_app_manifest="$(awk '
+  /^chrome_web_app_launchers:/ { capture=1; next }
+  capture && /^[[:alnum:]_]+:/ { exit }
+  capture && /desktop_id:/ {
+    sub(/^.*desktop_id: /, "")
+    sub(/,.*/, "")
+    print
+  }
+' "$repo_dir/vars.yml")"
+expected_web_apps=$'linux-setup-google-docs.desktop\nlinux-setup-google-drive.desktop\nlinux-setup-google-sheets.desktop\nlinux-setup-google-slides.desktop\nlinux-setup-notion.desktop\nlinux-setup-quo.desktop'
 if grep -A1 -F 'key: dash-max-icon-size' "$repo_dir/vars.yml" | grep -Fq 'value: "32"' &&
    [[ "$dock_favorite_manifest" == "$expected_dock_favorites" ]] &&
+   [[ "$web_app_manifest" == "$expected_web_apps" ]] &&
+   grep -A2 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq '1password.desktop' &&
+   grep -Fq 'Install reviewed Chrome web-app launchers' "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/chrome_web_apps.yml' "$repo_dir/site.yml" &&
+   grep -Fq -- '--app={{ chrome_web_app.url }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
+   grep -Fq -- '--class={{ chrome_web_app.wm_class }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
+   grep -Fq 'StartupWMClass={{ chrome_web_app.wm_class }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
+   grep -Fq 'Refuse unsafe Chrome web-app launcher paths' "$repo_dir/tasks/chrome_web_apps.yml" &&
+   grep -Fq 'Verify exact managed Chrome web-app launcher content' "$repo_dir/verify.yml" &&
+   grep -Fq 'WEB APP SHORTCUTS  ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - chrome_web_apps_ready' "$repo_dir/verify.yml" &&
    grep -Fq 'gnome_dock_favorite_candidates:' "$repo_dir/vars.yml" &&
    grep -Fq 'Inspect reviewed Dock launcher candidates' "$repo_dir/site.yml" &&
    grep -Fq 'Build additive GNOME Dock favorites' "$repo_dir/site.yml" &&
    grep -Fq 'Pin installed reviewed applications to the GNOME Dock' "$repo_dir/site.yml" &&
    grep -A10 -F 'Parse current GNOME Dock favorites' "$repo_dir/site.yml" | grep -Fq 'current_gnome_dock_favorites.stdout' &&
+   grep -A16 -F 'Build additive GNOME Dock favorites' "$repo_dir/site.yml" | grep -Fq 'gnome_dock_managed_unpinned_ids' &&
    grep -A16 -F 'Build additive GNOME Dock favorites' "$repo_dir/site.yml" | grep -Fq '| unique' &&
    grep -Fq 'Require applied GNOME Dock favorites' "$repo_dir/site.yml" &&
    grep -Fq 'gnome_dock_ready:' "$repo_dir/verify.yml" &&
@@ -394,7 +416,7 @@ if grep -A1 -F 'key: dash-max-icon-size' "$repo_dir/vars.yml" | grep -Fq 'value:
    grep -Fq 'GNOME DOCK         ' "$repo_dir/verify.yml" &&
    grep -Fq '          - gnome_dock_ready' "$repo_dir/verify.yml" &&
    grep -Fq '32 px' "$repo_dir/README.md"; then
-  pass 'GNOME Dock pins installed reviewed apps additively at the MBP-sized icon setting'
+  pass 'GNOME Dock installs reviewed Chrome launchers and pins the MBP-style set at 32 px'
 else
   fail 'GNOME Dock favorites and icon-size policy'
 fi

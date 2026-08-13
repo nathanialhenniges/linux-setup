@@ -62,6 +62,41 @@
         missing_base_packages: "{{ base_packages | difference(ansible_facts.packages.keys() | list) }}"
         missing_core_app_packages: "{{ core_app_packages | difference(ansible_facts.packages.keys() | list) }}"
 
+    - name: Inspect managed Chrome web-app launchers
+      ansible.builtin.stat:
+        path: "{{ workstation_home }}/.local/share/applications/{{ item.desktop_id }}"
+        follow: false
+      loop: "{{ chrome_web_app_launchers }}"
+      loop_control:
+        label: "{{ item.desktop_id }}"
+      register: verified_chrome_web_app_paths
+
+    - name: Read managed Chrome web-app launchers
+      ansible.builtin.slurp:
+        path: "{{ workstation_home }}/.local/share/applications/{{ item.item.desktop_id }}"
+      loop: "{{ verified_chrome_web_app_paths.results }}"
+      loop_control:
+        label: "{{ item.item.desktop_id }}"
+      register: verified_chrome_web_app_contents
+      failed_when: false
+      when:
+        - item.stat.isreg | default(false)
+        - not (item.stat.islnk | default(false))
+
+    - name: Verify exact managed Chrome web-app launcher content
+      ansible.builtin.set_fact:
+        chrome_web_apps_ready: >-
+          {{ (chrome_web_apps_ready | default(true)) and
+             not (item.skipped | default(false)) and
+             not (item.failed | default(false)) and
+             (item.content | default('') | b64decode) ==
+             lookup('ansible.builtin.template', 'chrome-web-app.desktop.j2') }}
+      vars:
+        chrome_web_app: "{{ item.item.item }}"
+      loop: "{{ verified_chrome_web_app_contents.results }}"
+      loop_control:
+        label: "{{ item.item.item.desktop_id }}"
+
     - name: Inspect reviewed Dock launcher candidates
       ansible.builtin.stat:
         path: "{{ item.path }}"
@@ -684,7 +719,10 @@
              verified_gnome_dock_icon_size.stdout | default('') == '32' and
              (verified_gnome_dock_favorites.stdout |
               regex_replace('^@as ', '') | from_yaml)[0:verified_installed_gnome_dock_favorites | length] ==
-             verified_installed_gnome_dock_favorites }}
+             verified_installed_gnome_dock_favorites and
+             ((verified_gnome_dock_favorites.stdout |
+               regex_replace('^@as ', '') | from_yaml) |
+              intersect(gnome_dock_managed_unpinned_ids) | length) == 0 }}
         desktop_images_ready: >-
           {{ verified_personal_images.results | length == 3 and
              verified_personal_images.results |
@@ -754,6 +792,7 @@
           - "MACOS KEY SERVICES {{ 'ready; run manual checklist' if macos_keys_ready else 'needs Focused Window D-Bus + keybinds action' }}"
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
           - "GNOME DOCK         {{ '32px; reviewed apps pinned' if gnome_dock_ready else 'needs gnome action' }}"
+          - "WEB APP SHORTCUTS  {{ 'Docs, Drive, Sheets, Slides, Notion, Quo ready' if chrome_web_apps_ready else 'needs gnome action' }}"
           - "DESKTOP IMAGES     {{ 'wallpaper and profile ready' if desktop_images_ready else 'needs gnome action' }}"
           - "MACHINE BRANDING   {{ 'Nathanials Air; GDM logo + managed banner ready' if desktop_branding_ready else 'needs gnome action' }}"
           - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"
@@ -784,6 +823,7 @@
           - font_ready
           - terminal_ready
           - gnome_dock_ready
+          - chrome_web_apps_ready
           - desktop_images_ready
           - desktop_branding_ready
           - shell_ready
