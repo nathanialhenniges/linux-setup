@@ -65,6 +65,7 @@ grep -Fxq 'ModuleName=two-step' "$theme/mrdemonwolf.plymouth"
 grep -Fxq "ImageDir=$theme" "$theme/mrdemonwolf.plymouth"
 grep -Fxq 'WatermarkHorizontalAlignment=.5' "$theme/mrdemonwolf.plymouth"
 grep -Fxq 'WatermarkVerticalAlignment=.34' "$theme/mrdemonwolf.plymouth"
+grep -Fxq 'DialogVerticalAlignment=.64' "$theme/mrdemonwolf.plymouth"
 file "$theme/watermark.png" | grep -Fq 'PNG image data, 240 x 240'
 cmp /usr/share/plymouth/themes/spinner/bullet.png "$theme/bullet.png"
 cmp /usr/share/plymouth/themes/spinner/entry.png "$theme/entry.png"

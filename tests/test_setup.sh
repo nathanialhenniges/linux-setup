@@ -205,6 +205,7 @@ if grep -A24 -F 'run_boot() {' "$setup" | grep -Fq -- '--tags boot' &&
    file "$repo_dir/assets/boot-branding/mrdemonwolf-logo.png" | grep -Fq 'PNG image data, 240 x 240' &&
    grep -Fq "boot_branding_watermark_horizontal_alignment: '.5'" "$repo_dir/tasks/boot_branding.yml" &&
    grep -Fq "boot_branding_watermark_vertical_alignment: '.34'" "$repo_dir/tasks/boot_branding.yml" &&
+   grep -Fq "boot_branding_dialog_vertical_alignment: '.64'" "$repo_dir/tasks/boot_branding.yml" &&
    grep -Fq 'boot_branding_requested_mode in' "$repo_dir/tasks/boot_branding.yml" &&
    grep -Fq 'Skipping boot branding on an unsupported TPM-backed FDE or UKI layout' "$repo_dir/tasks/boot_branding.yml" &&
    grep -Fq 'Refusing unmanaged Plymouth theme directory' "$repo_dir/tasks/boot_branding.yml" &&

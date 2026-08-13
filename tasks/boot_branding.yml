@@ -16,6 +16,7 @@
     boot_branding_logo_sha256: 860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406
     boot_branding_watermark_horizontal_alignment: '.5'
     boot_branding_watermark_vertical_alignment: '.34'
+    boot_branding_dialog_vertical_alignment: '.64'
     boot_branding_alternative_priority: 100
     boot_branding_marker_content: |
       Managed by nathanialhenniges/linux-setup boot action.
@@ -388,6 +389,9 @@
           - >-
             boot_branding_source_descriptor_text |
             regex_findall('(?m)^WatermarkVerticalAlignment=.*$') | length == 1
+          - >-
+            boot_branding_source_descriptor_text |
+            regex_findall('(?m)^DialogVerticalAlignment=.*$') | length == 1
           - boot_branding_source_theme_dir ~ '/bullet.png' in boot_branding_source_file_paths
           - boot_branding_source_theme_dir ~ '/entry.png' in boot_branding_source_file_paths
           - boot_branding_source_theme_dir ~ '/lock.png' in boot_branding_source_file_paths
@@ -427,7 +431,10 @@
                            boot_branding_watermark_horizontal_alignment) |
              regex_replace('(?m)^WatermarkVerticalAlignment=.*$',
                            'WatermarkVerticalAlignment=' ~
-                           boot_branding_watermark_vertical_alignment) }}
+                           boot_branding_watermark_vertical_alignment) |
+             regex_replace('(?m)^DialogVerticalAlignment=.*$',
+                           'DialogVerticalAlignment=' ~
+                           boot_branding_dialog_vertical_alignment) }}
         boot_branding_clone_files: >-
           {{ boot_branding_source_files.files |
              rejectattr('path', 'equalto', boot_branding_source_descriptor) |
@@ -655,6 +662,11 @@
             (boot_branding_completed_descriptor_content.content | b64decode) |
             regex_findall('(?m)^WatermarkVerticalAlignment=' ~
                           (boot_branding_watermark_vertical_alignment |
+                           regex_escape) ~ '$') | length == 1
+          - >-
+            (boot_branding_completed_descriptor_content.content | b64decode) |
+            regex_findall('(?m)^DialogVerticalAlignment=' ~
+                          (boot_branding_dialog_vertical_alignment |
                            regex_escape) ~ '$') | length == 1
         fail_msg: "Managed Plymouth theme validation failed; it was not activated."
         quiet: true

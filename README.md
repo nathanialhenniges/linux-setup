@@ -145,7 +145,7 @@ Cider is the selected Apple Music client. `apps` installs `sh.cider.Cider` from 
 
 ## Optional boot logo
 
-Apple's firmware draws the first Apple logo before Ubuntu starts, so Linux cannot safely replace that image. The supported customization begins at Plymouth after the kernel and initramfs take control. It clones Ubuntu's packaged `two-step` spinner theme, preserving its password and disk-unlock assets, and replaces only the watermark with the reviewed transparent 240 x 240 px logo. The managed descriptor pins `WatermarkHorizontalAlignment=.5` and `WatermarkVerticalAlignment=.34`; on the MBA's 1366×768 display this centers the logo above Ubuntu's native spinner with a clear gap.
+Apple's firmware draws the first Apple logo before Ubuntu starts, so Linux cannot safely replace that image. The supported customization begins at Plymouth after the kernel and initramfs take control. It clones Ubuntu's packaged `two-step` spinner theme, preserving its password and disk-unlock assets, and replaces only the watermark with the reviewed transparent 240 x 240 px logo. The managed descriptor pins `WatermarkHorizontalAlignment=.5` and `WatermarkVerticalAlignment=.34`; on the MBA's 1366×768 display this centers the logo above Ubuntu's native spinner with a clear gap. `DialogVerticalAlignment=.64` moves only the encrypted-drive unlock row below the logo instead of covering its face.
 
 Pull `main`, preview, and apply the boot logo separately from `all`:
 
