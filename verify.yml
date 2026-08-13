@@ -448,12 +448,6 @@
         label: "{{ item.name }}"
       register: verified_core_sources
 
-    - name: Inspect Anthropic's duplicate Claude source
-      ansible.builtin.stat:
-        path: "{{ claude_official_source_path }}"
-        follow: false
-      register: verified_claude_official_source
-
     - name: Inspect the official ChatGPT package repository
       ansible.builtin.stat:
         path: "{{ item }}"
@@ -503,8 +497,7 @@
     - name: Initialize core repository readiness
       ansible.builtin.set_fact:
         claude_source_state_ready: >-
-          {{ not (verified_claude_official_source.stat.exists | default(false)) and
-             verified_claude_repository_opt_out.stat.isreg | default(false) and
+          {{ verified_claude_repository_opt_out.stat.isreg | default(false) and
              not (verified_claude_repository_opt_out.stat.islnk | default(false)) and
              verified_claude_repository_opt_out.stat.uid | default(-1) == 0 and
              verified_claude_repository_opt_out.stat.mode | default('') == '0644' and
@@ -710,12 +703,12 @@
              not (verified_desktop_branding_files.results[1].stat.islnk | default(false)) and
              verified_desktop_branding_values.results | length == 2 and
              verified_desktop_branding_values.results[0].rc | default(1) == 0 and
-             verified_desktop_branding_values.results[0].stdout | default('') == 'MrDemonWolf, Inc.' and
+             verified_desktop_branding_values.results[0].stdout | default('') | trim == 'MrDemonWolf, Inc.' and
              verified_desktop_branding_values.results[1].rc | default(1) == 0 and
-             verified_desktop_branding_values.results[1].stdout | default('') ==
+             verified_desktop_branding_values.results[1].stdout | default('') | trim ==
              "'/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" and
-             (verified_gdm_branding_key.content | default('') | b64decode) ==
-             "# Managed by nathanialhenniges/linux-setup.\n[org/gnome/login-screen]\nlogo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'\n" }}
+             verified_gdm_branding_key.content | default('') | b64decode | trim ==
+             "# Managed by nathanialhenniges/linux-setup.\n[org/gnome/login-screen]\nlogo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and

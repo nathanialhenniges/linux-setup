@@ -422,6 +422,9 @@ if grep -Fq 'Install supported Ubuntu machine branding' "$repo_dir/site.yml" &&
    grep -Fq 'Set the supported pretty device name' "$repo_dir/tasks/desktop_branding.yml" &&
    grep -Fq 'org/gnome/login-screen' "$repo_dir/tasks/desktop_branding.yml" &&
    grep -Fq "logo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq "verified_desktop_branding_values.results[0].stdout | default('') | trim == 'MrDemonWolf, Inc.'" "$repo_dir/verify.yml" &&
+   grep -Fq "verified_desktop_branding_values.results[1].stdout | default('') | trim ==" "$repo_dir/verify.yml" &&
+   grep -Fq "verified_gdm_branding_key.content | default('') | b64decode | trim ==" "$repo_dir/verify.yml" &&
    grep -Fq 'MACHINE BRANDING   ' "$repo_dir/verify.yml" &&
    grep -Fq '          - desktop_branding_ready' "$repo_dir/verify.yml" &&
    grep -Fq 'sources | base | apps | tools | gnome)' "$setup"; then
@@ -442,6 +445,8 @@ if grep -A5 -F 'Inspect verified core repository sources' "$repo_dir/verify.yml"
      grep -Fq 'checksum_algorithm: sha256' &&
    grep -Fq "item.source_content | hash('sha256')" "$repo_dir/verify.yml" &&
    grep -Fq "(claude_repository_opt_out_line ~ '\\n') | hash('sha256')" "$repo_dir/verify.yml" &&
+   grep -Fq 'verified_claude_unmanaged_sources.stdout_lines | length == 0' "$repo_dir/verify.yml" &&
+   ! grep -Fq 'not (verified_claude_official_source.stat.exists | default(false))' "$repo_dir/verify.yml" &&
    grep -Fq 'core_repository_files_ready: true' "$repo_dir/verify.yml" &&
    grep -Fq 'core_repository_files_ready: false' "$repo_dir/verify.yml" &&
    ! grep -Fq '{{ core_sources_ready and' "$repo_dir/verify.yml"; then
@@ -579,8 +584,7 @@ if grep -A20 -F '  - name: claude-desktop' "$repo_dir/vars.yml" | grep -Fq 'key_
    (( claude_cleanup_line > vendor_install_line )) &&
    (( claude_additional_cleanup_line > vendor_install_line )) &&
    grep -Fq 'Require Claude package installation to honor the repository opt-out' "$repo_dir/site.yml" &&
-   grep -Fq "Inspect Anthropic's duplicate Claude source" "$repo_dir/verify.yml" &&
-   grep -Fq "not (verified_claude_official_source.stat.exists | default(false))" "$repo_dir/verify.yml" &&
+   ! grep -Fq 'verified_claude_official_source' "$repo_dir/verify.yml" &&
    grep -Fq "Inspect Claude's package repository opt-out" "$repo_dir/verify.yml" &&
    grep -Fq 'Detect Claude entries outside the managed APT source' "$repo_dir/verify.yml"; then
   pass 'Claude duplicate Signed-By source is migrated safely'
