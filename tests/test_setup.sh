@@ -4,6 +4,7 @@ set -Eeuo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 setup="$repo_dir/setup.sh"
 notices="$repo_dir/THIRD-PARTY-NOTICES.md"
+readme="$repo_dir/README.md"
 failures=0
 
 pass() { printf 'PASS: %s\n' "$1"; }
@@ -44,6 +45,21 @@ if [[ -f "$notices" ]] &&
   pass 'third-party notices cover reviewed artifacts and sources'
 else
   fail 'third-party notices coverage'
+fi
+
+# shellcheck disable=SC2016 # Assert literal Markdown commands in the guide.
+if grep -Fq 'cd ~/Developer/nathanialhenniges/linux-setup' "$readme" &&
+   grep -Fq './setup.sh bootstrap' "$readme" &&
+   grep -Fq './setup.sh --dry-run all' "$readme" &&
+   grep -Fq './setup.sh keybinds && ./setup.sh verify' "$readme" &&
+   grep -Fq 'Resume after a stopped action' "$readme" &&
+   grep -Fq 'Manual acceptance checklist' "$readme" &&
+   grep -Fq 'Do not run `./setup.sh boot` yet' "$readme" &&
+   grep -Fq 'paste the complete error output' "$readme" &&
+   grep -Fq 'Do not manually delete or edit APT source files' "$readme"; then
+  pass 'README is the complete MBA setup and recovery guide'
+else
+  fail 'README MBA how-to coverage'
 fi
 
 if "$setup" --help | grep -Fq 'Ubuntu Desktop 26.04 local Ansible setup'; then
