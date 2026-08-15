@@ -315,6 +315,35 @@
   loop_control:
     label: "{{ item.item.name }}"
 
+- name: Accept only reviewed VS Code source templates
+  ansible.builtin.assert:
+    that:
+      - >-
+        (installed_vendor_source_content.results[vendor_index].content | b64decode) in
+        [item.source_content, vscode_package_source_content]
+    fail_msg: >-
+      Refusing unexpected VS Code source content in {{ item.source_path }}.
+      Found {{ (installed_vendor_source_content.results[vendor_index].content | b64decode).splitlines() | length }} line(s),
+      SHA-256 {{ installed_vendor_source_content.results[vendor_index].content | b64decode | hash('sha256') }}.
+      Leave it untouched and report this complete message before rerunning setup.
+    quiet: true
+  loop: "{{ vendor_repositories }}"
+  loop_control:
+    label: "{{ item.name }}"
+    index_var: vendor_index
+  when:
+    - item.name == 'microsoft-code'
+    - installed_vendor_sources.results[vendor_index].stat.isreg | default(false)
+
+- name: Disable VS Code package repository self-management
+  ansible.builtin.debconf:
+    name: code
+    question: code/add-microsoft-repo
+    value: "false"
+    vtype: boolean
+  become: true
+  when: not ansible_check_mode
+
 - name: Preview vendor repository drift
   ansible.builtin.debug:
     msg: "Would verify and repair the {{ item.name }} signing key and source"

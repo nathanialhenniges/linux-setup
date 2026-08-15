@@ -247,12 +247,6 @@
       changed_when: false
       failed_when: false
 
-    - name: Read the managed GDM branding key
-      ansible.builtin.slurp:
-        src: /etc/dconf/db/gdm.d/01-linux-setup-branding
-      register: verified_gdm_branding_key
-      when: verified_desktop_branding_files.results[1].stat.isreg | default(false)
-
     - name: Inspect the Snap executable
       ansible.builtin.stat:
         path: /usr/bin/snap
@@ -597,7 +591,7 @@
              verified_claude_repository_opt_out.stat.uid | default(-1) == 0 and
              verified_claude_repository_opt_out.stat.mode | default('') == '0644' and
              verified_claude_repository_opt_out.stat.checksum | default('') ==
-               ((claude_repository_opt_out_line ~ '\n') | hash('sha256')) and
+               claude_repository_opt_out_sha256 and
              verified_claude_unmanaged_sources.stdout_lines | length == 0 }}
         core_repository_files_ready: true
         chatgpt_repository_ready: >-
@@ -804,6 +798,8 @@
              verified_desktop_branding_files.results[0].item.sha256 and
              verified_desktop_branding_files.results[1].stat.isreg | default(false) and
              not (verified_desktop_branding_files.results[1].stat.islnk | default(false)) and
+             verified_desktop_branding_files.results[1].stat.checksum | default('') ==
+             desktop_branding_gdm_keyfile_sha256 and
              verified_desktop_branding_values.results | length == 4 and
              verified_desktop_branding_values.results[0].rc | default(1) == 0 and
              verified_desktop_branding_values.results[0].stdout | default('') | trim == 'Nathanials Air' and
@@ -814,9 +810,7 @@
              verified_desktop_branding_values.results[2].stdout | default('') | trim == 'true' and
              verified_desktop_branding_values.results[3].rc | default(1) == 0 and
              verified_desktop_branding_values.results[3].stdout | default('') | trim ==
-             "'Managed by MrDemonWolf, Inc.'" and
-             verified_gdm_branding_key.content | default('') | b64decode | trim ==
-             "# Managed by nathanialhenniges/linux-setup.\n[org/gnome/login-screen]\nlogo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'\nbanner-message-enable=true\nbanner-message-text='Managed by MrDemonWolf, Inc.'" }}
+             "'Managed by MrDemonWolf, Inc.'" }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and
@@ -838,7 +832,7 @@
             symlink={{ verified_claude_repository_opt_out.stat.islnk | default(false) }}
             uid={{ verified_claude_repository_opt_out.stat.uid | default('missing') }}
             mode={{ verified_claude_repository_opt_out.stat.mode | default('missing') }}
-            checksum={{ 'match' if verified_claude_repository_opt_out.stat.checksum | default('') == ((claude_repository_opt_out_line ~ '\n') | hash('sha256')) else 'mismatch' }}
+            checksum={{ 'match' if verified_claude_repository_opt_out.stat.checksum | default('') == claude_repository_opt_out_sha256 else 'mismatch' }}
           - "CLAUDE UNMANAGED SOURCES {{ verified_claude_unmanaged_sources.stdout_lines | default([]) | join(', ') if verified_claude_unmanaged_sources.stdout_lines | default([]) | length > 0 else 'none' }}"
           - "CORE REPOSITORY FILES {{ 'match' if core_repository_files_ready else 'mismatch' }}"
           - "GOOGLE DRIVE MOUNT {{ 'active' if google_drive_ready else 'not configured or inactive' }}"
@@ -849,7 +843,7 @@
           - >-
             BRANDING GDM KEY regular={{ verified_desktop_branding_files.results[1].stat.isreg | default(false) }}
             symlink={{ verified_desktop_branding_files.results[1].stat.islnk | default(false) }}
-            content={{ 'match' if verified_gdm_branding_key.content | default('') | b64decode | trim == "# Managed by nathanialhenniges/linux-setup.\n[org/gnome/login-screen]\nlogo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'\nbanner-message-enable=true\nbanner-message-text='Managed by MrDemonWolf, Inc.'" else 'mismatch' }}
+            checksum={{ 'match' if verified_desktop_branding_files.results[1].stat.checksum | default('') == desktop_branding_gdm_keyfile_sha256 else 'mismatch' }}
           - "BRANDING PRETTY HOSTNAME {{ verified_desktop_branding_values.results[0].stdout | default('missing') | trim | to_json }}"
           - "BRANDING GDM LOGO {{ verified_desktop_branding_values.results[1].stdout | default('missing') | trim | to_json }}"
           - "BRANDING BANNER ENABLED {{ verified_desktop_branding_values.results[2].stdout | default('missing') | trim | to_json }}"

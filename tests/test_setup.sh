@@ -476,7 +476,8 @@ if grep -Fq 'Install supported Ubuntu machine branding' "$repo_dir/site.yml" &&
    grep -Fq '/org/gnome/login-screen/banner-message-text' "$repo_dir/verify.yml" &&
    grep -Fq "verified_desktop_branding_values.results[0].stdout | default('') | trim == 'Nathanials Air'" "$repo_dir/verify.yml" &&
    grep -Fq "verified_desktop_branding_values.results[1].stdout | default('') | trim ==" "$repo_dir/verify.yml" &&
-   grep -Fq "verified_gdm_branding_key.content | default('') | b64decode | trim ==" "$repo_dir/verify.yml" &&
+   grep -Fq 'desktop_branding_gdm_keyfile_sha256: 9ec7f788fb6ea1f9dad64f6016df408878986b8ad34d7cc37bb6e99a043bf954' "$repo_dir/vars.yml" &&
+   grep -Fq "verified_desktop_branding_files.results[1].stat.checksum | default('') ==" "$repo_dir/verify.yml" &&
    grep -Fq 'MACHINE BRANDING   ' "$repo_dir/verify.yml" &&
    grep -Fq '          - desktop_branding_ready' "$repo_dir/verify.yml" &&
    grep -Fq 'sources | base | apps | tools | drive | gnome)' "$setup"; then
@@ -496,7 +497,8 @@ fi
 if grep -A5 -F 'Inspect verified core repository sources' "$repo_dir/verify.yml" |
      grep -Fq 'checksum_algorithm: sha256' &&
    grep -Fq "item.source_content | hash('sha256')" "$repo_dir/verify.yml" &&
-   grep -Fq "(claude_repository_opt_out_line ~ '\\n') | hash('sha256')" "$repo_dir/verify.yml" &&
+   grep -Fq 'claude_repository_opt_out_sha256: cdaadf5733bf59dd14fffbadc4229a428f528ae00ad8d46a26ce7abc05a028db' "$repo_dir/vars.yml" &&
+   grep -Fq 'claude_repository_opt_out_sha256 and' "$repo_dir/verify.yml" &&
    grep -Fq 'verified_claude_unmanaged_sources.stdout_lines | length == 0' "$repo_dir/verify.yml" &&
    ! grep -Fq 'not (verified_claude_official_source.stat.exists | default(false))' "$repo_dir/verify.yml" &&
    grep -Fq 'core_repository_files_ready: true' "$repo_dir/verify.yml" &&
@@ -616,6 +618,12 @@ fi
 
 if grep -Fq 'checksum: "sha256:{{ item.key_sha256 }}"' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq 'Read every primary signing-key fingerprint' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Accept only reviewed VS Code source templates' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq '[item.source_content, vscode_package_source_content]' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Disable VS Code package repository self-management' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'question: code/add-microsoft-repo' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq '### THIS FILE IS AUTOMATICALLY CONFIGURED ###' "$repo_dir/vars.yml" &&
+   grep -Fq 'Signed-By: /usr/share/keyrings/microsoft.gpg' "$repo_dir/vars.yml" &&
    grep -Fq 'Preview vendor repository drift' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq 'content: "{{ item.source_content }}"' "$repo_dir/tasks/vendor_repositories.yml"; then
   pass 'vendor keys and sources require integrity checks'
