@@ -180,7 +180,7 @@ else
 fi
 
 if grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome keybinds)' "$setup" &&
-   grep -Fq 'bootstrap | all | status | verify | sources | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds | boot | boot-reset)' "$setup" &&
+   grep -Fq 'bootstrap | all | status | state | verify | sources | base | apps | tools | drive | terminal | codex | dotfiles | gnome | keybinds | boot | boot-reset)' "$setup" &&
    grep -Fq "\"\$repo_dir/setup.sh\" bootstrap || die \"all stopped at bootstrap" "$setup" &&
    grep -Fq "[[ \"\$dry_run\" == false ]] || command+=(--dry-run)" "$setup" &&
    grep -Fq 'final_step="status"' "$setup" &&
@@ -389,7 +389,7 @@ web_app_manifest="$(awk '
     print
   }
 ' "$repo_dir/vars.yml")"
-expected_web_apps=$'linux-setup-google-docs.desktop\nlinux-setup-google-drive.desktop\nlinux-setup-google-sheets.desktop\nlinux-setup-google-slides.desktop\nlinux-setup-notion.desktop\nlinux-setup-quo.desktop'
+expected_web_apps=$'linux-setup-google-docs.desktop\nlinux-setup-google-sheets.desktop\nlinux-setup-google-slides.desktop\nlinux-setup-notion.desktop\nlinux-setup-quo.desktop'
 if grep -A1 -F 'key: dash-max-icon-size' "$repo_dir/vars.yml" | grep -Fq 'value: "32"' &&
    [[ "$dock_favorite_manifest" == "$expected_dock_favorites" ]] &&
    [[ "$web_app_manifest" == "$expected_web_apps" ]] &&
@@ -403,9 +403,15 @@ if grep -A1 -F 'key: dash-max-icon-size' "$repo_dir/vars.yml" | grep -Fq 'value:
    grep -Fq 'file: tasks/chrome_web_apps.yml' "$repo_dir/site.yml" &&
    grep -Fq -- '--app={{ chrome_web_app.url }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
    grep -Fq -- '--class={{ chrome_web_app.wm_class }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
+   grep -Fq 'Icon={{ workstation_home }}/.local/share/icons/{{ chrome_web_app.icon_file }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
    grep -Fq 'StartupWMClass={{ chrome_web_app.wm_class }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
    grep -Fq 'Refuse unsafe Chrome web-app launcher paths' "$repo_dir/tasks/chrome_web_apps.yml" &&
+   grep -Fq 'Install checksum-pinned official web-app icons' "$repo_dir/tasks/chrome_web_apps.yml" &&
+   grep -A12 -F 'Install checksum-pinned official web-app icons' "$repo_dir/tasks/chrome_web_apps.yml" | grep -Fq 'when: not ansible_check_mode' &&
+   grep -Fq 'Refuse unknown retired Chrome launcher content' "$repo_dir/tasks/chrome_web_apps.yml" &&
+   grep -Fq 'Remove the exact retired Google Drive app launcher' "$repo_dir/tasks/chrome_web_apps.yml" &&
    grep -Fq 'Verify exact managed Chrome web-app launcher content' "$repo_dir/verify.yml" &&
+   grep -Fq 'Verify exact managed Chrome web-app icon content' "$repo_dir/verify.yml" &&
    grep -Fq 'WEB APP SHORTCUTS  ' "$repo_dir/verify.yml" &&
    grep -Fq '          - chrome_web_apps_ready' "$repo_dir/verify.yml" &&
    grep -Fq 'gnome_dock_favorite_candidates:' "$repo_dir/vars.yml" &&
@@ -424,6 +430,19 @@ if grep -A1 -F 'key: dash-max-icon-size' "$repo_dir/vars.yml" | grep -Fq 'value:
   pass 'GNOME Dock installs reviewed Chrome launchers and pins the MBP-style set at 32 px'
 else
   fail 'GNOME Dock favorites and icon-size policy'
+fi
+
+if grep -Fq './setup.sh [--dry-run] state' "$setup" &&
+   grep -Fq 'state) run_status false true ;;' "$setup" &&
+   grep -Fq 'diagnostic_state: false' "$repo_dir/verify.yml" &&
+   grep -Fq 'Show read-only diagnostic state' "$repo_dir/verify.yml" &&
+   grep -A35 -F 'Show read-only diagnostic state' "$repo_dir/verify.yml" | grep -Fq 'when: diagnostic_state | bool' &&
+   grep -Fq 'CLAUDE UNMANAGED SOURCES' "$repo_dir/verify.yml" &&
+   grep -Fq 'BRANDING PRETTY HOSTNAME' "$repo_dir/verify.yml" &&
+   grep -Fq 'RETIRED GOOGLE DRIVE LAUNCHER' "$repo_dir/verify.yml"; then
+  pass 'read-only state diagnostics expose failed-check causes without repair'
+else
+  fail 'read-only state diagnostic action'
 fi
 
 if [[ "$(shasum -a 256 "$repo_dir/assets/mrdemonwolf-desktop-wallpaper.png" | awk '{print $1}')" == '1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840' ]] &&
@@ -460,7 +479,7 @@ if grep -Fq 'Install supported Ubuntu machine branding' "$repo_dir/site.yml" &&
    grep -Fq "verified_gdm_branding_key.content | default('') | b64decode | trim ==" "$repo_dir/verify.yml" &&
    grep -Fq 'MACHINE BRANDING   ' "$repo_dir/verify.yml" &&
    grep -Fq '          - desktop_branding_ready' "$repo_dir/verify.yml" &&
-   grep -Fq 'sources | base | apps | tools | gnome)' "$setup"; then
+   grep -Fq 'sources | base | apps | tools | drive | gnome)' "$setup"; then
   pass 'Ubuntu-supported device name and GDM branding are managed with prompted sudo'
 else
   fail 'Ubuntu-supported machine branding policy'
@@ -576,6 +595,23 @@ if [[ "$tool_command_manifest_ok" == true ]] &&
   pass 'selected CLI tools use Ubuntu APT with explicit local-shadow policies'
 else
   fail 'selected CLI APT boundary'
+fi
+
+if grep -Fxq '  - drive' "$repo_dir/vars.yml" &&
+   grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome keybinds)' "$setup" &&
+   grep -Fq 'drive) configure_google_drive ;;' "$setup" &&
+   grep -Fq '/usr/bin/rclone config' "$setup" &&
+   grep -Fq 'google_drive_remote_ready' "$setup" &&
+   grep -Fq 'Configure the optional Google Drive rclone mount' "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/google_drive.yml' "$repo_dir/site.yml" &&
+   grep -Fq -- '--vfs-cache-mode=writes' "$repo_dir/vars.yml" &&
+   grep -Fq -- '--vfs-cache-max-size=2G' "$repo_dir/vars.yml" &&
+   grep -Fq 'Refusing unsafe rclone config' "$repo_dir/tasks/google_drive.yml" &&
+   grep -Fq 'scope: user' "$repo_dir/tasks/google_drive.yml" &&
+   ! grep -Eq 'rclone[[:space:]]+bisync' "$repo_dir/tasks/google_drive.yml" "$setup"; then
+  pass 'Google Drive mount is optional, user-scoped, and bisync-free'
+else
+  fail 'optional Google Drive mount boundary'
 fi
 
 if grep -Fq 'checksum: "sha256:{{ item.key_sha256 }}"' "$repo_dir/tasks/vendor_repositories.yml" &&

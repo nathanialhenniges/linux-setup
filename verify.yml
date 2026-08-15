@@ -8,6 +8,7 @@
   vars:
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
     strict_verify: false
+    diagnostic_state: false
     workstation_user: "{{ ansible_facts.user_id }}"
     workstation_home: "{{ ansible_facts.env.HOME }}"
     dotfiles_dir: "{{ ansible_facts.env.HOME }}/.local/share/dotfiles"
@@ -62,6 +63,20 @@
         missing_base_packages: "{{ base_packages | difference(ansible_facts.packages.keys() | list) }}"
         missing_core_app_packages: "{{ core_app_packages | difference(ansible_facts.packages.keys() | list) }}"
 
+    - name: Read configured rclone remote names without exposing credentials
+      ansible.builtin.command:
+        argv: [/usr/bin/rclone, listremotes]
+      register: verified_rclone_remotes
+      changed_when: false
+      failed_when: false
+
+    - name: Read optional Google Drive mount service state
+      ansible.builtin.command:
+        argv: [systemctl, --user, is-active, linux-setup-google-drive.service]
+      register: verified_google_drive_mount
+      changed_when: false
+      failed_when: false
+
     - name: Inspect managed Chrome web-app launchers
       ansible.builtin.stat:
         path: "{{ workstation_home }}/.local/share/applications/{{ item.desktop_id }}"
@@ -70,6 +85,25 @@
       loop_control:
         label: "{{ item.desktop_id }}"
       register: verified_chrome_web_app_paths
+
+    - name: Inspect managed Chrome web-app icons
+      ansible.builtin.stat:
+        path: "{{ workstation_home }}/.local/share/icons/{{ item.icon_file }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop: "{{ chrome_web_app_launchers }}"
+      loop_control:
+        label: "{{ item.icon_file }}"
+      register: verified_chrome_web_app_icons
+
+    - name: Inspect retired Chrome web-app launchers
+      ansible.builtin.stat:
+        path: "{{ workstation_home }}/.local/share/applications/{{ item.desktop_id }}"
+        follow: false
+      loop: "{{ chrome_web_app_retired_launchers }}"
+      loop_control:
+        label: "{{ item.desktop_id }}"
+      register: verified_retired_chrome_web_app_paths
 
     - name: Read managed Chrome web-app launchers
       ansible.builtin.slurp:
@@ -96,6 +130,26 @@
       loop: "{{ verified_chrome_web_app_contents.results }}"
       loop_control:
         label: "{{ item.item.item.desktop_id }}"
+
+    - name: Verify exact managed Chrome web-app icon content
+      ansible.builtin.set_fact:
+        chrome_web_app_icons_ready: >-
+          {{ (chrome_web_app_icons_ready | default(true)) and
+             item.stat.isreg | default(false) and
+             not (item.stat.islnk | default(false)) and
+             item.stat.checksum | default('') == item.item.icon_sha256 }}
+      loop: "{{ verified_chrome_web_app_icons.results }}"
+      loop_control:
+        label: "{{ item.item.icon_file }}"
+
+    - name: Finalize managed Chrome web-app readiness
+      ansible.builtin.set_fact:
+        chrome_web_apps_ready: >-
+          {{ chrome_web_apps_ready | default(false) and
+             chrome_web_app_icons_ready | default(false) and
+             (verified_retired_chrome_web_app_paths.results |
+              selectattr('stat.exists', 'defined') |
+              selectattr('stat.exists') | list | length) == 0 }}
 
     - name: Inspect reviewed Dock launcher candidates
       ansible.builtin.stat:
@@ -683,6 +737,11 @@
              selected_tool_resolution_errors | length == 0 and
               selected_tool_ownership_errors | length == 0 }}
         postman_ready: "{{ verified_postman_snap.rc | default(1) == 0 }}"
+        google_drive_ready: >-
+          {{ verified_rclone_remotes.rc | default(1) == 0 and
+             'google-drive:' in (verified_rclone_remotes.stdout_lines | default([])) and
+             verified_google_drive_mount.rc | default(1) == 0 and
+             verified_google_drive_mount.stdout | default('') == 'active' }}
         upscayl_ready: >-
           {{ verified_upscayl_flatpak.rc | default(1) == 0 and
              verified_upscayl_flatpak.stdout | default('') | trim == core_flatpak_remote.name }}
@@ -771,6 +830,34 @@
              (verified_toshy_enabled.results | default([]) |
               selectattr('rc', 'equalto', 0) | list | length) == 2 }}
 
+    - name: Show read-only diagnostic state
+      ansible.builtin.debug:
+        msg:
+          - >-
+            CLAUDE OPT-OUT regular={{ verified_claude_repository_opt_out.stat.isreg | default(false) }}
+            symlink={{ verified_claude_repository_opt_out.stat.islnk | default(false) }}
+            uid={{ verified_claude_repository_opt_out.stat.uid | default('missing') }}
+            mode={{ verified_claude_repository_opt_out.stat.mode | default('missing') }}
+            checksum={{ 'match' if verified_claude_repository_opt_out.stat.checksum | default('') == ((claude_repository_opt_out_line ~ '\n') | hash('sha256')) else 'mismatch' }}
+          - "CLAUDE UNMANAGED SOURCES {{ verified_claude_unmanaged_sources.stdout_lines | default([]) | join(', ') if verified_claude_unmanaged_sources.stdout_lines | default([]) | length > 0 else 'none' }}"
+          - "CORE REPOSITORY FILES {{ 'match' if core_repository_files_ready else 'mismatch' }}"
+          - "GOOGLE DRIVE MOUNT {{ 'active' if google_drive_ready else 'not configured or inactive' }}"
+          - >-
+            BRANDING LOGO regular={{ verified_desktop_branding_files.results[0].stat.isreg | default(false) }}
+            symlink={{ verified_desktop_branding_files.results[0].stat.islnk | default(false) }}
+            checksum={{ 'match' if verified_desktop_branding_files.results[0].stat.checksum | default('') == verified_desktop_branding_files.results[0].item.sha256 else 'mismatch' }}
+          - >-
+            BRANDING GDM KEY regular={{ verified_desktop_branding_files.results[1].stat.isreg | default(false) }}
+            symlink={{ verified_desktop_branding_files.results[1].stat.islnk | default(false) }}
+            content={{ 'match' if verified_gdm_branding_key.content | default('') | b64decode | trim == "# Managed by nathanialhenniges/linux-setup.\n[org/gnome/login-screen]\nlogo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'\nbanner-message-enable=true\nbanner-message-text='Managed by MrDemonWolf, Inc.'" else 'mismatch' }}
+          - "BRANDING PRETTY HOSTNAME {{ verified_desktop_branding_values.results[0].stdout | default('missing') | trim | to_json }}"
+          - "BRANDING GDM LOGO {{ verified_desktop_branding_values.results[1].stdout | default('missing') | trim | to_json }}"
+          - "BRANDING BANNER ENABLED {{ verified_desktop_branding_values.results[2].stdout | default('missing') | trim | to_json }}"
+          - "BRANDING BANNER TEXT {{ verified_desktop_branding_values.results[3].stdout | default('missing') | trim | to_json }}"
+          - "WEB APP ICONS {{ 'match' if chrome_web_app_icons_ready | default(false) else 'mismatch' }}"
+          - "RETIRED GOOGLE DRIVE LAUNCHER {{ 'absent' if (verified_retired_chrome_web_app_paths.results | selectattr('stat.exists', 'defined') | selectattr('stat.exists') | list | length) == 0 else 'still present' }}"
+      when: diagnostic_state | bool
+
     - name: Show the ADHD-friendly workstation status board
       ansible.builtin.debug:
         msg:
@@ -789,10 +876,11 @@
               ('needs apps action: Claude state' if not claude_source_state_ready else
                'needs apps action: managed file mismatch') }}
           - "SELECTED CLI TOOLS {{ 'ready' if selected_tools_ready else 'needs tools action' }}"
+          - "GOOGLE DRIVE       {{ 'mounted in Files' if google_drive_ready else 'optional; run drive action' }}"
           - "MACOS KEY SERVICES {{ 'ready; run manual checklist' if macos_keys_ready else 'needs Focused Window D-Bus + keybinds action' }}"
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
           - "GNOME DOCK         {{ '32px; reviewed apps pinned' if gnome_dock_ready else 'needs gnome action' }}"
-          - "WEB APP SHORTCUTS  {{ 'Docs, Drive, Sheets, Slides, Notion, Quo ready' if chrome_web_apps_ready else 'needs gnome action' }}"
+          - "WEB APP SHORTCUTS  {{ 'Docs, Sheets, Slides, Notion, Quo ready; Drive web only' if chrome_web_apps_ready else 'needs gnome action' }}"
           - "DESKTOP IMAGES     {{ 'wallpaper and profile ready' if desktop_images_ready else 'needs gnome action' }}"
           - "MACHINE BRANDING   {{ 'Nathanials Air; GDM logo + managed banner ready' if desktop_branding_ready else 'needs gnome action' }}"
           - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"

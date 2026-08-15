@@ -33,11 +33,13 @@ Usage:
   ./setup.sh [--dry-run] bootstrap
   ./setup.sh [--dry-run] all
   ./setup.sh [--dry-run] status
+  ./setup.sh [--dry-run] state
   ./setup.sh [--dry-run] verify
   ./setup.sh [--dry-run] sources
   ./setup.sh [--dry-run] base
   ./setup.sh [--dry-run] apps
   ./setup.sh [--dry-run] tools
+  ./setup.sh [--dry-run] drive
   ./setup.sh [--dry-run] terminal
   ./setup.sh [--dry-run] codex
   ./setup.sh [--dry-run] dotfiles
@@ -50,11 +52,13 @@ Commands:
   bootstrap  With Ansible present, repair a reviewed APT conflict; then bootstrap
   all        Bootstrap, run seven workstation actions in order, then verify
   status     Read-only ADHD-friendly state board; missing items are allowed
+  state      Read-only diagnostic details for failed status checks
   verify     Read-only state board that fails until the core setup is ready
   sources    Repair verified vendor APT sources without refreshing APT
   base       Core packages, Oh My Posh, and CaskaydiaCove Nerd Font
   apps       Approved APT apps, Postman Snap, Upscayl Flatpak, and LibrePods
   tools      Eight Ubuntu APT tools; removes local command shadows
+  drive      Interactive Google OAuth, then a user rclone mount in Files
   terminal   Make launch-tested Ghostty the Ubuntu default
   codex      Show the official Codex CLI route; make no change
   dotfiles   Fast-forward and run only dotfiles/linux-desktop.sh; set user Zsh
@@ -66,8 +70,10 @@ Commands:
 --dry-run previews without network, sudo, downloads, or managed-state writes.
 Ansible actions may create their ignored local temporary directory.
 
-This repository never configures a server/devbox, sshd, Docker, credentials,
-SSH keys, Cloudflare enrollment, or a tunnel.
+This repository never configures a server/devbox, sshd, Docker, SSH keys,
+Cloudflare enrollment, or a tunnel. Only the optional drive action invokes
+rclone's own user-local OAuth configuration; the wrapper never prints or
+copies its tokens into this repository.
 EOF
 }
 
@@ -83,7 +89,7 @@ parse_args() {
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="help"
         ;;
-      bootstrap | all | status | verify | sources | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds | boot | boot-reset)
+      bootstrap | all | status | state | verify | sources | base | apps | tools | drive | terminal | codex | dotfiles | gnome | keybinds | boot | boot-reset)
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="$argument"
         ;;
@@ -190,9 +196,11 @@ require_classic_sudo() {
 
 run_status() {
   local strict="$1"
+  local diagnostic="${2:-false}"
   require_ansible_files
   cd "$repo_dir"
-  exec ansible-playbook verify.yml --limit localhost -e "strict_verify=$strict"
+  exec ansible-playbook verify.yml --limit localhost \
+    -e "strict_verify=$strict" -e "diagnostic_state=$diagnostic"
 }
 
 verify_git_source() {
@@ -394,7 +402,7 @@ run_action() {
     command+=(--check --diff)
   else
     case "$action" in
-      sources | base | apps | tools | gnome)
+      sources | base | apps | tools | drive | gnome)
         require_classic_sudo
         command+=(--ask-become-pass)
         ;;
@@ -407,6 +415,46 @@ run_action() {
     esac
   fi
   exec "${command[@]}"
+}
+
+google_drive_remote_ready() {
+  local config_file="$HOME/.config/rclone/rclone.conf"
+  [[ -f "$config_file" && ! -L "$config_file" ]] || return 1
+  awk '
+    /^\[google-drive\][[:space:]]*$/ { in_remote=1; next }
+    /^\[/ { in_remote=0 }
+    in_remote && /^[[:space:]]*type[[:space:]]*=[[:space:]]*drive[[:space:]]*$/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  ' "$config_file"
+}
+
+configure_google_drive() {
+  local config_parent="$HOME/.config" rclone_dir="$HOME/.config/rclone"
+  local config_file="$HOME/.config/rclone/rclone.conf"
+  target_preflight
+  [[ "$(command -v rclone 2>/dev/null || true)" == /usr/bin/rclone ]] ||
+    die "Ubuntu's rclone is required. Run: ./setup.sh tools"
+  [[ ! -L "$config_parent" && (! -e "$config_parent" || -d "$config_parent") ]] ||
+    die "refusing an unsafe ~/.config path"
+  [[ ! -L "$rclone_dir" && (! -e "$rclone_dir" || -d "$rclone_dir") ]] ||
+    die "refusing an unsafe ~/.config/rclone path"
+  [[ ! -L "$config_file" && (! -e "$config_file" || -f "$config_file") ]] ||
+    die "refusing an unsafe rclone config path"
+
+  if ! google_drive_remote_ready; then
+    if [[ "$dry_run" == true ]]; then
+      printf '%s\n' '[dry-run] would open rclone config for a Google Drive remote named google-drive'
+      printf '%s\n' '[dry-run] would install and enable the user mount at ~/Google Drive'
+      return 0
+    fi
+    printf '%s\n' 'Create a new remote named exactly: google-drive'
+    printf '%s\n' 'Choose Google Drive, use browser OAuth, keep the default root, then quit config.'
+    /usr/bin/rclone config
+    google_drive_remote_ready ||
+      die "Google Drive remote was not created as google-drive; rerun ./setup.sh drive"
+  fi
+
+  run_action
 }
 
 run_boot() {
@@ -473,7 +521,9 @@ main() {
     bootstrap) bootstrap_ansible ;;
     all) run_all ;;
     status) run_status false ;;
+    state) run_status false true ;;
     verify) run_status true ;;
+    drive) configure_google_drive ;;
     codex)
       target_preflight
       printf '%s\n' "No change made. Follow OpenAI's official Linux instructions:"

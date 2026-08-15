@@ -4,6 +4,7 @@ supported_actions:
   - base
   - apps
   - tools
+  - drive
   - terminal
   - dotfiles
   - gnome
@@ -97,6 +98,26 @@ apt_tool_shadow_dirs:
   - { path: "{{ ansible_facts.env.HOME }}/.local/bin", privileged: false }
   - { path: "{{ ansible_facts.env.HOME }}/bin", privileged: false }
   - { path: /usr/local/bin, privileged: true }
+
+google_drive_mount_dir: "{{ ansible_facts.env.HOME }}/Google Drive"
+google_drive_service_path: "{{ ansible_facts.env.HOME }}/.config/systemd/user/linux-setup-google-drive.service"
+google_drive_service_content: |
+  [Unit]
+  Description=Google Drive via rclone
+  Documentation=https://rclone.org/commands/rclone_mount/
+  Wants=network-online.target
+  After=network-online.target
+
+  [Service]
+  Type=notify
+  ExecStart=/usr/bin/rclone mount google-drive: "%h/Google Drive" --config=%h/.config/rclone/rclone.conf --cache-dir=%h/.cache/rclone --vfs-cache-mode=writes --vfs-cache-max-size=2G --vfs-cache-max-age=24h --dir-cache-time=5m --poll-interval=30s --umask=077
+  ExecStop=/usr/bin/fusermount3 -u "%h/Google Drive"
+  Restart=on-failure
+  RestartSec=10
+  TimeoutStopSec=20
+
+  [Install]
+  WantedBy=default.target
 
 oh_my_posh:
   version: "30.5.0"
@@ -263,12 +284,14 @@ gnome_settings:
     value: "32"
 
 chrome_web_app_launchers:
-  - { name: Google Docs, desktop_id: linux-setup-google-docs.desktop, wm_class: linux-setup-google-docs, url: "https://docs.google.com/document/", icon: x-office-document, categories: "Office;" }
-  - { name: Google Drive, desktop_id: linux-setup-google-drive.desktop, wm_class: linux-setup-google-drive, url: "https://drive.google.com/", icon: folder-remote, categories: "Office;" }
-  - { name: Google Sheets, desktop_id: linux-setup-google-sheets.desktop, wm_class: linux-setup-google-sheets, url: "https://docs.google.com/spreadsheets/", icon: x-office-spreadsheet, categories: "Office;" }
-  - { name: Google Slides, desktop_id: linux-setup-google-slides.desktop, wm_class: linux-setup-google-slides, url: "https://docs.google.com/presentation/", icon: x-office-presentation, categories: "Office;" }
-  - { name: Notion, desktop_id: linux-setup-notion.desktop, wm_class: linux-setup-notion, url: "https://www.notion.so/", icon: accessories-text-editor, categories: "Office;" }
-  - { name: Quo, desktop_id: linux-setup-quo.desktop, wm_class: linux-setup-quo, url: "https://my.quo.com/", icon: call-start, categories: "Network;" }
+  - { name: Google Docs, desktop_id: linux-setup-google-docs.desktop, wm_class: linux-setup-google-docs, url: "https://docs.google.com/document/", icon_file: linux-setup-google-docs.ico, icon_url: "https://docs.google.com/favicon.ico", icon_sha256: 16640c06f6249fdafd7828fd8425753abc360864dfd88f66704a32c38943c805, legacy_icon: x-office-document, categories: "Office;" }
+  - { name: Google Sheets, desktop_id: linux-setup-google-sheets.desktop, wm_class: linux-setup-google-sheets, url: "https://docs.google.com/spreadsheets/", icon_file: linux-setup-google-sheets.ico, icon_url: "https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico", icon_sha256: b4407478dcd25903b7e3719cbd1a3ff42e1f51ae74d690be7a7af11e1964ef57, legacy_icon: x-office-spreadsheet, categories: "Office;" }
+  - { name: Google Slides, desktop_id: linux-setup-google-slides.desktop, wm_class: linux-setup-google-slides, url: "https://docs.google.com/presentation/", icon_file: linux-setup-google-slides.ico, icon_url: "https://ssl.gstatic.com/docs/presentations/images/favicon5.ico", icon_sha256: f6458a567e44809e5e02a8585183c693be0c092aea8b7359669e56b761dcb820, legacy_icon: x-office-presentation, categories: "Office;" }
+  - { name: Notion, desktop_id: linux-setup-notion.desktop, wm_class: linux-setup-notion, url: "https://www.notion.so/", icon_file: linux-setup-notion.ico, icon_url: "https://www.notion.so/front-static/favicon.ico", icon_sha256: 541fc85f92e348bcf46f70944b95fd558d16adbc5a0698eaa1239dccd8c9e455, legacy_icon: accessories-text-editor, categories: "Office;" }
+  - { name: Quo, desktop_id: linux-setup-quo.desktop, wm_class: linux-setup-quo, url: "https://my.quo.com/", icon_file: linux-setup-quo.png, icon_url: "https://my.quo.com/assets/icons/192x192.png", icon_sha256: a79a03300b8080dcff87cb65a398b4353560497f214a4257c0469cdee121f2a4, legacy_icon: call-start, categories: "Network;" }
+
+chrome_web_app_retired_launchers:
+  - { name: Google Drive, desktop_id: linux-setup-google-drive.desktop, wm_class: linux-setup-google-drive, url: "https://drive.google.com/", legacy_icon: folder-remote, categories: "Office;" }
 
 gnome_dock_managed_unpinned_ids:
   - 1password.desktop
