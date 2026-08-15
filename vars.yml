@@ -191,6 +191,17 @@ claude_official_source_file_contents:
     # {{ claude_official_source_lines[1] }}
 claude_repository_opt_out_path: /etc/default/claude-desktop
 claude_repository_opt_out_line: 'CLAUDE_DESKTOP_ADD_REPO="false"'
+claude_repository_opt_out_sha256: cdaadf5733bf59dd14fffbadc4229a428f528ae00ad8d46a26ce7abc05a028db
+desktop_branding_gdm_keyfile_sha256: 9ec7f788fb6ea1f9dad64f6016df408878986b8ad34d7cc37bb6e99a043bf954
+vscode_package_source_content: |
+  ### THIS FILE IS AUTOMATICALLY CONFIGURED ###
+  # You may comment out this entry, but any other modifications may be lost.
+  Types: deb
+  URIs: https://packages.microsoft.com/repos/code
+  Suites: stable
+  Components: main
+  Architectures: amd64
+  Signed-By: /usr/share/keyrings/microsoft.gpg
 
 core_vendor_repositories:
   - name: github-cli
