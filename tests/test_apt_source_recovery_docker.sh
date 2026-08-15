@@ -127,7 +127,7 @@ if ! runuser -u tester -- env HOME=/home/tester XDG_CURRENT_DESKTOP=ubuntu:GNOME
   exit 1
 fi
 test "$(sha256sum /etc/apt/sources.list.d/vscode.sources | awk '{print $1}')" = \
-  2d9c8b4070975e7c5d7de70679fec38f8f46c4002e4d43d3442b54fc65582f4a
+  4cb70044efa668c6cb6ce11ec2fb3fe5f92611b369d33e71080473cc21c3a170
 test "$(printf '%s\n' 'GET code/add-microsoft-repo' | debconf-communicate code)" = '0 false'
 
 mkdir -p /tmp/claude-test-package/DEBIAN
