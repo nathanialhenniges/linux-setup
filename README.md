@@ -130,7 +130,19 @@ Chrome and 1Password are already installed on the target laptop. `status` detect
 
 ## Selected app routes and limits
 
-The `apps` action already covered 1Password and Chrome detection; Claude Desktop, Cloudflare WARP, Ghostty, OBS, Postman, Upscayl, and VS Code installation; and manual Discord detection. It now also installs RustDesk as `com.rustdesk.RustDesk`, Telegram as `org.telegram.desktop`, and x86-64 Plex Desktop as `tv.plex.PlexDesktop` from the reviewed system Flathub remote. Every managed Flatpak must report `flathub` as its exact origin. Launch them with `flatpak run com.rustdesk.RustDesk`, `flatpak run org.telegram.desktop`, or `flatpak run tv.plex.PlexDesktop`; sign-in and launch tests stay manual, and autostart stays off.
+The `apps` action already covered 1Password and Chrome detection; Claude Desktop, Cloudflare WARP, Ghostty, OBS, Postman, Upscayl, and VS Code installation; and manual Discord detection. It also installs Telegram as `org.telegram.desktop` and x86-64 Plex Desktop as `tv.plex.PlexDesktop` from the reviewed system Flathub remote. Every managed Flatpak must report `flathub` as its exact origin. Launch them with `flatpak run org.telegram.desktop` or `flatpak run tv.plex.PlexDesktop`; sign-in and launch tests stay manual, and autostart stays off.
+
+### Chrome Remote Desktop
+
+Chrome Remote Desktop remains a manual setup on Ubuntu because Google distributes it as a rolling `.deb`, not a versioned and checksum-verified package. It is intentionally excluded from `apps` and `all`.
+
+To make the MBA an unattended host, open Chrome on the MBA, visit `https://remotedesktop.google.com/access`, sign in, and download Google's 64-bit Debian host package. Install the downloaded package with `sudo apt install ~/Downloads/chrome-remote-desktop_current_amd64.deb`, return to the site, enable remote access, name the host `Nathanials Air`, and set a strong device PIN. On the connecting computer, open the same site, select `Nathanials Air`, enter the PIN, and remember it only on a trusted device.
+
+The Linux host creates a separate virtual desktop rather than mirroring the session visible on the MBA. Running the same GNOME environment locally and remotely can conflict, so log out of the local MBA session before starting an unattended remote session. Use `https://remotedesktop.google.com/support` with a temporary support code when access to the currently visible local session is required.
+
+### Recreate a personal Ubuntu desktop
+
+Do not clone the whole home directory. On the source Ubuntu desktop, capture the supported shell, Git, and editor settings with `cd ~/dotfiles && ./sync.sh --profile linux-desktop`, review the diff, then commit and push the safe changes. On a fresh Ubuntu desktop, run `./setup.sh apps`, `./setup.sh gnome`, and `./setup.sh dotfiles` from this repository. Sign in to 1Password and Chrome manually, then configure Chrome Remote Desktop at `https://remotedesktop.google.com/access`. Browser profiles, OAuth tokens, SSH keys, and application data do not move between machines.
 
 LocalWP stays manual and on-demand. Its publisher provides a Debian package and tests Ubuntu, but it has no signed APT repository and publishes only SHA-1 checksums. Download the reviewed release from `https://localwp.com/releases/` only when a local WordPress task needs it, run one site at a time, stop it afterward, and prefer the existing devbox for sustained work.
 
@@ -246,7 +258,7 @@ The mount provides normal on-demand access in Files; `--vfs-cache-mode writes` b
 
 ## Safety boundary
 
-The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from versioned upstream release assets and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. RustDesk, Telegram, proprietary Cider, Upscayl, and x86-64 Plex Desktop are the five reviewed Flatpaks. The action refuses a `flathub` remote that points anywhere but Flathub's repository and requires each installed app to report that exact origin.
+The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from versioned upstream release assets and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. Telegram, proprietary Cider, Upscayl, and x86-64 Plex Desktop are the four reviewed Flatpaks. The action refuses a `flathub` remote that points anywhere but Flathub's repository and requires each installed app to report that exact origin. Chrome Remote Desktop stays manual because its Google host package is rolling and therefore outside this bootstrap's verified-artifact policy.
 
 Except for invoking rclone's own user-local OAuth flow in the optional `drive` action, repository logic never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens. It never reads the rclone token into output or commits its config.
 
