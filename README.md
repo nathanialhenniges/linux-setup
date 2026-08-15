@@ -142,7 +142,7 @@ The Linux host creates a separate virtual desktop rather than mirroring the sess
 
 ### Recreate a personal Ubuntu desktop
 
-Do not clone the whole home directory. On the source Ubuntu desktop, capture the supported shell, Git, and editor settings with `cd ~/dotfiles && ./sync.sh --profile linux-desktop`, review the diff, then commit and push the safe changes. On a fresh Ubuntu desktop, run `./setup.sh apps`, `./setup.sh gnome`, and `./setup.sh dotfiles` from this repository. Sign in to 1Password and Chrome manually, then configure Chrome Remote Desktop at `https://remotedesktop.google.com/access`. Browser profiles, OAuth tokens, SSH keys, and application data do not move between machines.
+Follow the [MacBook Air rebuild guide](docs/macbook-air-rebuild.md) for the complete staged setup, Google Drive, AirPods, LibrePods, Toshy, Chrome Remote Desktop in both directions, Workspace hardening, acceptance checks, and recovery steps. Do not clone the whole home directory; browser profiles, OAuth tokens, SSH keys, and application data never move through this repository.
 
 LocalWP stays manual and on-demand. Its publisher provides a Debian package and tests Ubuntu, but it has no signed APT repository and publishes only SHA-1 checksums. Download the reviewed release from `https://localwp.com/releases/` only when a local WordPress task needs it, run one site at a time, stop it afterward, and prefer the existing devbox for sustained work.
 
