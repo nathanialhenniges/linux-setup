@@ -162,6 +162,136 @@ Test:
 - MacBook Pro can connect to `Nathanials Air` when the Ubuntu host is configured.
 - GNOME login branding and device name remain correct.
 
+## SSH access to devboxes
+
+Generate both keypairs on `Nathanials Air`. The private files are `~/.ssh/id_ed25519` and `~/.ssh/kommitai`; their shareable public files end in `.pub`.
+
+First create the directory and confirm none of the four names already exists:
+
+```bash
+install -d -m 700 ~/.ssh
+ls -l ~/.ssh/id_ed25519 ~/.ssh/id_ed25519.pub ~/.ssh/kommitai ~/.ssh/kommitai.pub 2>/dev/null
+```
+
+If that command prints any existing file, stop and inspect it. Never overwrite an unknown key. If it prints nothing, generate the keys:
+
+```bash
+ssh-keygen -t ed25519 -a 100 \
+  -f ~/.ssh/id_ed25519 \
+  -C "nathanial@Nathanials-Air"
+
+ssh-keygen -t ed25519 -a 100 \
+  -f ~/.ssh/kommitai \
+  -C "nathanial@Nathanials-Air-kommit"
+
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_ed25519 ~/.ssh/kommitai
+chmod 644 ~/.ssh/id_ed25519.pub ~/.ssh/kommitai.pub
+```
+
+Use strong passphrases. Load both keys into the current SSH agent and confirm their fingerprints:
+
+```bash
+ssh-add ~/.ssh/id_ed25519 ~/.ssh/kommitai
+ssh-add -l
+ssh-keygen -lf ~/.ssh/id_ed25519.pub
+ssh-keygen -lf ~/.ssh/kommitai.pub
+```
+
+If `ssh-add` reports that it cannot connect to an agent, start a shell-local agent and repeat it:
+
+```bash
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519 ~/.ssh/kommitai
+```
+
+Only these two public-key commands are safe to copy or email:
+
+```bash
+cat ~/.ssh/id_ed25519.pub
+cat ~/.ssh/kommitai.pub
+```
+
+Never email, upload, or paste `~/.ssh/id_ed25519` or `~/.ssh/kommitai`. Those are private keys.
+
+### Authorize the MBA keys from the MacBook Pro
+
+Use the MacBook Pro's existing SSH access. For each devbox, connect normally and append the corresponding single public-key line to `~/.ssh/authorized_keys`:
+
+```bash
+ssh REMOTE_USER@DEVBOX 'umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys'
+```
+
+Paste one public-key line, press Enter, then press Control-D. Run the command once per key and destination. Replace `REMOTE_USER@DEVBOX` with the real user and host. Confirm remote permissions:
+
+```bash
+ssh REMOTE_USER@DEVBOX 'chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys'
+```
+
+### Configure Ubuntu SSH aliases
+
+Edit `~/.ssh/config` without overwriting existing entries:
+
+```bash
+nano ~/.ssh/config
+```
+
+Add entries using the real usernames and hostnames:
+
+```sshconfig
+Host mrdemonwolf-dev
+  HostName MRDEMONWOLF_HOST_OR_IP
+  User REMOTE_USER
+  IdentityFile ~/.ssh/id_ed25519
+  IdentitiesOnly yes
+
+Host kommit-dev
+  HostName KOMMIT_HOST_OR_IP
+  User REMOTE_USER
+  IdentityFile ~/.ssh/kommitai
+  IdentitiesOnly yes
+```
+
+Then lock permissions and test both aliases:
+
+```bash
+chmod 600 ~/.ssh/config
+ssh mrdemonwolf-dev
+ssh kommit-dev
+```
+
+Accept a new host fingerprint only after comparing it with a trusted value from the server or existing MacBook Pro configuration.
+
+### VS Code, Claude Code, and Codex
+
+`~/.ssh/config` is the source of truth. Do not paste private keys into editor or AI settings.
+
+VS Code uses the same aliases through Remote - SSH:
+
+```bash
+code --install-extension ms-vscode-remote.remote-ssh
+```
+
+Open VS Code, run **Remote-SSH: Connect to Host**, then choose `mrdemonwolf-dev` or `kommit-dev`. A separate `remote.SSH.configFile` setting is unnecessary while using the default `~/.ssh/config`.
+
+Claude Code needs no local SSH-key setting. Connect first, then start Claude Code on the devbox:
+
+```bash
+ssh mrdemonwolf-dev
+cd /path/to/project
+claude
+```
+
+Codex CLI follows the same pattern:
+
+```bash
+ssh kommit-dev
+cd /path/to/project
+codex
+```
+
+Codex desktop automatically detects remote hosts from `~/.ssh/config`. Restart Codex after adding aliases, select the remote host, then add the project from that host. No private key belongs in `~/.codex/config.toml`.
+
 ## Final state check
 
 If Google Drive is configured, refresh sudo first because its package check uses privilege escalation:
