@@ -13,6 +13,12 @@ readonly xwaykeyz_tree_sha256="ff312b70705b9bd63524223f4b48755605b6f0970c77c8e35
 readonly toshy_repo="https://github.com/RedBearAK/toshy.git"
 readonly xwaykeyz_repo="https://github.com/RedBearAK/xwaykeyz.git"
 readonly focus_extension="focused-window-dbus@flexagoon.com"
+readonly focus_extension_repo="https://github.com/flexagoon/focused-window-dbus.git"
+readonly focus_extension_commit="5ff336fac73b34deaf83f32772e8478885fa4925"
+readonly focus_extension_tree_sha256="8fe40d9eecee1e6ed8b998d04832b7bb8faa410233509346a30a4b17e5037c7f"
+readonly claude_managed_source=/etc/apt/sources.list.d/claude-desktop.sources
+readonly claude_repository_uri=https://downloads.claude.ai/claude-desktop/apt/stable
+readonly claude_list_repository_pattern='^[[:space:]]*deb(-src)?[[:space:]].*https://downloads\.claude\.ai/claude-desktop/apt/stable'
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -24,38 +30,50 @@ usage() {
 Ubuntu Desktop 26.04 local Ansible setup
 
 Usage:
-  ./setup.sh bootstrap
+  ./setup.sh [--dry-run] bootstrap
   ./setup.sh [--dry-run] all
   ./setup.sh [--dry-run] status
+  ./setup.sh [--dry-run] state
   ./setup.sh [--dry-run] verify
+  ./setup.sh [--dry-run] sources
   ./setup.sh [--dry-run] base
   ./setup.sh [--dry-run] apps
   ./setup.sh [--dry-run] tools
+  ./setup.sh [--dry-run] drive
   ./setup.sh [--dry-run] terminal
   ./setup.sh [--dry-run] codex
   ./setup.sh [--dry-run] dotfiles
   ./setup.sh [--dry-run] gnome
   ./setup.sh [--dry-run] keybinds
+  ./setup.sh [--dry-run] boot
+  ./setup.sh [--dry-run] boot-reset
 
 Commands:
-  bootstrap  Install minimal Ubuntu ansible-core prerequisites
-  all        Bootstrap, run every setup action in order, then verify
+  bootstrap  With Ansible present, repair a reviewed APT conflict; then bootstrap
+  all        Bootstrap, run seven workstation actions in order, then verify
   status     Read-only ADHD-friendly state board; missing items are allowed
+  state      Read-only diagnostic details for failed status checks
   verify     Read-only state board that fails until the core setup is ready
+  sources    Repair verified vendor APT sources without refreshing APT
   base       Core packages, Oh My Posh, and CaskaydiaCove Nerd Font
-  apps       Approved desktop apps from APT plus Postman's official Snap
+  apps       Approved APT apps, Postman Snap, Upscayl Flatpak, and LibrePods
   tools      Eight Ubuntu APT tools; removes local command shadows
+  drive      Interactive Google OAuth, then a user rclone mount in Files
   terminal   Make launch-tested Ghostty the Ubuntu default
   codex      Show the official Codex CLI route; make no change
   dotfiles   Fast-forward and run only dotfiles/linux-desktop.sh; set user Zsh
   gnome      Small, reversible macOS-friendly GNOME preferences
   keybinds   Guarded interactive Toshy install for physical Command shortcuts
+  boot       Opt-in guarded Plymouth logo after Apple firmware hands off
+  boot-reset Restore the exact prior Plymouth selection and remove our theme
 
 --dry-run previews without network, sudo, downloads, or managed-state writes.
 Ansible actions may create their ignored local temporary directory.
 
-This repository never configures a server/devbox, sshd, Docker, credentials,
-SSH keys, Cloudflare enrollment, or a tunnel.
+This repository never configures a server/devbox, sshd, Docker, SSH keys,
+Cloudflare enrollment, or a tunnel. Only the optional drive action invokes
+rclone's own user-local OAuth configuration; the wrapper never prints or
+copies its tokens into this repository.
 EOF
 }
 
@@ -71,7 +89,7 @@ parse_args() {
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="help"
         ;;
-      bootstrap | all | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)
+      bootstrap | all | status | state | verify | sources | base | apps | tools | drive | terminal | codex | dotfiles | gnome | keybinds | boot | boot-reset)
         [[ -z "$selected" ]] || die "choose exactly one command"
         selected="$argument"
         ;;
@@ -104,6 +122,43 @@ target_preflight() {
      -e /usr/share/xsessions/ubuntu.desktop ]] || die "Ubuntu Desktop was not detected"
 }
 
+claude_unmanaged_source_present() {
+  local path pattern result
+  local -a grep_args
+
+  for path in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+    [[ "$path" != "$claude_managed_source" ]] || continue
+    [[ -e "$path" || -L "$path" ]] || continue
+    [[ -f "$path" ]] || continue
+    if [[ "$path" == *.sources ]]; then
+      pattern="$claude_repository_uri"
+      grep_args=(-Fq)
+    else
+      pattern="$claude_list_repository_pattern"
+      grep_args=(-Eq)
+    fi
+    if grep "${grep_args[@]}" "$pattern" "$path"; then
+      [[ ! -L "$path" ]] || die "refusing symlinked Claude APT source: $path"
+      return 0
+    else
+      result=$?
+      [[ "$result" -eq 1 ]] || die "could not inspect Claude APT source candidate: $path"
+    fi
+  done
+
+  return 1
+}
+
+repair_known_claude_source_conflict() {
+  claude_unmanaged_source_present || return 0
+  command -v ansible-playbook >/dev/null 2>&1 ||
+    die "Claude has conflicting APT sources, but Ansible is unavailable for the guarded repair"
+
+  printf '%s\n' 'Claude source preflight: verifying the managed source before removing the exact duplicate'
+  "$repo_dir/setup.sh" sources ||
+    die "Claude source preflight refused the local files; leave them untouched and report its first error"
+}
+
 bootstrap_ansible() {
   target_preflight
   if [[ "$dry_run" == true ]]; then
@@ -111,6 +166,7 @@ bootstrap_ansible() {
     printf '%s\n' '[dry-run] sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian sudo'
     return
   fi
+  repair_known_claude_source_conflict
   sudo apt-get update
   sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian sudo
   ansible-playbook --version | sed -n '1p'
@@ -140,9 +196,11 @@ require_classic_sudo() {
 
 run_status() {
   local strict="$1"
+  local diagnostic="${2:-false}"
   require_ansible_files
   cd "$repo_dir"
-  exec ansible-playbook verify.yml --limit localhost -e "strict_verify=$strict"
+  exec ansible-playbook verify.yml --limit localhost \
+    -e "strict_verify=$strict" -e "diagnostic_state=$diagnostic"
 }
 
 verify_git_source() {
@@ -191,6 +249,37 @@ require_live_gnome_session() {
     die "keybinds supports the Ubuntu GNOME desktop only; detected: ${desktop:-unknown}"
 }
 
+ensure_focus_extension() {
+  local source_parent="$HOME/.local/src"
+  local source_dir="$source_parent/focused-window-dbus-$focus_extension_commit"
+  local bundle="$source_parent/$focus_extension.shell-extension.zip"
+
+  command -v gnome-extensions >/dev/null 2>&1 || die "gnome-extensions is missing"
+  if gnome-extensions list --active | grep -Fxq "$focus_extension"; then
+    return
+  fi
+
+  mkdir -p "$source_parent"
+  if [[ -e "$source_dir" ]]; then
+    [[ -d "$source_dir" ]] || die "$source_dir exists but is not a directory"
+  else
+    git init "$source_dir"
+    git -C "$source_dir" remote add origin "$focus_extension_repo"
+    git -C "$source_dir" fetch --depth 1 origin "$focus_extension_commit"
+    git -C "$source_dir" checkout --detach FETCH_HEAD
+  fi
+  verify_git_source "$source_dir" "$focus_extension_repo" "$focus_extension_commit" "$focus_extension_tree_sha256"
+  [[ ! -L "$bundle" && ( ! -e "$bundle" || -f "$bundle" ) ]] ||
+    die "unsafe Focused Window D-Bus bundle path: $bundle"
+  gnome-extensions pack --force --out-dir="$source_parent" "$source_dir"
+  [[ -f "$bundle" && ! -L "$bundle" ]] || die "Focused Window D-Bus bundle was not created safely"
+  gnome-extensions install --force "$bundle"
+
+  gnome-extensions enable "$focus_extension" >/dev/null 2>&1 || true
+  gnome-extensions list --active | grep -Fxq "$focus_extension" ||
+    die "Focused Window D-Bus is installed for the next GNOME session. Sign out, sign back in, then resume: ./setup.sh keybinds && ./setup.sh verify"
+}
+
 refuse_competing_keymappers() {
   local unit
 
@@ -205,6 +294,7 @@ refuse_competing_keymappers() {
     systemctl is-active --quiet "$unit" 2>/dev/null &&
       die "stop and disable the competing system service before Toshy: $unit"
   done
+  return 0
 }
 
 start_toshy_services() {
@@ -240,7 +330,8 @@ install_keybinds() {
   local answer
 
   if [[ "$dry_run" == true ]]; then
-    printf '%s\n' "[dry-run] require enabled GNOME extension: $focus_extension"
+    printf '%s\n' "[dry-run] install or enable pinned GNOME extension: $focus_extension"
+    printf '%s\n' "[dry-run] verify Focused Window D-Bus commit and tree SHA-256: $focus_extension_commit"
     printf '%s\n' "[dry-run] require a live Ubuntu GNOME session and refuse competing keymappers"
     printf '%s\n' "[dry-run] clone $toshy_repo tag $toshy_tag"
     printf '%s\n' "[dry-run] verify Toshy commit and tree SHA-256: $toshy_commit"
@@ -258,9 +349,7 @@ install_keybinds() {
   refuse_competing_keymappers
 
   if [[ "${XDG_SESSION_TYPE:-}" == wayland || -n "${WAYLAND_DISPLAY:-}" ]]; then
-    command -v gnome-extensions >/dev/null 2>&1 || die "gnome-extensions is missing"
-    gnome-extensions list --enabled | grep -Fxq "$focus_extension" ||
-      die "enable Focused Window D-Bus first: https://extensions.gnome.org/extension/5592/focused-window-d-bus/"
+    ensure_focus_extension
   fi
 
   if [[ -f "$HOME/.config/toshy/toshy_config.py" &&
@@ -313,7 +402,7 @@ run_action() {
     command+=(--check --diff)
   else
     case "$action" in
-      base | apps | tools)
+      sources | base | apps | tools | drive | gnome)
         require_classic_sudo
         command+=(--ask-become-pass)
         ;;
@@ -324,6 +413,63 @@ run_action() {
         fi
         ;;
     esac
+  fi
+  exec "${command[@]}"
+}
+
+google_drive_remote_ready() {
+  local config_file="$HOME/.config/rclone/rclone.conf"
+  [[ -f "$config_file" && ! -L "$config_file" ]] || return 1
+  awk '
+    /^\[google-drive\][[:space:]]*$/ { in_remote=1; next }
+    /^\[/ { in_remote=0 }
+    in_remote && /^[[:space:]]*type[[:space:]]*=[[:space:]]*drive[[:space:]]*$/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  ' "$config_file"
+}
+
+configure_google_drive() {
+  local config_parent="$HOME/.config" rclone_dir="$HOME/.config/rclone"
+  local config_file="$HOME/.config/rclone/rclone.conf"
+  target_preflight
+  [[ "$(command -v rclone 2>/dev/null || true)" == /usr/bin/rclone ]] ||
+    die "Ubuntu's rclone is required. Run: ./setup.sh tools"
+  [[ ! -L "$config_parent" && (! -e "$config_parent" || -d "$config_parent") ]] ||
+    die "refusing an unsafe ~/.config path"
+  [[ ! -L "$rclone_dir" && (! -e "$rclone_dir" || -d "$rclone_dir") ]] ||
+    die "refusing an unsafe ~/.config/rclone path"
+  [[ ! -L "$config_file" && (! -e "$config_file" || -f "$config_file") ]] ||
+    die "refusing an unsafe rclone config path"
+
+  if ! google_drive_remote_ready; then
+    if [[ "$dry_run" == true ]]; then
+      printf '%s\n' '[dry-run] would open rclone config for a Google Drive remote named google-drive'
+      printf '%s\n' '[dry-run] would install and enable the user mount at ~/Google Drive'
+      return 0
+    fi
+    printf '%s\n' 'Create a new remote named exactly: google-drive'
+    printf '%s\n' 'Choose Google Drive, use browser OAuth, keep the default root, then quit config.'
+    /usr/bin/rclone config
+    google_drive_remote_ready ||
+      die "Google Drive remote was not created as google-drive; rerun ./setup.sh drive"
+  fi
+
+  run_action
+}
+
+run_boot() {
+  local mode="$1"
+  target_preflight
+  require_ansible_files
+  cd "$repo_dir"
+  local -a command=(ansible-playbook site.yml --limit localhost --tags boot
+    -e setup_action=boot -e "boot_branding_mode=$mode")
+
+  if [[ "$dry_run" == true ]]; then
+    command+=(--check --diff)
+  else
+    require_classic_sudo
+    command+=(--ask-become-pass)
   fi
   exec "${command[@]}"
 }
@@ -340,6 +486,12 @@ run_all() {
     step_number=1
   else
     final_step="status"
+    if claude_unmanaged_source_present; then
+      printf '%s\n' '[dry-run] previewing the required Claude source repair before any APT-backed action'
+      "$repo_dir/setup.sh" --dry-run sources ||
+        die "dry-run all could not verify the Claude source repair; leave the files untouched"
+      die "dry-run all stopped before APT; run ./setup.sh sources, then rerun ./setup.sh --dry-run all"
+    fi
     printf '%s\n' '[dry-run] bootstrap skipped: preview never uses network or sudo'
   fi
 
@@ -349,7 +501,11 @@ run_all() {
     command=("$repo_dir/setup.sh")
     [[ "$dry_run" == false ]] || command+=(--dry-run)
     command+=("$step")
-    "${command[@]}" || die "all stopped at $step; fix that error, then rerun ./setup.sh all"
+    "${command[@]}" || {
+      [[ "$step" != keybinds ]] ||
+        die "all stopped at keybinds; fix that error, then resume: ./setup.sh keybinds && ./setup.sh verify"
+      die "all stopped at $step; fix that error, then rerun ./setup.sh all"
+    }
   done
 
   step_number=$((step_number + 1))
@@ -365,7 +521,9 @@ main() {
     bootstrap) bootstrap_ansible ;;
     all) run_all ;;
     status) run_status false ;;
+    state) run_status false true ;;
     verify) run_status true ;;
+    drive) configure_google_drive ;;
     codex)
       target_preflight
       printf '%s\n' "No change made. Follow OpenAI's official Linux instructions:"
@@ -373,6 +531,8 @@ main() {
       printf '%s\n' 'Then run codex and choose Sign in with ChatGPT.'
       ;;
     keybinds) install_keybinds ;;
+    boot) run_boot apply ;;
+    boot-reset) run_boot rollback ;;
     *) run_action ;;
   esac
 }

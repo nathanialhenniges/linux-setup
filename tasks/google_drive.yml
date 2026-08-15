@@ -1,0 +1,82 @@
+---
+- name: Inspect Google Drive mount prerequisites
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop:
+    - "{{ workstation_home }}/.config/rclone/rclone.conf"
+    - "{{ workstation_home }}/.config/systemd/user"
+    - "{{ google_drive_mount_dir }}"
+    - "{{ google_drive_service_path }}"
+  register: google_drive_mount_paths
+
+- name: Require safe Google Drive mount paths
+  ansible.builtin.assert:
+    that:
+      - google_drive_mount_paths.results[0].stat.isreg | default(false)
+      - not (google_drive_mount_paths.results[0].stat.islnk | default(false))
+      - google_drive_mount_paths.results[0].stat.uid | default(-1) == ansible_facts.user_uid | int
+      - google_drive_mount_paths.results[0].stat.mode | default('') == '0600'
+      - not (google_drive_mount_paths.results[1].stat.islnk | default(false))
+      - not (google_drive_mount_paths.results[2].stat.islnk | default(false))
+      - not (google_drive_mount_paths.results[3].stat.islnk | default(false))
+      - >-
+        not (google_drive_mount_paths.results[3].stat.exists | default(false)) or
+        (google_drive_mount_paths.results[3].stat.isreg | default(false) and
+         google_drive_mount_paths.results[3].stat.checksum | default('') ==
+         (google_drive_service_content | hash('sha256')))
+    fail_msg: "Refusing unsafe rclone config, mount directory, or managed user service state."
+    quiet: true
+
+- name: Verify the configured Google Drive remote without exposing credentials
+  ansible.builtin.command:
+    argv: [/usr/bin/rclone, lsd, "google-drive:", --max-depth, "1"]
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Install the Ubuntu FUSE runtime for rclone
+  ansible.builtin.apt:
+    name: fuse3
+    state: present
+    update_cache: false
+  become: true
+
+- name: Create safe Google Drive mount directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - "{{ workstation_home }}/.config/systemd/user"
+    - "{{ google_drive_mount_dir }}"
+
+- name: Install the exact Google Drive user mount service
+  ansible.builtin.copy:
+    content: "{{ google_drive_service_content }}"
+    dest: "{{ google_drive_service_path }}"
+    mode: "0600"
+
+- name: Enable and start the Google Drive user mount
+  ansible.builtin.systemd_service:
+    name: linux-setup-google-drive.service
+    scope: user
+    daemon_reload: true
+    enabled: true
+    state: started
+  when: not ansible_check_mode
+
+- name: Verify the Google Drive user mount
+  ansible.builtin.command:
+    argv: [systemctl, --user, is-active, linux-setup-google-drive.service]
+  register: google_drive_mount_active
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Require the active Google Drive user mount
+  ansible.builtin.assert:
+    that:
+      - google_drive_mount_active.stdout == 'active'
+    fail_msg: "Google Drive did not mount. Run systemctl --user status linux-setup-google-drive.service and paste the complete output."
+    quiet: true
+  when: not ansible_check_mode

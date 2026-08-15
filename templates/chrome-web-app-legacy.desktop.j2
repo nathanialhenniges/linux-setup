@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name={{ chrome_web_app.name }}
+Exec=/usr/bin/google-chrome-stable --class={{ chrome_web_app.wm_class }} --app={{ chrome_web_app.url }}
+TryExec=/usr/bin/google-chrome-stable
+Icon={{ chrome_web_app.legacy_icon }}
+Terminal=false
+Categories={{ chrome_web_app.categories }}
+StartupNotify=true
+StartupWMClass={{ chrome_web_app.wm_class }}

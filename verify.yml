@@ -8,6 +8,7 @@
   vars:
     ansible_python_interpreter: "{{ ansible_playbook_python }}"
     strict_verify: false
+    diagnostic_state: false
     workstation_user: "{{ ansible_facts.user_id }}"
     workstation_home: "{{ ansible_facts.env.HOME }}"
     dotfiles_dir: "{{ ansible_facts.env.HOME }}/.local/share/dotfiles"
@@ -62,6 +63,190 @@
         missing_base_packages: "{{ base_packages | difference(ansible_facts.packages.keys() | list) }}"
         missing_core_app_packages: "{{ core_app_packages | difference(ansible_facts.packages.keys() | list) }}"
 
+    - name: Read configured rclone remote names without exposing credentials
+      ansible.builtin.command:
+        argv: [/usr/bin/rclone, listremotes]
+      register: verified_rclone_remotes
+      changed_when: false
+      failed_when: false
+
+    - name: Read optional Google Drive mount service state
+      ansible.builtin.command:
+        argv: [systemctl, --user, is-active, linux-setup-google-drive.service]
+      register: verified_google_drive_mount
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect managed Chrome web-app launchers
+      ansible.builtin.stat:
+        path: "{{ workstation_home }}/.local/share/applications/{{ item.desktop_id }}"
+        follow: false
+      loop: "{{ chrome_web_app_launchers }}"
+      loop_control:
+        label: "{{ item.desktop_id }}"
+      register: verified_chrome_web_app_paths
+
+    - name: Inspect managed Chrome web-app icons
+      ansible.builtin.stat:
+        path: "{{ workstation_home }}/.local/share/icons/{{ item.icon_file }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop: "{{ chrome_web_app_launchers }}"
+      loop_control:
+        label: "{{ item.icon_file }}"
+      register: verified_chrome_web_app_icons
+
+    - name: Inspect retired Chrome web-app launchers
+      ansible.builtin.stat:
+        path: "{{ workstation_home }}/.local/share/applications/{{ item.desktop_id }}"
+        follow: false
+      loop: "{{ chrome_web_app_retired_launchers }}"
+      loop_control:
+        label: "{{ item.desktop_id }}"
+      register: verified_retired_chrome_web_app_paths
+
+    - name: Read managed Chrome web-app launchers
+      ansible.builtin.slurp:
+        path: "{{ workstation_home }}/.local/share/applications/{{ item.item.desktop_id }}"
+      loop: "{{ verified_chrome_web_app_paths.results }}"
+      loop_control:
+        label: "{{ item.item.desktop_id }}"
+      register: verified_chrome_web_app_contents
+      failed_when: false
+      when:
+        - item.stat.isreg | default(false)
+        - not (item.stat.islnk | default(false))
+
+    - name: Verify exact managed Chrome web-app launcher content
+      ansible.builtin.set_fact:
+        chrome_web_apps_ready: >-
+          {{ (chrome_web_apps_ready | default(true)) and
+             not (item.skipped | default(false)) and
+             not (item.failed | default(false)) and
+             (item.content | default('') | b64decode) ==
+             lookup('ansible.builtin.template', 'chrome-web-app.desktop.j2') }}
+      vars:
+        chrome_web_app: "{{ item.item.item }}"
+      loop: "{{ verified_chrome_web_app_contents.results }}"
+      loop_control:
+        label: "{{ item.item.item.desktop_id }}"
+
+    - name: Verify exact managed Chrome web-app icon content
+      ansible.builtin.set_fact:
+        chrome_web_app_icons_ready: >-
+          {{ (chrome_web_app_icons_ready | default(true)) and
+             item.stat.isreg | default(false) and
+             not (item.stat.islnk | default(false)) and
+             item.stat.checksum | default('') == item.item.icon_sha256 }}
+      loop: "{{ verified_chrome_web_app_icons.results }}"
+      loop_control:
+        label: "{{ item.item.icon_file }}"
+
+    - name: Finalize managed Chrome web-app readiness
+      ansible.builtin.set_fact:
+        chrome_web_apps_ready: >-
+          {{ chrome_web_apps_ready | default(false) and
+             chrome_web_app_icons_ready | default(false) and
+             (verified_retired_chrome_web_app_paths.results |
+              selectattr('stat.exists', 'defined') |
+              selectattr('stat.exists') | list | length) == 0 }}
+
+    - name: Inspect reviewed Dock launcher candidates
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: true
+      loop: "{{ gnome_dock_favorite_candidates }}"
+      loop_control:
+        label: "{{ item.desktop_id }}"
+      register: verified_gnome_dock_candidate_launchers
+
+    - name: Read GNOME Dock favorites
+      ansible.builtin.command:
+        argv: [gsettings, get, org.gnome.shell, favorite-apps]
+      register: verified_gnome_dock_favorites
+      changed_when: false
+      failed_when: false
+
+    - name: Read GNOME Dock icon size
+      ansible.builtin.command:
+        argv: [gsettings, get, org.gnome.shell.extensions.dash-to-dock, dash-max-icon-size]
+      register: verified_gnome_dock_icon_size
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect applied personal images
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - path: "{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png"
+          sha256: 1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840
+        - path: "{{ workstation_home }}/Pictures/Profile Pictures/nathanial-henniges-profile-picture.jpg"
+          sha256: 1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673
+        - path: "/var/lib/AccountsService/icons/{{ workstation_user }}"
+          sha256: 1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673
+      loop_control:
+        label: "{{ item.path }}"
+      register: verified_personal_images
+
+    - name: Read applied GNOME wallpaper values
+      ansible.builtin.command:
+        argv: [gsettings, get, "{{ item.schema }}", "{{ item.key }}"]
+      loop:
+        - { schema: org.gnome.desktop.background, key: picture-uri, value: "'file://{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png'" }
+        - { schema: org.gnome.desktop.background, key: picture-uri-dark, value: "'file://{{ workstation_home }}/Pictures/Wallpapers/mrdemonwolf-desktop-wallpaper.png'" }
+        - { schema: org.gnome.desktop.background, key: picture-options, value: "'zoom'" }
+      register: verified_wallpaper_values
+      changed_when: false
+      failed_when: false
+
+    - name: Read applied Ubuntu profile picture
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/busctl
+          - --system
+          - get-property
+          - org.freedesktop.Accounts
+          - "/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}"
+          - org.freedesktop.Accounts.User
+          - IconFile
+      register: verified_profile_picture
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect supported Ubuntu machine-branding files
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - path: /usr/local/share/linux-setup/branding/mrdemonwolf-logo.png
+          sha256: 860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406
+        - path: /etc/dconf/db/gdm.d/01-linux-setup-branding
+      loop_control:
+        label: "{{ item.path }}"
+      register: verified_desktop_branding_files
+
+    - name: Read supported Ubuntu machine-branding values
+      ansible.builtin.command:
+        argv: "{{ item.argv }}"
+      environment: "{{ item.environment | default({}) }}"
+      loop:
+        - argv: [/usr/bin/hostnamectl, --pretty]
+        - argv: [/usr/bin/dconf, read, /org/gnome/login-screen/logo]
+          environment:
+            DCONF_PROFILE: /etc/dconf/profile/gdm
+        - argv: [/usr/bin/dconf, read, /org/gnome/login-screen/banner-message-enable]
+          environment:
+            DCONF_PROFILE: /etc/dconf/profile/gdm
+        - argv: [/usr/bin/dconf, read, /org/gnome/login-screen/banner-message-text]
+          environment:
+            DCONF_PROFILE: /etc/dconf/profile/gdm
+      register: verified_desktop_branding_values
+      changed_when: false
+      failed_when: false
+
     - name: Inspect the Snap executable
       ansible.builtin.stat:
         path: /usr/bin/snap
@@ -93,8 +278,71 @@
           - /usr/bin/flatpak
           - info
           - --system
+          - --show-origin
           - org.upscayl.Upscayl
       register: verified_upscayl_flatpak
+      changed_when: false
+      failed_when: false
+      when:
+        - verified_flatpak_executable.stat.isreg | default(false)
+        - verified_flatpak_executable.stat.executable | default(false)
+
+    - name: Check whether Telegram is installed from Flathub
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - info
+          - --system
+          - --show-origin
+          - org.telegram.desktop
+      register: verified_telegram_flatpak
+      changed_when: false
+      failed_when: false
+      when:
+        - verified_flatpak_executable.stat.isreg | default(false)
+        - verified_flatpak_executable.stat.executable | default(false)
+
+    - name: Check whether Plex Desktop is installed from Flathub
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - info
+          - --system
+          - --show-origin
+          - tv.plex.PlexDesktop
+      register: verified_plex_flatpak
+      changed_when: false
+      failed_when: false
+      when:
+        - verified_flatpak_executable.stat.isreg | default(false)
+        - verified_flatpak_executable.stat.executable | default(false)
+
+    - name: Check whether Cider is installed from Flathub
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - info
+          - --system
+          - --show-origin
+          - sh.cider.Cider
+      register: verified_cider_flatpak
+      changed_when: false
+      failed_when: false
+      when:
+        - verified_flatpak_executable.stat.isreg | default(false)
+        - verified_flatpak_executable.stat.executable | default(false)
+
+    - name: Read installed Snap packages for legacy Upscayl verification
+      ansible.builtin.command:
+        argv: [/usr/bin/snap, list]
+      register: verified_legacy_upscayl_snaps
+      changed_when: false
+      failed_when: false
+
+    - name: Read user-scoped Flatpak application IDs for legacy Upscayl verification
+      ansible.builtin.command:
+        argv: [/usr/bin/flatpak, list, --user, --app, --columns=application]
+      register: verified_legacy_upscayl_user_flatpaks
       changed_when: false
       failed_when: false
       when:
@@ -283,45 +531,101 @@
       ansible.builtin.stat:
         path: "{{ item.source_path }}"
         follow: false
+        checksum_algorithm: sha256
       loop: "{{ core_vendor_repositories }}"
       loop_control:
         label: "{{ item.name }}"
       register: verified_core_sources
 
-    - name: Read verified core repository sources
-      ansible.builtin.slurp:
-        src: "{{ item.source_path }}"
-      loop: "{{ core_vendor_repositories }}"
-      loop_control:
-        label: "{{ item.name }}"
-      register: verified_core_source_content
-      failed_when: false
-      changed_when: false
-
-    - name: Inspect Anthropic's duplicate Claude source
+    - name: Inspect the official ChatGPT package repository
       ansible.builtin.stat:
-        path: "{{ claude_official_source_path }}"
+        path: "{{ item }}"
         follow: false
-      register: verified_claude_official_source
+        checksum_algorithm: sha256
+      loop:
+        - "{{ chatgpt.key_path }}"
+        - "{{ chatgpt.source_path }}"
+        - "{{ chatgpt.defaults_path }}"
+      register: verified_chatgpt_repository_paths
+
+    - name: Inspect Claude's package repository opt-out
+      ansible.builtin.stat:
+        path: "{{ claude_repository_opt_out_path }}"
+        follow: false
+        checksum_algorithm: sha256
+      register: verified_claude_repository_opt_out
+
+    - name: Detect Claude entries outside the managed APT source
+      ansible.builtin.shell: |
+        set -Eeuo pipefail
+        shopt -s nullglob
+        list_pattern='^[[:space:]]*deb(-src)?[[:space:]].*https://downloads\.claude\.ai/claude-desktop/apt/stable'
+        for path in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+          [[ "$path" != "{{ claude_managed_source_path }}" ]] || continue
+          [[ -e "$path" || -L "$path" ]] || continue
+          [[ -f "$path" ]] || continue
+          if [[ "$path" == *.sources ]]; then
+            pattern='{{ claude_repository_uri }}'
+            grep_args=(-Fq)
+          else
+            pattern="$list_pattern"
+            grep_args=(-Eq)
+          fi
+          if grep "${grep_args[@]}" "$pattern" "$path"; then
+            printf '%s\n' "$path"
+          else
+            result=$?
+            [[ "$result" -eq 1 ]] || exit "$result"
+          fi
+        done
+      args:
+        executable: /bin/bash
+      register: verified_claude_unmanaged_sources
+      changed_when: false
 
     - name: Initialize core repository readiness
       ansible.builtin.set_fact:
-        core_sources_ready: "{{ not (verified_claude_official_source.stat.exists | default(false)) }}"
+        claude_source_state_ready: >-
+          {{ verified_claude_repository_opt_out.stat.isreg | default(false) and
+             not (verified_claude_repository_opt_out.stat.islnk | default(false)) and
+             verified_claude_repository_opt_out.stat.uid | default(-1) == 0 and
+             verified_claude_repository_opt_out.stat.mode | default('') == '0644' and
+             verified_claude_repository_opt_out.stat.checksum | default('') ==
+               claude_repository_opt_out_sha256 and
+             verified_claude_unmanaged_sources.stdout_lines | length == 0 }}
+        core_repository_files_ready: true
+        chatgpt_repository_ready: >-
+          {{ verified_chatgpt_repository_paths.results[0].stat.isreg | default(false) and
+             not (verified_chatgpt_repository_paths.results[0].stat.islnk | default(false)) and
+             verified_chatgpt_repository_paths.results[0].stat.checksum | default('') == chatgpt.key_sha256 and
+             verified_chatgpt_repository_paths.results[1].stat.isreg | default(false) and
+             not (verified_chatgpt_repository_paths.results[1].stat.islnk | default(false)) and
+             verified_chatgpt_repository_paths.results[1].stat.checksum | default('') == chatgpt.source_sha256 and
+             verified_chatgpt_repository_paths.results[2].stat.isreg | default(false) and
+             not (verified_chatgpt_repository_paths.results[2].stat.islnk | default(false)) and
+             verified_chatgpt_repository_paths.results[2].stat.checksum | default('') == chatgpt.defaults_sha256 }}
 
-    - name: Verify each core repository file
+    - name: Record any failed core repository file check
       ansible.builtin.set_fact:
-        core_sources_ready: >-
-          {{ core_sources_ready and
-             verified_core_keys.results[core_repo_index].stat.isreg | default(false) and
-             not (verified_core_keys.results[core_repo_index].stat.islnk | default(false)) and
-             verified_core_keys.results[core_repo_index].stat.checksum | default('') == item.key_sha256 and
-             verified_core_sources.results[core_repo_index].stat.isreg | default(false) and
-             not (verified_core_sources.results[core_repo_index].stat.islnk | default(false)) and
-             verified_core_source_content.results[core_repo_index].content | default('') | b64decode == item.source_content }}
+        core_repository_files_ready: false
       loop: "{{ core_vendor_repositories }}"
       loop_control:
         label: "{{ item.name }}"
         index_var: core_repo_index
+      when: >-
+        not (
+          verified_core_keys.results[core_repo_index].stat.isreg | default(false) and
+          not (verified_core_keys.results[core_repo_index].stat.islnk | default(false)) and
+          verified_core_keys.results[core_repo_index].stat.checksum | default('') == item.key_sha256 and
+          verified_core_sources.results[core_repo_index].stat.isreg | default(false) and
+          not (verified_core_sources.results[core_repo_index].stat.islnk | default(false)) and
+          verified_core_sources.results[core_repo_index].stat.checksum | default('') ==
+            (item.source_content | hash('sha256'))
+        )
+
+    - name: Finalize core repository readiness
+      ansible.builtin.set_fact:
+        core_sources_ready: "{{ claude_source_state_ready and core_repository_files_ready }}"
 
     - name: Detect Codex CLI without changing shell state
       ansible.builtin.shell: command -v codex
@@ -375,6 +679,14 @@
       changed_when: false
       failed_when: false
 
+    - name: Calculate installed reviewed Dock favorites
+      ansible.builtin.set_fact:
+        verified_installed_gnome_dock_favorites: >-
+          {{ verified_gnome_dock_candidate_launchers.results |
+             selectattr('stat.isreg', 'defined') |
+             selectattr('stat.isreg') |
+             map(attribute='item.desktop_id') | list | unique }}
+
     - name: Calculate workstation readiness
       ansible.builtin.set_fact:
         prompt_ready: >-
@@ -419,7 +731,31 @@
              selected_tool_resolution_errors | length == 0 and
               selected_tool_ownership_errors | length == 0 }}
         postman_ready: "{{ verified_postman_snap.rc | default(1) == 0 }}"
-        upscayl_ready: "{{ verified_upscayl_flatpak.rc | default(1) == 0 }}"
+        google_drive_ready: >-
+          {{ verified_rclone_remotes.rc | default(1) == 0 and
+             'google-drive:' in (verified_rclone_remotes.stdout_lines | default([])) and
+             verified_google_drive_mount.rc | default(1) == 0 and
+             verified_google_drive_mount.stdout | default('') == 'active' }}
+        upscayl_ready: >-
+          {{ verified_upscayl_flatpak.rc | default(1) == 0 and
+             verified_upscayl_flatpak.stdout | default('') | trim == core_flatpak_remote.name }}
+        telegram_ready: >-
+          {{ verified_telegram_flatpak.rc | default(1) == 0 and
+             verified_telegram_flatpak.stdout | default('') | trim == core_flatpak_remote.name }}
+        plex_ready: >-
+          {{ verified_plex_flatpak.rc | default(1) == 0 and
+             verified_plex_flatpak.stdout | default('') | trim == core_flatpak_remote.name }}
+        cider_ready: >-
+          {{ verified_cider_flatpak.rc | default(1) == 0 and
+             verified_cider_flatpak.stdout | default('') | trim == core_flatpak_remote.name }}
+        upscayl_legacy_routes_ready: >-
+          {{ 'upscayl' not in ansible_facts.packages and
+             verified_legacy_upscayl_snaps.rc | default(1) == 0 and
+             (verified_legacy_upscayl_snaps.stdout_lines | default([]) |
+              select('match', '^upscayl[ ]') | list | length) == 0 and
+             verified_legacy_upscayl_user_flatpaks.rc | default(1) == 0 and
+             'org.upscayl.Upscayl' not in
+             (verified_legacy_upscayl_user_flatpaks.stdout_lines | default([])) }}
         librepods_ready: >-
           {{ workstation_files.results[10].stat.isreg | default(false) and
              not (workstation_files.results[10].stat.islnk | default(false)) and
@@ -428,6 +764,53 @@
              workstation_files.results[11].stat.isreg | default(false) and
              not (workstation_files.results[11].stat.islnk | default(false)) and
              workstation_files.results[11].stat.checksum | default('') == (librepods.desktop_entry | hash('sha256')) }}
+        chatgpt_ready: >-
+          {{ 'chatgpt' in ansible_facts.packages and chatgpt_repository_ready }}
+        gnome_dock_ready: >-
+          {{ verified_gnome_dock_favorites.rc | default(1) == 0 and
+             verified_gnome_dock_icon_size.rc | default(1) == 0 and
+             verified_gnome_dock_icon_size.stdout | default('') == '32' and
+             (verified_gnome_dock_favorites.stdout |
+              regex_replace('^@as ', '') | from_yaml)[0:verified_installed_gnome_dock_favorites | length] ==
+             verified_installed_gnome_dock_favorites and
+             ((verified_gnome_dock_favorites.stdout |
+               regex_replace('^@as ', '') | from_yaml) |
+              intersect(gnome_dock_managed_unpinned_ids) | length) == 0 }}
+        desktop_images_ready: >-
+          {{ verified_personal_images.results | length == 3 and
+             verified_personal_images.results |
+             selectattr('stat.isreg', 'defined') |
+             selectattr('stat.isreg') | list | length == 3 and
+             verified_personal_images.results[0].stat.checksum | default('') == verified_personal_images.results[0].item.sha256 and
+             verified_personal_images.results[1].stat.checksum | default('') == verified_personal_images.results[1].item.sha256 and
+             verified_personal_images.results[2].stat.checksum | default('') == verified_personal_images.results[2].item.sha256 and
+             verified_wallpaper_values.results | length == 3 and
+             verified_wallpaper_values.results[0].stdout | default('') == verified_wallpaper_values.results[0].item.value and
+             verified_wallpaper_values.results[1].stdout | default('') == verified_wallpaper_values.results[1].item.value and
+             verified_wallpaper_values.results[2].stdout | default('') == verified_wallpaper_values.results[2].item.value and
+             verified_profile_picture.rc | default(1) == 0 and
+             verified_profile_picture.stdout | default('') == 's "/var/lib/AccountsService/icons/' ~ workstation_user ~ '"' }}
+        desktop_branding_ready: >-
+          {{ verified_desktop_branding_files.results | length == 2 and
+             verified_desktop_branding_files.results[0].stat.isreg | default(false) and
+             not (verified_desktop_branding_files.results[0].stat.islnk | default(false)) and
+             verified_desktop_branding_files.results[0].stat.checksum | default('') ==
+             verified_desktop_branding_files.results[0].item.sha256 and
+             verified_desktop_branding_files.results[1].stat.isreg | default(false) and
+             not (verified_desktop_branding_files.results[1].stat.islnk | default(false)) and
+             verified_desktop_branding_files.results[1].stat.checksum | default('') ==
+             desktop_branding_gdm_keyfile_sha256 and
+             verified_desktop_branding_values.results | length == 4 and
+             verified_desktop_branding_values.results[0].rc | default(1) == 0 and
+             verified_desktop_branding_values.results[0].stdout | default('') | trim == 'Nathanials Air' and
+             verified_desktop_branding_values.results[1].rc | default(1) == 0 and
+             verified_desktop_branding_values.results[1].stdout | default('') | trim ==
+             "'/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" and
+             verified_desktop_branding_values.results[2].rc | default(1) == 0 and
+             verified_desktop_branding_values.results[2].stdout | default('') | trim == 'true' and
+             verified_desktop_branding_values.results[3].rc | default(1) == 0 and
+             verified_desktop_branding_values.results[3].stdout | default('') | trim ==
+             "'Managed by MrDemonWolf, Inc.'" }}
         macos_keys_ready: >-
           {{ verified_toshy_config.stat.isreg | default(false) and
              not (verified_toshy_config.stat.islnk | default(false)) and
@@ -441,20 +824,59 @@
              (verified_toshy_enabled.results | default([]) |
               selectattr('rc', 'equalto', 0) | list | length) == 2 }}
 
+    - name: Show read-only diagnostic state
+      ansible.builtin.debug:
+        msg:
+          - >-
+            CLAUDE OPT-OUT regular={{ verified_claude_repository_opt_out.stat.isreg | default(false) }}
+            symlink={{ verified_claude_repository_opt_out.stat.islnk | default(false) }}
+            uid={{ verified_claude_repository_opt_out.stat.uid | default('missing') }}
+            mode={{ verified_claude_repository_opt_out.stat.mode | default('missing') }}
+            checksum={{ 'match' if verified_claude_repository_opt_out.stat.checksum | default('') == claude_repository_opt_out_sha256 else 'mismatch' }}
+          - "CLAUDE UNMANAGED SOURCES {{ verified_claude_unmanaged_sources.stdout_lines | default([]) | join(', ') if verified_claude_unmanaged_sources.stdout_lines | default([]) | length > 0 else 'none' }}"
+          - "CORE REPOSITORY FILES {{ 'match' if core_repository_files_ready else 'mismatch' }}"
+          - "GOOGLE DRIVE MOUNT {{ 'active' if google_drive_ready else 'not configured or inactive' }}"
+          - >-
+            BRANDING LOGO regular={{ verified_desktop_branding_files.results[0].stat.isreg | default(false) }}
+            symlink={{ verified_desktop_branding_files.results[0].stat.islnk | default(false) }}
+            checksum={{ 'match' if verified_desktop_branding_files.results[0].stat.checksum | default('') == verified_desktop_branding_files.results[0].item.sha256 else 'mismatch' }}
+          - >-
+            BRANDING GDM KEY regular={{ verified_desktop_branding_files.results[1].stat.isreg | default(false) }}
+            symlink={{ verified_desktop_branding_files.results[1].stat.islnk | default(false) }}
+            checksum={{ 'match' if verified_desktop_branding_files.results[1].stat.checksum | default('') == desktop_branding_gdm_keyfile_sha256 else 'mismatch' }}
+          - "BRANDING PRETTY HOSTNAME {{ verified_desktop_branding_values.results[0].stdout | default('missing') | trim | to_json }}"
+          - "BRANDING GDM LOGO {{ verified_desktop_branding_values.results[1].stdout | default('missing') | trim | to_json }}"
+          - "BRANDING BANNER ENABLED {{ verified_desktop_branding_values.results[2].stdout | default('missing') | trim | to_json }}"
+          - "BRANDING BANNER TEXT {{ verified_desktop_branding_values.results[3].stdout | default('missing') | trim | to_json }}"
+          - "WEB APP ICONS {{ 'match' if chrome_web_app_icons_ready | default(false) else 'mismatch' }}"
+          - "RETIRED GOOGLE DRIVE LAUNCHER {{ 'absent' if (verified_retired_chrome_web_app_paths.results | selectattr('stat.exists', 'defined') | selectattr('stat.exists') | list | length) == 0 else 'still present' }}"
+      when: diagnostic_state | bool
+
     - name: Show the ADHD-friendly workstation status board
       ansible.builtin.debug:
         msg:
           - "BASE PACKAGES      {{ 'ready' if missing_base_packages | length == 0 else 'missing: ' ~ (missing_base_packages | join(', ')) }}"
           - "APT APP PACKAGES   {{ 'ready' if missing_core_app_packages | length == 0 else 'missing: ' ~ (missing_core_app_packages | join(', ')) }}"
           - "POSTMAN            {{ 'installed' if postman_ready else 'needs apps action' }}"
-          - "UPSCAYL            {{ 'installed' if upscayl_ready else 'needs apps action' }}"
+          - "TELEGRAM           {{ 'installed; sign-in manual, autostart off' if telegram_ready else 'needs apps action' }}"
+          - "UPSCAYL            {{ 'installed; Vulkan launch test manual' if upscayl_ready else 'needs apps action' }}"
+          - "UPSCAYL OLD ROUTES {{ 'removed' if upscayl_legacy_routes_ready else 'needs apps migration' }}"
           - "LIBREPODS          {{ 'installed; pair and launch manually' if librepods_ready else 'needs apps action' }}"
           - "PERSONAL PROMPT    {{ 'ready' if prompt_ready else 'needs base action' }}"
           - "NERD FONT          {{ 'ready' if font_ready else 'needs base action' }}"
-          - "CORE APT SOURCES   {{ 'ready' if core_sources_ready else 'needs apps action' }}"
+          - >-
+            CORE APT SOURCES   {{
+              'ready' if core_sources_ready else
+              ('needs apps action: Claude state' if not claude_source_state_ready else
+               'needs apps action: managed file mismatch') }}
           - "SELECTED CLI TOOLS {{ 'ready' if selected_tools_ready else 'needs tools action' }}"
+          - "GOOGLE DRIVE       {{ 'mounted in Files' if google_drive_ready else 'optional; run drive action' }}"
           - "MACOS KEY SERVICES {{ 'ready; run manual checklist' if macos_keys_ready else 'needs Focused Window D-Bus + keybinds action' }}"
           - "DEFAULT TERMINAL   {{ 'Ghostty' if terminal_ready else 'Ubuntu default' }}"
+          - "GNOME DOCK         {{ '32px; reviewed apps pinned' if gnome_dock_ready else 'needs gnome action' }}"
+          - "WEB APP SHORTCUTS  {{ 'Docs, Sheets, Slides, Notion, Quo ready; Drive web only' if chrome_web_apps_ready else 'needs gnome action' }}"
+          - "DESKTOP IMAGES     {{ 'wallpaper and profile ready' if desktop_images_ready else 'needs gnome action' }}"
+          - "MACHINE BRANDING   {{ 'Nathanials Air; GDM logo + managed banner ready' if desktop_branding_ready else 'needs gnome action' }}"
           - "LOGIN SHELL        {{ ansible_facts.getent_passwd[workstation_user][-1] }}"
           - "DESKTOP DOTFILES   {{ 'ready' if dotfiles_ready else 'needs dotfiles action or review' }}"
           - "1PASSWORD          {{ 'installed' if '1password' in ansible_facts.packages else 'not installed' }}"
@@ -463,9 +885,15 @@
           - "EXTENSION MANAGER  {{ 'installed' if 'gnome-shell-extension-manager' in ansible_facts.packages else 'needs apps action' }}"
           - "OBS STUDIO         {{ 'installed' if 'obs-studio' in ansible_facts.packages else 'needs apps action' }}"
           - "CLAUDE DESKTOP     {{ 'installed' if 'claude-desktop' in ansible_facts.packages else 'needs apps action' }}"
+          - >-
+            CHATGPT DESKTOP    {{
+              'installed; launch and sign in manually' if chatgpt_ready else
+              ('needs apps action: repository mismatch' if 'chatgpt' in ansible_facts.packages else
+               'needs apps action') }}
           - "CLOUDFLARE WARP    {{ 'installed; enrollment manual' if 'cloudflare-warp' in ansible_facts.packages else 'needs apps action' }}"
           - "DISCORD            {{ 'installed' if 'discord' in ansible_facts.packages else 'manual official .deb' }}"
-          - "PLEX WEB APP       manual Chrome step"
+          - "PLEX DESKTOP       {{ 'installed; launch test manual' if plex_ready else 'needs apps action' }}"
+          - "CIDER              {{ 'installed; license and Apple sign-in manual' if cider_ready else 'needs apps action' }}"
 
     - name: Require the completed core workstation state
       ansible.builtin.assert:
@@ -476,11 +904,20 @@
           - prompt_ready
           - font_ready
           - terminal_ready
+          - gnome_dock_ready
+          - chrome_web_apps_ready
+          - desktop_images_ready
+          - desktop_branding_ready
           - shell_ready
           - dotfiles_ready
           - core_sources_ready
           - macos_keys_ready
           - upscayl_ready
+          - upscayl_legacy_routes_ready
+          - telegram_ready
+          - plex_ready
+          - cider_ready
+          - chatgpt_ready
         fail_msg: "Core setup is incomplete. Run the action named by the status board, then verify again."
         success_msg: "Core Ubuntu workstation setup is verified."
       when: strict_verify | bool

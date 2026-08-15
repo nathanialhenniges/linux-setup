@@ -3,6 +3,12 @@
   hosts: workstation
   connection: local
   gather_facts: true
+  gather_subset: >-
+    {{
+      ['!all', '!min', 'architecture', 'distribution', 'env', 'hardware', 'user']
+      if setup_action | default('') == 'sources'
+      else ['all']
+    }}
   vars_files:
     - vars.yml
   vars:
@@ -65,15 +71,24 @@
     - name: Warn when memory is below the comfortable target
       ansible.builtin.debug:
         msg: "Warning: {{ ansible_facts.memtotal_mb }} MB RAM is below the comfortable 6144 MB target."
-      when: ansible_facts.memtotal_mb | int < 6144
+      when: ansible_facts.memtotal_mb | default(0) | int < 6144
       tags: always
 
     - name: Read installed package state without using the network
       ansible.builtin.package_facts:
         manager: apt
+      when: setup_action != 'sources'
       tags: always
 
   tasks:
+    - name: Configure the optional Google Drive rclone mount
+      ansible.builtin.include_tasks:
+        file: tasks/google_drive.yml
+        apply:
+          tags: drive
+      when: setup_action == 'drive'
+      tags: drive
+
     - name: Calculate missing base packages
       ansible.builtin.set_fact:
         missing_base_packages: "{{ base_packages | difference(ansible_facts.packages.keys() | list) }}"
@@ -350,15 +365,147 @@
         - nerd_font_extract is changed
       tags: base
 
+    - name: Inspect official ChatGPT package repository paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - "{{ chatgpt.key_path }}"
+        - "{{ chatgpt.source_path }}"
+        - "{{ chatgpt.defaults_path }}"
+      register: chatgpt_repository_paths
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Refuse unsafe official ChatGPT package repository paths
+      ansible.builtin.assert:
+        that:
+          - not (item.stat.islnk | default(false))
+          - not (item.stat.exists | default(false)) or item.stat.isreg | default(false)
+        fail_msg: "Refusing unsafe ChatGPT package path: {{ item.item }}"
+        quiet: true
+      loop: "{{ chatgpt_repository_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Refuse unknown ChatGPT package defaults
+      ansible.builtin.assert:
+        that:
+          - >-
+            not (chatgpt_repository_paths.results[2].stat.exists | default(false)) or
+            chatgpt_repository_paths.results[2].stat.checksum | default('') in chatgpt.allowed_defaults_sha256
+        fail_msg: "Refusing unknown content in {{ chatgpt.defaults_path }}; leave it untouched and report its SHA-256."
+        quiet: true
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Record official ChatGPT package readiness
+      ansible.builtin.set_fact:
+        chatgpt_bootstrap_needed: >-
+          {{ 'chatgpt' not in ansible_facts.packages or
+             chatgpt_repository_paths.results[0].stat.checksum | default('') != chatgpt.key_sha256 or
+             chatgpt_repository_paths.results[1].stat.checksum | default('') != chatgpt.source_sha256 or
+             chatgpt_repository_paths.results[2].stat.checksum | default('') != chatgpt.defaults_sha256 }}
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Preview the pinned official ChatGPT package
+      ansible.builtin.debug:
+        msg: "Would install verified official ChatGPT {{ chatgpt.version }} for Ubuntu AMD64"
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - ansible_check_mode
+        - chatgpt_bootstrap_needed
+      tags: apps
+
+    - name: Bootstrap the official ChatGPT package and signed repository
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - chatgpt_bootstrap_needed
+      tags: apps
+      block:
+        - name: Create a temporary ChatGPT package path
+          ansible.builtin.tempfile:
+            state: file
+            prefix: linux-setup-chatgpt-
+            suffix: .deb
+          register: chatgpt_package
+
+        - name: Download the pinned official ChatGPT package
+          ansible.builtin.get_url:
+            url: "{{ chatgpt.url }}"
+            dest: "{{ chatgpt_package.path }}"
+            checksum: "sha256:{{ chatgpt.sha256 }}"
+            mode: "0600"
+            force: true
+
+        - name: Install the pinned official ChatGPT package
+          ansible.builtin.apt:
+            deb: "{{ chatgpt_package.path }}"
+            state: present
+            fail_on_autoremove: true
+            allow_unauthenticated: false
+            lock_timeout: 300
+          become: true
+      always:
+        - name: Remove the temporary ChatGPT package
+          ansible.builtin.file:
+            path: "{{ chatgpt_package.path | default('/tmp/linux-setup-chatgpt-not-created') }}"
+            state: absent
+          when: chatgpt_package is defined and chatgpt_package.path is defined
+
+    - name: Verify the installed official ChatGPT package repository
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - "{{ chatgpt.key_path }}"
+        - "{{ chatgpt.source_path }}"
+        - "{{ chatgpt.defaults_path }}"
+      register: installed_chatgpt_repository_paths
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Require the exact official ChatGPT package repository
+      ansible.builtin.assert:
+        that:
+          - installed_chatgpt_repository_paths.results[0].stat.isreg | default(false)
+          - not (installed_chatgpt_repository_paths.results[0].stat.islnk | default(false))
+          - installed_chatgpt_repository_paths.results[0].stat.checksum | default('') == chatgpt.key_sha256
+          - installed_chatgpt_repository_paths.results[1].stat.isreg | default(false)
+          - not (installed_chatgpt_repository_paths.results[1].stat.islnk | default(false))
+          - installed_chatgpt_repository_paths.results[1].stat.checksum | default('') == chatgpt.source_sha256
+          - installed_chatgpt_repository_paths.results[2].stat.isreg | default(false)
+          - not (installed_chatgpt_repository_paths.results[2].stat.islnk | default(false))
+          - installed_chatgpt_repository_paths.results[2].stat.checksum | default('') == chatgpt.defaults_sha256
+        fail_msg: "Official ChatGPT package repository does not match the reviewed package; stop before APT refresh."
+        quiet: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
     - name: Configure verified core vendor repositories
       ansible.builtin.include_tasks:
         file: tasks/vendor_repositories.yml
         apply:
-          tags: apps
+          tags:
+            - sources
+            - apps
       vars:
         vendor_repositories: "{{ core_vendor_repositories }}"
-      when: setup_action == 'apps'
-      tags: apps
+      when: setup_action in ['sources', 'apps']
+      tags:
+        - sources
+        - apps
 
     - name: Install the selected command-line tools
       ansible.builtin.include_tasks:
@@ -416,6 +563,25 @@
       when:
         - setup_action == 'apps'
         - not ansible_check_mode
+      tags: apps
+
+    - name: Inspect Claude's package-managed repository after application installation
+      ansible.builtin.stat:
+        path: "{{ claude_official_source_path }}"
+        follow: false
+      register: post_install_claude_source
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Require Claude package installation to honor the repository opt-out
+      ansible.builtin.assert:
+        that:
+          - not (post_install_claude_source.stat.exists | default(false))
+        fail_msg: >-
+          Claude recreated {{ claude_official_source_path }} and would break APT.
+          The package repository opt-out was not honored; stop before another APT action.
+        quiet: true
+      when: setup_action == 'apps'
       tags: apps
 
     - name: Inspect the Snap executable
@@ -609,6 +775,157 @@
         - item.rc | default(1) != 0
       tags: apps
 
+    - name: Verify every approved Flatpak application origin
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - info
+          - --system
+          - --show-origin
+          - "{{ item }}"
+      loop: "{{ core_flatpak_packages }}"
+      register: approved_flatpak_origins
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Require every approved Flatpak application from Flathub
+      ansible.builtin.assert:
+        that:
+          - approved_flatpak_origins.results | selectattr('rc', 'equalto', 0) | list | length == core_flatpak_packages | length
+          - approved_flatpak_origins.results | rejectattr('stdout', 'equalto', core_flatpak_remote.name) | list | length == 0
+        fail_msg: "An approved Flatpak is missing or has an unexpected origin; no application-specific cleanup was attempted."
+        quiet: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Verify the reviewed Upscayl Flatpak before migration cleanup
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/flatpak
+          - info
+          - --system
+          - --show-origin
+          - org.upscayl.Upscayl
+      register: migrated_upscayl_flatpak
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Read installed Snap packages for legacy Upscayl
+      ansible.builtin.command:
+        argv: [/usr/bin/snap, list]
+      register: legacy_upscayl_snaps
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Read installed user-scoped Flatpak application IDs
+      ansible.builtin.command:
+        argv: [/usr/bin/flatpak, list, --user, --app, --columns=application]
+      register: legacy_upscayl_user_flatpaks
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Require readable legacy package state before migration
+      ansible.builtin.assert:
+        that:
+          - legacy_upscayl_snaps.rc == 0
+          - legacy_upscayl_user_flatpaks.rc == 0
+        fail_msg: "Could not read every legacy Upscayl package route; no migration cleanup was attempted."
+        quiet: true
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Record recognized legacy Upscayl package routes
+      ansible.builtin.set_fact:
+        legacy_upscayl_snap_present: >-
+          {{ (legacy_upscayl_snaps.stdout_lines | default([]) |
+              select('match', '^upscayl[ ]') | list | length) == 1 }}
+        legacy_upscayl_user_flatpak_present: >-
+          {{ 'org.upscayl.Upscayl' in
+             (legacy_upscayl_user_flatpaks.stdout_lines | default([])) }}
+      when: setup_action == 'apps'
+      tags: apps
+
+    - name: Preview legacy Upscayl package migration
+      ansible.builtin.debug:
+        msg: "Would remove the legacy Upscayl {{ item }} only after the reviewed system Flatpak verifies"
+      loop: >-
+        {{ (['Debian package'] if 'upscayl' in ansible_facts.packages else []) +
+           (['Snap'] if legacy_upscayl_snap_present else []) +
+           (['user Flatpak'] if legacy_upscayl_user_flatpak_present else []) }}
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - ansible_check_mode
+      tags: apps
+
+    - name: Require the reviewed Upscayl Flatpak before migration cleanup
+      ansible.builtin.assert:
+        that:
+          - migrated_upscayl_flatpak.rc == 0
+          - migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name
+        fail_msg: "The reviewed Upscayl Flatpak did not verify; legacy installations were left untouched."
+        quiet: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+      tags: apps
+
+    - name: Remove the legacy Upscayl Debian package
+      ansible.builtin.apt:
+        name: upscayl
+        state: absent
+        fail_on_autoremove: true
+        lock_timeout: 300
+      become: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - migrated_upscayl_flatpak.rc == 0
+        - migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name
+        - "'upscayl' in ansible_facts.packages"
+      tags: apps
+
+    - name: Remove the legacy Upscayl Snap
+      ansible.builtin.command:
+        argv: [/usr/bin/snap, remove, upscayl]
+      changed_when: true
+      become: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - migrated_upscayl_flatpak.rc == 0
+        - migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name
+        - legacy_upscayl_snap_present
+      tags: apps
+
+    - name: Remove the legacy user-scoped Upscayl Flatpak
+      ansible.builtin.command:
+        argv: [/usr/bin/flatpak, uninstall, --user, --noninteractive, --assumeyes, org.upscayl.Upscayl]
+      changed_when: true
+      when:
+        - setup_action == 'apps'
+        - not ansible_check_mode
+        - migrated_upscayl_flatpak.rc == 0
+        - migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name
+        - legacy_upscayl_user_flatpak_present
+      tags: apps
+
     - name: Inspect user-local LibrePods paths
       ansible.builtin.stat:
         path: "{{ item.path }}"
@@ -699,13 +1016,18 @@
         - not ansible_check_mode
       tags: apps
 
-    - name: Show the two remaining manual application steps
+    - name: Show application launch and manual steps
       ansible.builtin.debug:
         msg:
+          - "ChatGPT launch command: chatgpt. Sign-in stays manual; Linux uses XWayland by default while native Wayland support matures."
           - "Extension Manager launch command: extension-manager"
           - "LibrePods launch command: librepods. Pair AirPods in GNOME Bluetooth first; autostart and Apple VendorID spoofing stay off."
+          - "Telegram launch command: flatpak run org.telegram.desktop. Sign-in stays manual; leave launch at login disabled."
+          - "Upscayl launch test: run vulkaninfo --summary, then flatpak run org.upscayl.Upscayl and upscale one small image. Intel HD 6000 support is not guaranteed."
+          - "Plex launch command: flatpak run tv.plex.PlexDesktop. Test local discovery with WARP; keep Plex, OBS, and Upscayl from running together."
+          - "Cider launch command: flatpak run sh.cider.Cider. License activation and Apple sign-in stay manual; autostart stays off."
           - "Discord stays manual: download its official .deb from https://discord.com/download and open it with App Center."
-          - "Plex stays manual: open https://app.plex.tv in Chrome and install the page as an app."
+          - "LocalWP and Raspberry Pi Imager stay on-demand; the gnome action adds reviewed Chrome app-mode launchers without changing Chrome profile or policy state."
           - "Account sign-ins and Cloudflare enrollment remain manual."
       when: setup_action == 'apps'
       tags: apps
@@ -745,25 +1067,6 @@
       when: setup_action == 'terminal'
       tags: terminal
 
-    - name: Read the existing default-terminal list
-      ansible.builtin.slurp:
-        src: "{{ workstation_home }}/.config/ubuntu-xdg-terminals.list"
-      register: terminal_list
-      when:
-        - setup_action == 'terminal'
-        - terminal_paths.results[2].stat.exists | default(false)
-      tags: terminal
-
-    - name: Build the idempotent Ghostty-first terminal list
-      ansible.builtin.set_fact:
-        terminal_list_content: >-
-          {{ (['com.mitchellh.ghostty.desktop'] +
-              (((terminal_list.content | default('') | b64decode).splitlines()) |
-               reject('equalto', 'com.mitchellh.ghostty.desktop') | list)) |
-             join('\n') + '\n' }}
-      when: setup_action == 'terminal'
-      tags: terminal
-
     - name: Ensure the user config directory exists
       ansible.builtin.file:
         path: "{{ workstation_home }}/.config"
@@ -775,7 +1078,8 @@
     - name: Make Ghostty the Ubuntu default terminal
       ansible.builtin.copy:
         dest: "{{ workstation_home }}/.config/ubuntu-xdg-terminals.list"
-        content: "{{ terminal_list_content }}"
+        content: |
+          com.mitchellh.ghostty.desktop
         mode: "0644"
         backup: true
       when:
@@ -1047,6 +1351,14 @@
         - ansible_facts.getent_passwd[workstation_user][-1] not in ['/bin/zsh', '/usr/bin/zsh']
       tags: dotfiles
 
+    - name: Apply or roll back the reviewed Plymouth boot branding
+      ansible.builtin.include_tasks:
+        file: tasks/boot_branding.yml
+        apply:
+          tags: boot
+      when: setup_action == 'boot'
+      tags: boot
+
     - name: Require a live Ubuntu desktop session for GNOME settings
       ansible.builtin.assert:
         that:
@@ -1058,6 +1370,134 @@
         fail_msg: "Run the gnome action from a terminal inside the logged-in Ubuntu desktop session."
         quiet: true
       when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Install and apply reviewed personal desktop images
+      ansible.builtin.include_tasks:
+        file: tasks/desktop_personalization.yml
+        apply:
+          tags: gnome
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Install supported Ubuntu machine branding
+      ansible.builtin.include_tasks:
+        file: tasks/desktop_branding.yml
+        apply:
+          tags: gnome
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Install reviewed Chrome web-app launchers
+      ansible.builtin.include_tasks:
+        file: tasks/chrome_web_apps.yml
+        apply:
+          tags: gnome
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Inspect reviewed Dock launcher candidates
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        follow: true
+      loop: "{{ gnome_dock_favorite_candidates }}"
+      loop_control:
+        label: "{{ item.desktop_id }}"
+      register: gnome_dock_candidate_launchers
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Record installed reviewed Dock launchers
+      ansible.builtin.set_fact:
+        installed_gnome_dock_favorites: >-
+          {{ (gnome_dock_candidate_launchers.results |
+              selectattr('stat.isreg', 'defined') |
+              selectattr('stat.isreg') |
+              map(attribute='item.desktop_id') | list +
+              (chrome_web_app_launchers | map(attribute='desktop_id') | list
+               if ansible_check_mode else [])) | unique }}
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Read current GNOME Dock favorites
+      ansible.builtin.command:
+        argv: [gsettings, get, org.gnome.shell, favorite-apps]
+      register: current_gnome_dock_favorites
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Require readable GNOME Dock favorites
+      ansible.builtin.assert:
+        that:
+          - current_gnome_dock_favorites.rc == 0
+        fail_msg: "Could not read GNOME Dock favorites; no Dock pins were changed."
+        quiet: true
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Parse current GNOME Dock favorites
+      ansible.builtin.set_fact:
+        current_gnome_dock_favorite_ids: >-
+          {{ current_gnome_dock_favorites.stdout |
+             regex_replace('^@as ', '') | from_yaml }}
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Build additive GNOME Dock favorites
+      ansible.builtin.set_fact:
+        desired_gnome_dock_favorites: >-
+          {{ (installed_gnome_dock_favorites +
+              (current_gnome_dock_favorite_ids |
+               reject('in', gnome_dock_managed_unpinned_ids) | list)) | unique }}
+      when: setup_action == 'gnome'
+      tags: gnome
+
+    - name: Preview GNOME Dock favorite additions
+      ansible.builtin.debug:
+        msg: "Would pin the reviewed apps, remove explicitly unpinned apps, and preserve other Dock favorites: {{ desired_gnome_dock_favorites | join(', ') }}"
+      changed_when: true
+      when:
+        - setup_action == 'gnome'
+        - ansible_check_mode
+        - current_gnome_dock_favorite_ids != desired_gnome_dock_favorites
+      tags: gnome
+
+    - name: Pin installed reviewed applications to the GNOME Dock
+      ansible.builtin.command:
+        argv: [gsettings, set, org.gnome.shell, favorite-apps, "{{ desired_gnome_dock_favorites | string }}"]
+      changed_when: true
+      when:
+        - setup_action == 'gnome'
+        - not ansible_check_mode
+        - current_gnome_dock_favorite_ids != desired_gnome_dock_favorites
+      tags: gnome
+
+    - name: Read applied GNOME Dock favorites
+      ansible.builtin.command:
+        argv: [gsettings, get, org.gnome.shell, favorite-apps]
+      register: applied_gnome_dock_favorites
+      changed_when: false
+      failed_when: false
+      when:
+        - setup_action == 'gnome'
+        - not ansible_check_mode
+      tags: gnome
+
+    - name: Require applied GNOME Dock favorites
+      ansible.builtin.assert:
+        that:
+          - applied_gnome_dock_favorites.rc == 0
+          - >-
+            (applied_gnome_dock_favorites.stdout |
+             regex_replace('^@as ', '') | from_yaml) == desired_gnome_dock_favorites
+        fail_msg: "GNOME did not retain the requested managed Dock favorites."
+        quiet: true
+      when:
+        - setup_action == 'gnome'
+        - not ansible_check_mode
       tags: gnome
 
     - name: Read current GNOME values

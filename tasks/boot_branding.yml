@@ -1,0 +1,985 @@
+---
+- name: Define the guarded Plymouth branding boundary
+  ansible.builtin.set_fact:
+    boot_branding_requested_mode: "{{ boot_branding_mode | default('apply') }}"
+    boot_branding_source_theme_dir: /usr/share/plymouth/themes/spinner
+    boot_branding_source_descriptor: /usr/share/plymouth/themes/spinner/spinner.plymouth
+    boot_branding_theme_dir: /usr/share/plymouth/themes/mrdemonwolf
+    boot_branding_descriptor: /usr/share/plymouth/themes/mrdemonwolf/mrdemonwolf.plymouth
+    boot_branding_default_link: /usr/share/plymouth/themes/default.plymouth
+    boot_branding_state_dir: /var/lib/linux-setup/boot-branding
+    boot_branding_state_file: /var/lib/linux-setup/boot-branding/previous-default.json
+    boot_branding_managed_marker: /usr/share/plymouth/themes/mrdemonwolf/.linux-setup-managed
+    boot_branding_logo_path: >-
+      {{ boot_branding_logo_source |
+         default(playbook_dir ~ '/assets/boot-branding/mrdemonwolf-logo.png') }}
+    boot_branding_logo_sha256: 860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406
+    boot_branding_watermark_horizontal_alignment: '.5'
+    boot_branding_watermark_vertical_alignment: '.34'
+    boot_branding_dialog_vertical_alignment: '.64'
+    boot_branding_alternative_priority: 100
+    boot_branding_marker_content: |
+      Managed by nathanialhenniges/linux-setup boot action.
+  tags: boot
+
+- name: Require the reviewed boot-branding inputs
+  ansible.builtin.assert:
+    that:
+      - boot_branding_requested_mode in ['apply', 'rollback']
+      - ansible_facts.distribution == 'Ubuntu'
+      - ansible_facts.distribution_version == '26.04'
+      - ansible_facts.architecture == 'x86_64'
+      - boot_branding_theme_dir == '/usr/share/plymouth/themes/mrdemonwolf'
+      - boot_branding_descriptor == boot_branding_theme_dir ~ '/mrdemonwolf.plymouth'
+      - boot_branding_state_file == boot_branding_state_dir ~ '/previous-default.json'
+    fail_msg: "Boot branding supports only the reviewed Ubuntu 26.04 AMD64 paths and apply/rollback modes."
+    quiet: true
+  tags: boot
+
+- name: Inspect the reviewed boot logo
+  ansible.builtin.stat:
+    path: "{{ boot_branding_logo_path }}"
+    follow: false
+    checksum_algorithm: sha256
+  register: boot_branding_logo_source_state
+  tags: boot
+
+- name: Require the exact reviewed boot logo
+  ansible.builtin.assert:
+    that:
+      - boot_branding_logo_source_state.stat.isreg | default(false)
+      - not (boot_branding_logo_source_state.stat.islnk | default(false))
+      - boot_branding_logo_source_state.stat.checksum | default('') == boot_branding_logo_sha256
+    fail_msg: "The reviewed MrDemonWolf boot logo is missing, unsafe, or has an unexpected SHA-256."
+    quiet: true
+  tags: boot
+
+- name: Inspect unsupported Ubuntu FDE and UKI markers
+  ansible.builtin.raw: "/usr/bin/test ! -e {{ item }}"
+  loop:
+    - /var/lib/snapd/device/fde
+    - /boot/efi/EFI/Linux
+    - /efi/EFI/Linux
+  register: boot_branding_unsupported_markers
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: boot
+
+- name: Inspect the encrypted-volume policy
+  ansible.builtin.stat:
+    path: /etc/crypttab
+    follow: false
+  register: boot_branding_crypttab_state
+  tags: boot
+
+- name: Require a safe encrypted-volume policy file
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (boot_branding_crypttab_state.stat.exists | default(false)) or
+        (boot_branding_crypttab_state.stat.isreg | default(false))
+      - not (boot_branding_crypttab_state.stat.islnk | default(false))
+    fail_msg: "Refusing an unsafe /etc/crypttab path; boot branding was not changed."
+    quiet: true
+  tags: boot
+
+- name: Read the encrypted-volume policy
+  ansible.builtin.slurp:
+    src: /etc/crypttab
+  register: boot_branding_crypttab_content
+  when: boot_branding_crypttab_state.stat.isreg | default(false)
+  tags: boot
+
+- name: Classify the boot layout
+  ansible.builtin.set_fact:
+    boot_branding_crypttab_text: >-
+      {{ boot_branding_crypttab_content.content | default('') | b64decode }}
+    boot_branding_unsupported_layout: >-
+      {{ (boot_branding_unsupported_markers.results |
+          map(attribute='rc') | reject('equalto', 0) | list | length > 0) or
+         ('tpm2-device=' in
+          (boot_branding_crypttab_content.content | default('') | b64decode)) or
+         ('fido2-device=' in
+          (boot_branding_crypttab_content.content | default('') | b64decode)) or
+         ('pkcs11-uri=' in
+          (boot_branding_crypttab_content.content | default('') | b64decode)) }}
+  tags: boot
+
+- name: Skip unsupported TPM-backed FDE and UKI layouts
+  ansible.builtin.debug:
+    msg: >-
+      Skipping boot branding on an unsupported TPM-backed FDE or UKI layout;
+      the current Plymouth selection and initramfs remain unchanged.
+  when: boot_branding_unsupported_layout | bool
+  tags: boot
+
+- name: Inspect existing managed boot-branding paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop:
+    - "{{ boot_branding_theme_dir }}"
+    - "{{ boot_branding_managed_marker }}"
+    - "{{ boot_branding_state_dir }}"
+    - "{{ boot_branding_state_file }}"
+  register: boot_branding_managed_paths
+  when: not (boot_branding_unsupported_layout | bool)
+  tags: boot
+
+- name: Refuse unmanaged Plymouth theme content
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (boot_branding_managed_paths.results[0].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[0].stat.isdir | default(false))
+      - not (boot_branding_managed_paths.results[0].stat.islnk | default(false))
+      - >-
+        not (boot_branding_managed_paths.results[0].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[0].stat.uid | default(-1) == 0)
+      - >-
+        not (boot_branding_managed_paths.results[0].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[1].stat.isreg | default(false))
+      - not (boot_branding_managed_paths.results[1].stat.islnk | default(false))
+      - >-
+        not (boot_branding_managed_paths.results[0].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[1].stat.uid | default(-1) == 0)
+      - >-
+        not (boot_branding_managed_paths.results[0].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[1].stat.checksum | default('') ==
+         (boot_branding_marker_content | hash('sha256')))
+    fail_msg: >-
+      Refusing unmanaged Plymouth theme directory at
+      /usr/share/plymouth/themes/mrdemonwolf; it was left untouched.
+    quiet: true
+  when: not (boot_branding_unsupported_layout | bool)
+  tags: boot
+
+- name: Require safe boot-branding rollback-state paths
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (boot_branding_managed_paths.results[2].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[2].stat.isdir | default(false))
+      - not (boot_branding_managed_paths.results[2].stat.islnk | default(false))
+      - >-
+        not (boot_branding_managed_paths.results[2].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[2].stat.uid | default(-1) == 0)
+      - >-
+        not (boot_branding_managed_paths.results[3].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[3].stat.isreg | default(false))
+      - not (boot_branding_managed_paths.results[3].stat.islnk | default(false))
+      - >-
+        not (boot_branding_managed_paths.results[3].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[3].stat.uid | default(-1) == 0)
+      - >-
+        not (boot_branding_managed_paths.results[3].stat.exists | default(false)) or
+        (boot_branding_managed_paths.results[3].stat.mode | default('') == '0644')
+    fail_msg: "Refusing unsafe boot-branding rollback state; no Plymouth state was changed."
+    quiet: true
+  when: not (boot_branding_unsupported_layout | bool)
+  tags: boot
+
+- name: Read the saved Plymouth alternative
+  ansible.builtin.slurp:
+    src: "{{ boot_branding_state_file }}"
+  register: boot_branding_saved_state_content
+  when:
+    - not (boot_branding_unsupported_layout | bool)
+    - boot_branding_managed_paths.results[3].stat.isreg | default(false)
+  tags: boot
+
+- name: Parse the saved Plymouth alternative
+  ansible.builtin.set_fact:
+    boot_branding_saved_state: >-
+      {{ boot_branding_saved_state_content.content | b64decode | from_json }}
+  when:
+    - not (boot_branding_unsupported_layout | bool)
+    - boot_branding_managed_paths.results[3].stat.isreg | default(false)
+  tags: boot
+
+- name: Require exact rollback-state data
+  ansible.builtin.assert:
+    that:
+      - boot_branding_saved_state is mapping
+      - boot_branding_saved_state.keys() | list | sort == ['schema', 'status', 'value']
+      - boot_branding_saved_state.schema | int == 1
+      - boot_branding_saved_state.status in ['auto', 'manual']
+      - boot_branding_saved_state.value is string
+      - boot_branding_saved_state.value.startswith('/usr/share/plymouth/themes/')
+      - boot_branding_saved_state.value.endswith('.plymouth')
+      - boot_branding_saved_state.value != boot_branding_descriptor
+    fail_msg: "Saved Plymouth rollback state is invalid; no boot state was changed."
+    quiet: true
+  when:
+    - not (boot_branding_unsupported_layout | bool)
+    - boot_branding_managed_paths.results[3].stat.isreg | default(false)
+  tags: boot
+
+- name: Read installed Plymouth packages
+  ansible.builtin.package_facts:
+    manager: apt
+  when: not (boot_branding_unsupported_layout | bool)
+  tags: boot
+
+- name: Calculate missing Plymouth packages
+  ansible.builtin.set_fact:
+    boot_branding_missing_packages: >-
+      {{ ['plymouth', 'plymouth-theme-spinner'] |
+         difference(ansible_facts.packages.keys() | list) }}
+  when: not (boot_branding_unsupported_layout | bool)
+  tags: boot
+
+- name: Preview required Plymouth packages
+  ansible.builtin.debug:
+    msg: "Would install Ubuntu packages: {{ boot_branding_missing_packages | join(', ') }}"
+  changed_when: true
+  when:
+    - not (boot_branding_unsupported_layout | bool)
+    - boot_branding_requested_mode == 'apply'
+    - ansible_check_mode
+    - boot_branding_missing_packages | length > 0
+  tags: boot
+
+- name: Install Ubuntu Plymouth packages
+  ansible.builtin.apt:
+    name:
+      - plymouth
+      - plymouth-theme-spinner
+    state: present
+    update_cache: false
+    fail_on_autoremove: true
+    allow_unauthenticated: false
+  become: true
+  register: boot_branding_package_install
+  when:
+    - not (boot_branding_unsupported_layout | bool)
+    - boot_branding_requested_mode == 'apply'
+    - not ansible_check_mode
+    - boot_branding_missing_packages | length > 0
+  tags: boot
+
+- name: Refresh installed Plymouth package state
+  ansible.builtin.package_facts:
+    manager: apt
+  when:
+    - not (boot_branding_unsupported_layout | bool)
+    - boot_branding_requested_mode == 'apply'
+    - not ansible_check_mode
+    - boot_branding_missing_packages | length > 0
+  tags: boot
+
+- name: Record whether the packaged theme can be validated
+  ansible.builtin.set_fact:
+    boot_branding_packages_ready: >-
+      {{ 'plymouth' in ansible_facts.packages and
+         'plymouth-theme-spinner' in ansible_facts.packages }}
+  when: not (boot_branding_unsupported_layout | bool)
+  tags: boot
+
+- name: Require Plymouth before a real apply or managed rollback
+  ansible.builtin.assert:
+    that:
+      - >-
+        boot_branding_packages_ready or
+        (ansible_check_mode and boot_branding_requested_mode == 'apply') or
+        (boot_branding_requested_mode == 'rollback' and
+         not (boot_branding_managed_paths.results[0].stat.exists | default(false)) and
+         not (boot_branding_managed_paths.results[3].stat.exists | default(false)))
+    fail_msg: "Plymouth packages are missing, so managed boot state cannot be changed safely."
+    quiet: true
+  when: not (boot_branding_unsupported_layout | bool)
+  tags: boot
+
+- name: Inspect the packaged spinner theme
+  when:
+    - not (boot_branding_unsupported_layout | bool)
+    - boot_branding_packages_ready | bool
+  tags: boot
+  block:
+    - name: Inspect the spinner theme boundary
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+      loop:
+        - "{{ boot_branding_source_theme_dir }}"
+        - "{{ boot_branding_source_descriptor }}"
+        - /usr/bin/plymouth
+        - /usr/bin/update-alternatives
+      register: boot_branding_packaged_paths
+
+    - name: Require packaged root-owned spinner inputs
+      ansible.builtin.assert:
+        that:
+          - boot_branding_packaged_paths.results[0].stat.isdir | default(false)
+          - not (boot_branding_packaged_paths.results[0].stat.islnk | default(false))
+          - boot_branding_packaged_paths.results[0].stat.uid | default(-1) == 0
+          - boot_branding_packaged_paths.results[1].stat.isreg | default(false)
+          - not (boot_branding_packaged_paths.results[1].stat.islnk | default(false))
+          - boot_branding_packaged_paths.results[1].stat.uid | default(-1) == 0
+          - boot_branding_packaged_paths.results[2].stat.executable | default(false)
+          - boot_branding_packaged_paths.results[3].stat.executable | default(false)
+        fail_msg: "Ubuntu's packaged Plymouth spinner boundary is missing or unsafe."
+        quiet: true
+
+    - name: Locate the packaged Plymouth plugin directory
+      ansible.builtin.command:
+        argv: [/usr/bin/plymouth, --get-splash-plugin-path]
+      register: boot_branding_plugin_directory
+      changed_when: false
+      check_mode: false
+
+    - name: Inspect the two-step plugin
+      ansible.builtin.stat:
+        path: "{{ boot_branding_plugin_directory.stdout | regex_replace('/+$', '') }}/two-step.so"
+        follow: false
+      register: boot_branding_two_step_plugin
+
+    - name: Find packaged spinner files
+      ansible.builtin.find:
+        paths: "{{ boot_branding_source_theme_dir }}"
+        recurse: true
+        file_type: file
+        hidden: true
+      register: boot_branding_source_files
+
+    - name: Find unsafe packaged spinner links
+      ansible.builtin.find:
+        paths: "{{ boot_branding_source_theme_dir }}"
+        recurse: true
+        file_type: link
+        hidden: true
+      register: boot_branding_source_links
+
+    - name: Read the packaged spinner descriptor
+      ansible.builtin.slurp:
+        src: "{{ boot_branding_source_descriptor }}"
+      register: boot_branding_source_descriptor_content
+
+    - name: Record the spinner descriptor and asset paths
+      ansible.builtin.set_fact:
+        boot_branding_source_descriptor_text: >-
+          {{ boot_branding_source_descriptor_content.content | b64decode }}
+        boot_branding_source_file_paths: >-
+          {{ boot_branding_source_files.files | map(attribute='path') | list }}
+        boot_branding_source_link_paths: >-
+          {{ boot_branding_source_links.files | map(attribute='path') | list }}
+
+    - name: Require the packaged two-step theme and password UI
+      ansible.builtin.assert:
+        that:
+          - boot_branding_two_step_plugin.stat.isreg | default(false)
+          - not (boot_branding_two_step_plugin.stat.islnk | default(false))
+          - boot_branding_two_step_plugin.stat.uid | default(-1) == 0
+          - boot_branding_source_links.matched | int == 1
+          - >-
+            boot_branding_source_link_paths ==
+            [boot_branding_source_theme_dir ~ '/watermark.png']
+          - >-
+            boot_branding_source_descriptor_text |
+            regex_findall('(?m)^ModuleName=two-step$') | length == 1
+          - >-
+            boot_branding_source_descriptor_text |
+            regex_findall('(?m)^ImageDir=/usr/share/plymouth/themes/+spinner$') |
+            length == 1
+          - >-
+            boot_branding_source_descriptor_text |
+            regex_findall('(?m)^WatermarkHorizontalAlignment=.*$') | length == 1
+          - >-
+            boot_branding_source_descriptor_text |
+            regex_findall('(?m)^WatermarkVerticalAlignment=.*$') | length == 1
+          - >-
+            boot_branding_source_descriptor_text |
+            regex_findall('(?m)^DialogVerticalAlignment=.*$') | length == 1
+          - boot_branding_source_theme_dir ~ '/bullet.png' in boot_branding_source_file_paths
+          - boot_branding_source_theme_dir ~ '/entry.png' in boot_branding_source_file_paths
+          - boot_branding_source_theme_dir ~ '/lock.png' in boot_branding_source_file_paths
+          - boot_branding_source_theme_dir ~ '/capslock.png' in boot_branding_source_file_paths
+          - boot_branding_source_theme_dir ~ '/keyboard.png' in boot_branding_source_file_paths
+          - >-
+            boot_branding_source_file_paths |
+            select('match', '^' ~ boot_branding_source_theme_dir ~ '/animation-[0-9]+[.]png$') |
+            list | length > 0
+          - >-
+            boot_branding_source_file_paths |
+            select('match', '^' ~ boot_branding_source_theme_dir ~ '/throbber-[0-9]+[.]png$') |
+            list | length > 0
+          - >-
+            boot_branding_source_files.files |
+            rejectattr('uid', 'equalto', 0) | list | length == 0
+          - >-
+            boot_branding_source_files.files |
+            rejectattr('path', 'match', '^' ~ boot_branding_source_theme_dir ~ '/[^/]+$') |
+            list | length == 0
+        fail_msg: >-
+          Ubuntu's spinner theme is not the expected two-step layout with complete
+          password-prompt assets; the current boot theme was left unchanged.
+        quiet: true
+
+    - name: Build the managed descriptor and clone list
+      ansible.builtin.set_fact:
+        boot_branding_desired_descriptor_content: >-
+          {{ boot_branding_source_descriptor_text |
+             regex_replace('(?m)^Name=.*$', 'Name=MrDemonWolf') |
+             regex_replace('(?m)^Description=.*$',
+                           'Description=MrDemonWolf branded Ubuntu boot splash.') |
+             regex_replace('(?m)^ImageDir=.*$',
+                           'ImageDir=' ~ boot_branding_theme_dir) |
+             regex_replace('(?m)^WatermarkHorizontalAlignment=.*$',
+                           'WatermarkHorizontalAlignment=' ~
+                           boot_branding_watermark_horizontal_alignment) |
+             regex_replace('(?m)^WatermarkVerticalAlignment=.*$',
+                           'WatermarkVerticalAlignment=' ~
+                           boot_branding_watermark_vertical_alignment) |
+             regex_replace('(?m)^DialogVerticalAlignment=.*$',
+                           'DialogVerticalAlignment=' ~
+                           boot_branding_dialog_vertical_alignment) }}
+        boot_branding_clone_files: >-
+          {{ boot_branding_source_files.files |
+             rejectattr('path', 'equalto', boot_branding_source_descriptor) |
+             rejectattr('path', 'equalto',
+                        boot_branding_source_theme_dir ~ '/watermark.png') |
+             list }}
+
+    - name: Read the current Plymouth alternative
+      ansible.builtin.command:
+        argv: [/usr/bin/update-alternatives, --query, default.plymouth]
+      register: boot_branding_alternative_query
+      changed_when: false
+      check_mode: false
+
+    - name: Parse the current Plymouth alternative
+      ansible.builtin.set_fact:
+        boot_branding_current_status_matches: >-
+          {{ boot_branding_alternative_query.stdout |
+             regex_findall('(?m)^Status: (auto|manual)$') }}
+        boot_branding_current_value_matches: >-
+          {{ boot_branding_alternative_query.stdout |
+             regex_findall('(?m)^Value: (/.+[.]plymouth)$') }}
+        boot_branding_current_best_matches: >-
+          {{ boot_branding_alternative_query.stdout |
+             regex_findall('(?m)^Best: (/.+[.]plymouth)$') }}
+        boot_branding_registered_alternatives: >-
+          {{ boot_branding_alternative_query.stdout |
+             regex_findall('(?m)^Alternative: (/.+[.]plymouth)$') }}
+        boot_branding_custom_priorities: >-
+          {{ boot_branding_alternative_query.stdout |
+             regex_findall('(?m)^Alternative: ' ~
+                           (boot_branding_descriptor | regex_escape) ~
+                           '\nPriority: (-?[0-9]+)$') }}
+
+    - name: Require an internally consistent Plymouth alternative
+      ansible.builtin.assert:
+        that:
+          - boot_branding_current_status_matches | length == 1
+          - boot_branding_current_value_matches | length == 1
+          - boot_branding_current_best_matches | length == 1
+          - boot_branding_current_value_matches[0] in boot_branding_registered_alternatives
+        fail_msg: "The existing Plymouth alternative is inconsistent; no boot state was changed."
+        quiet: true
+
+    - name: Record the current Plymouth alternative
+      ansible.builtin.set_fact:
+        boot_branding_current_status: "{{ boot_branding_current_status_matches[0] }}"
+        boot_branding_current_value: "{{ boot_branding_current_value_matches[0] }}"
+        boot_branding_current_best: "{{ boot_branding_current_best_matches[0] }}"
+
+- name: Apply the managed Plymouth theme
+  when:
+    - not (boot_branding_unsupported_layout | bool)
+    - boot_branding_requested_mode == 'apply'
+    - boot_branding_packages_ready | bool
+  tags: boot
+  block:
+    - name: Refuse activation without recoverable prior state
+      ansible.builtin.assert:
+        that:
+          - >-
+            (boot_branding_managed_paths.results[3].stat.isreg | default(false)) or
+            boot_branding_current_value != boot_branding_descriptor
+          - >-
+            not (boot_branding_managed_paths.results[3].stat.isreg | default(false)) or
+            boot_branding_saved_state.value in boot_branding_registered_alternatives
+        fail_msg: >-
+          MrDemonWolf is selected without valid prior state, or the saved prior
+          alternative no longer exists; activation was refused.
+        quiet: true
+
+    - name: Preview the managed MrDemonWolf Plymouth theme
+      ansible.builtin.debug:
+        msg: >-
+          Would install the managed MrDemonWolf Plymouth theme, preserve the
+          current alternative for exact rollback, and rebuild each real initrd.
+      changed_when: true
+      when: ansible_check_mode
+
+    - name: Create the rollback-state directory
+      ansible.builtin.file:
+        path: "{{ boot_branding_state_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+      register: boot_branding_state_directory_result
+      when: not ansible_check_mode
+
+    - name: Save the exact previous Plymouth alternative once
+      ansible.builtin.copy:
+        dest: "{{ boot_branding_state_file }}"
+        content: >-
+          {{ {'schema': 1,
+              'status': boot_branding_current_status,
+              'value': boot_branding_current_value} | to_nice_json }}
+        owner: root
+        group: root
+        mode: "0644"
+        force: false
+      become: true
+      register: boot_branding_saved_state_result
+      when: not ansible_check_mode
+
+    - name: Create the managed Plymouth theme directory
+      ansible.builtin.file:
+        path: "{{ boot_branding_theme_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+      register: boot_branding_theme_directory_result
+      when: not ansible_check_mode
+
+    - name: Mark the Plymouth theme as managed
+      ansible.builtin.copy:
+        dest: "{{ boot_branding_managed_marker }}"
+        content: "{{ boot_branding_marker_content }}"
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      register: boot_branding_marker_result
+      when: not ansible_check_mode
+
+    - name: Clone the packaged spinner assets
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "{{ boot_branding_theme_dir }}/{{ item.path | basename }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ boot_branding_clone_files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      become: true
+      register: boot_branding_cloned_assets_result
+      when: not ansible_check_mode
+
+    - name: Install the managed Plymouth descriptor
+      ansible.builtin.copy:
+        dest: "{{ boot_branding_descriptor }}"
+        content: "{{ boot_branding_desired_descriptor_content }}"
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      register: boot_branding_descriptor_result
+      when: not ansible_check_mode
+
+    - name: Install the reviewed MrDemonWolf watermark
+      ansible.builtin.copy:
+        src: "{{ boot_branding_logo_path }}"
+        dest: "{{ boot_branding_theme_dir }}/watermark.png"
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      register: boot_branding_logo_result
+      when: not ansible_check_mode
+
+    - name: Remove an obsolete copied spinner descriptor
+      ansible.builtin.file:
+        path: "{{ boot_branding_theme_dir }}/spinner.plymouth"
+        state: absent
+      become: true
+      register: boot_branding_obsolete_descriptor_result
+      when: not ansible_check_mode
+
+    - name: Inspect the completed managed theme
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - "{{ boot_branding_descriptor }}"
+        - "{{ boot_branding_theme_dir }}/watermark.png"
+        - "{{ boot_branding_theme_dir }}/bullet.png"
+        - "{{ boot_branding_theme_dir }}/entry.png"
+        - "{{ boot_branding_theme_dir }}/lock.png"
+        - "{{ boot_branding_theme_dir }}/capslock.png"
+        - "{{ boot_branding_theme_dir }}/keyboard.png"
+      register: boot_branding_completed_theme
+      when: not ansible_check_mode
+
+    - name: Read the completed managed descriptor
+      ansible.builtin.slurp:
+        src: "{{ boot_branding_descriptor }}"
+      register: boot_branding_completed_descriptor_content
+      when: not ansible_check_mode
+
+    - name: Require a complete managed theme before activation
+      ansible.builtin.assert:
+        that:
+          - >-
+            boot_branding_completed_theme.results |
+            rejectattr('stat.isreg', 'defined') | list | length == 0
+          - >-
+            boot_branding_completed_theme.results |
+            rejectattr('stat.isreg') | list | length == 0
+          - >-
+            boot_branding_completed_theme.results |
+            selectattr('stat.islnk', 'defined') |
+            selectattr('stat.islnk') | list | length == 0
+          - >-
+            boot_branding_completed_theme.results[1].stat.checksum ==
+            boot_branding_logo_sha256
+          - >-
+            (boot_branding_completed_descriptor_content.content | b64decode) |
+            regex_findall('(?m)^ModuleName=two-step$') | length == 1
+          - >-
+            (boot_branding_completed_descriptor_content.content | b64decode) |
+            regex_findall('(?m)^ImageDir=' ~
+                          (boot_branding_theme_dir | regex_escape) ~ '$') |
+            length == 1
+          - >-
+            (boot_branding_completed_descriptor_content.content | b64decode) |
+            regex_findall('(?m)^WatermarkHorizontalAlignment=' ~
+                          (boot_branding_watermark_horizontal_alignment |
+                           regex_escape) ~ '$') | length == 1
+          - >-
+            (boot_branding_completed_descriptor_content.content | b64decode) |
+            regex_findall('(?m)^WatermarkVerticalAlignment=' ~
+                          (boot_branding_watermark_vertical_alignment |
+                           regex_escape) ~ '$') | length == 1
+          - >-
+            (boot_branding_completed_descriptor_content.content | b64decode) |
+            regex_findall('(?m)^DialogVerticalAlignment=' ~
+                          (boot_branding_dialog_vertical_alignment |
+                           regex_escape) ~ '$') | length == 1
+        fail_msg: "Managed Plymouth theme validation failed; it was not activated."
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: Preview registering the managed Plymouth alternative
+      ansible.builtin.debug:
+        msg: "Would register {{ boot_branding_descriptor }} at priority 100."
+      changed_when: true
+      when:
+        - ansible_check_mode
+        - >-
+          boot_branding_custom_priorities | length != 1 or
+          boot_branding_custom_priorities[0] | int != boot_branding_alternative_priority
+
+    - name: Register the managed Plymouth alternative
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/update-alternatives
+          - --install
+          - "{{ boot_branding_default_link }}"
+          - default.plymouth
+          - "{{ boot_branding_descriptor }}"
+          - "{{ boot_branding_alternative_priority | string }}"
+      become: true
+      register: boot_branding_alternative_install_result
+      changed_when: true
+      when:
+        - not ansible_check_mode
+        - >-
+          boot_branding_custom_priorities | length != 1 or
+          boot_branding_custom_priorities[0] | int != boot_branding_alternative_priority
+
+    - name: Preview selecting the managed Plymouth theme
+      ansible.builtin.debug:
+        msg: "Would select {{ boot_branding_descriptor }} in manual alternatives mode."
+      changed_when: true
+      when:
+        - ansible_check_mode
+        - >-
+          boot_branding_current_status != 'manual' or
+          boot_branding_current_value != boot_branding_descriptor
+
+    - name: Select the managed Plymouth theme
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/update-alternatives
+          - --set
+          - default.plymouth
+          - "{{ boot_branding_descriptor }}"
+      become: true
+      register: boot_branding_alternative_set_result
+      changed_when: true
+      when:
+        - not ansible_check_mode
+        - >-
+          boot_branding_current_status != 'manual' or
+          boot_branding_current_value != boot_branding_descriptor
+
+    - name: Verify the activated Plymouth alternative
+      ansible.builtin.command:
+        argv: [/usr/bin/update-alternatives, --query, default.plymouth]
+      register: boot_branding_activated_alternative
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Require the activated managed Plymouth alternative
+      ansible.builtin.assert:
+        that:
+          - >-
+            boot_branding_activated_alternative.stdout |
+            regex_findall('(?m)^Status: manual$') | length == 1
+          - >-
+            boot_branding_activated_alternative.stdout |
+            regex_findall('(?m)^Value: ' ~
+                          (boot_branding_descriptor | regex_escape) ~ '$') |
+            length == 1
+        fail_msg: "Plymouth did not retain the managed alternative."
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: Record whether the initramfs needs the new theme
+      ansible.builtin.set_fact:
+        boot_branding_apply_needs_initramfs: >-
+          {{ (boot_branding_cloned_assets_result.changed | default(false)) or
+             (boot_branding_descriptor_result.changed | default(false)) or
+             (boot_branding_logo_result.changed | default(false)) or
+             (boot_branding_obsolete_descriptor_result.changed | default(false)) or
+             (boot_branding_alternative_install_result.changed | default(false)) or
+             (boot_branding_alternative_set_result.changed | default(false)) }}
+      when: not ansible_check_mode
+
+    - name: Find real initrd images
+      ansible.builtin.find:
+        paths: /boot
+        recurse: false
+        file_type: file
+        patterns: initrd.img-*
+      register: boot_branding_initrd_images
+      when: not ansible_check_mode
+
+    - name: Inspect the initramfs updater
+      ansible.builtin.stat:
+        path: /usr/sbin/update-initramfs
+        follow: false
+      register: boot_branding_initramfs_updater
+      when:
+        - not ansible_check_mode
+        - boot_branding_apply_needs_initramfs | bool
+        - boot_branding_initrd_images.matched | int > 0
+
+    - name: Require the initramfs updater when initrd images exist
+      ansible.builtin.assert:
+        that:
+          - boot_branding_initramfs_updater.stat.isreg | default(false)
+          - boot_branding_initramfs_updater.stat.executable | default(false)
+          - not (boot_branding_initramfs_updater.stat.islnk | default(false))
+        fail_msg: "Real initrd images exist but /usr/sbin/update-initramfs is unavailable or unsafe."
+        quiet: true
+      when:
+        - not ansible_check_mode
+        - boot_branding_apply_needs_initramfs | bool
+        - boot_branding_initrd_images.matched | int > 0
+
+    - name: Rebuild each existing initramfs with the managed theme
+      ansible.builtin.command:
+        argv: [/usr/sbin/update-initramfs, -u, -k, all]
+      become: true
+      changed_when: true
+      when:
+        - not ansible_check_mode
+        - boot_branding_apply_needs_initramfs | bool
+        - boot_branding_initrd_images.matched | int > 0
+
+- name: Roll back the managed Plymouth theme
+  when:
+    - not (boot_branding_unsupported_layout | bool)
+    - boot_branding_requested_mode == 'rollback'
+    - boot_branding_packages_ready | bool
+  tags: boot
+  block:
+    - name: Record whether managed rollback state exists
+      ansible.builtin.set_fact:
+        boot_branding_has_saved_state: >-
+          {{ boot_branding_managed_paths.results[3].stat.isreg | default(false) }}
+        boot_branding_custom_alternative_registered: >-
+          {{ boot_branding_descriptor in boot_branding_registered_alternatives }}
+
+    - name: Refuse an incomplete rollback boundary
+      ansible.builtin.assert:
+        that:
+          - >-
+            boot_branding_has_saved_state or
+            (not (boot_branding_managed_paths.results[0].stat.exists | default(false)) and
+             not boot_branding_custom_alternative_registered)
+          - >-
+            not boot_branding_has_saved_state or
+            boot_branding_saved_state.value in boot_branding_registered_alternatives
+          - >-
+            not boot_branding_has_saved_state or
+            boot_branding_saved_state.status != 'auto' or
+            boot_branding_current_best == boot_branding_saved_state.value
+        fail_msg: >-
+          Exact rollback is impossible because managed state is incomplete or the
+          saved automatic alternative is no longer the best candidate; nothing was removed.
+        quiet: true
+
+    - name: Report an already rolled-back Plymouth theme
+      ansible.builtin.debug:
+        msg: "MrDemonWolf Plymouth branding is already rolled back."
+      when: not boot_branding_has_saved_state
+
+    - name: Preview exact Plymouth rollback
+      ansible.builtin.debug:
+        msg: >-
+          Would restore {{ boot_branding_saved_state.value }} in
+          {{ boot_branding_saved_state.status }} mode, rebuild each real initrd,
+          then remove only the managed theme and rollback state.
+      changed_when: true
+      when:
+        - boot_branding_has_saved_state
+        - ansible_check_mode
+
+    - name: Restore the previous manual Plymouth alternative
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/update-alternatives
+          - --set
+          - default.plymouth
+          - "{{ boot_branding_saved_state.value }}"
+      become: true
+      changed_when: true
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+        - boot_branding_saved_state.status == 'manual'
+        - >-
+          boot_branding_current_status != 'manual' or
+          boot_branding_current_value != boot_branding_saved_state.value
+
+    - name: Restore automatic Plymouth selection
+      ansible.builtin.command:
+        argv: [/usr/bin/update-alternatives, --auto, default.plymouth]
+      become: true
+      changed_when: true
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+        - boot_branding_saved_state.status == 'auto'
+        - >-
+          boot_branding_current_status != 'auto' or
+          boot_branding_current_value != boot_branding_saved_state.value
+
+    - name: Verify the restored Plymouth alternative
+      ansible.builtin.command:
+        argv: [/usr/bin/update-alternatives, --query, default.plymouth]
+      register: boot_branding_restored_alternative
+      changed_when: false
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+
+    - name: Require the exact restored Plymouth alternative
+      ansible.builtin.assert:
+        that:
+          - >-
+            boot_branding_restored_alternative.stdout |
+            regex_findall('(?m)^Status: ' ~
+                          boot_branding_saved_state.status ~ '$') | length == 1
+          - >-
+            boot_branding_restored_alternative.stdout |
+            regex_findall('(?m)^Value: ' ~
+                          (boot_branding_saved_state.value | regex_escape) ~ '$') |
+            length == 1
+        fail_msg: "The exact previous Plymouth alternative was not restored; cleanup stopped."
+        quiet: true
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+
+    - name: Find real initrd images for rollback
+      ansible.builtin.find:
+        paths: /boot
+        recurse: false
+        file_type: file
+        patterns: initrd.img-*
+      register: boot_branding_rollback_initrd_images
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+
+    - name: Inspect the rollback initramfs updater
+      ansible.builtin.stat:
+        path: /usr/sbin/update-initramfs
+        follow: false
+      register: boot_branding_rollback_initramfs_updater
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+        - boot_branding_rollback_initrd_images.matched | int > 0
+
+    - name: Require the rollback initramfs updater
+      ansible.builtin.assert:
+        that:
+          - boot_branding_rollback_initramfs_updater.stat.isreg | default(false)
+          - boot_branding_rollback_initramfs_updater.stat.executable | default(false)
+          - not (boot_branding_rollback_initramfs_updater.stat.islnk | default(false))
+        fail_msg: "Rollback stopped because existing initrd images cannot be rebuilt safely."
+        quiet: true
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+        - boot_branding_rollback_initrd_images.matched | int > 0
+
+    - name: Rebuild each existing initramfs with the restored theme
+      ansible.builtin.command:
+        argv: [/usr/sbin/update-initramfs, -u, -k, all]
+      become: true
+      changed_when: true
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+        - boot_branding_rollback_initrd_images.matched | int > 0
+
+    - name: Remove the managed Plymouth alternative
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/update-alternatives
+          - --remove
+          - default.plymouth
+          - "{{ boot_branding_descriptor }}"
+      become: true
+      changed_when: true
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+        - boot_branding_custom_alternative_registered
+
+    - name: Remove only the verified managed Plymouth theme
+      ansible.builtin.file:
+        path: "{{ boot_branding_theme_dir }}"
+        state: absent
+      become: true
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode
+        - boot_branding_managed_paths.results[0].stat.exists | default(false)
+
+    - name: Remove completed rollback state
+      ansible.builtin.file:
+        path: "{{ boot_branding_state_dir }}"
+        state: absent
+      become: true
+      when:
+        - boot_branding_has_saved_state
+        - not ansible_check_mode

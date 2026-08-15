@@ -3,6 +3,8 @@ set -Eeuo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 setup="$repo_dir/setup.sh"
+notices="$repo_dir/THIRD-PARTY-NOTICES.md"
+readme="$repo_dir/README.md"
 failures=0
 
 pass() { printf 'PASS: %s\n' "$1"; }
@@ -30,6 +32,37 @@ else
   fail 'setup wrapper mode'
 fi
 
+if [[ -f "$notices" ]] &&
+   grep -Fq 'v30.5.0' "$notices" &&
+   grep -Fq 'v3.5.0' "$notices" &&
+   grep -Fq 'linux-v0.1.0' "$notices" &&
+   grep -Fq 'Toshy_v26.08.0' "$notices" &&
+   grep -Fq '7d6904cf64dee3bb52f1cea75040ae943bc8fe32' "$notices" &&
+   grep -Fq 'focused-window-dbus' "$notices" &&
+   grep -Fq 'org.telegram.desktop' "$notices" &&
+   grep -Fq 'sh.cider.Cider' "$notices" &&
+   grep -Fq 'tv.plex.PlexDesktop' "$notices"; then
+  pass 'third-party notices cover reviewed artifacts and sources'
+else
+  fail 'third-party notices coverage'
+fi
+
+# shellcheck disable=SC2016 # Assert literal Markdown commands in the guide.
+if grep -Fq 'cd ~/Developer/nathanialhenniges/linux-setup' "$readme" &&
+   grep -Fq './setup.sh bootstrap' "$readme" &&
+   grep -Fq './setup.sh --dry-run all' "$readme" &&
+   grep -Fq './setup.sh keybinds && ./setup.sh verify' "$readme" &&
+   grep -Fq 'Resume after a stopped action' "$readme" &&
+   grep -Fq 'Manual acceptance checklist' "$readme" &&
+   grep -Fq '240 x 240 px' "$readme" &&
+   grep -Fq 'WatermarkVerticalAlignment=.34' "$readme" &&
+   grep -Fq 'paste the complete error output' "$readme" &&
+   grep -Fq 'Do not manually delete or edit APT source files' "$readme"; then
+  pass 'README is the complete MBA setup and recovery guide'
+else
+  fail 'README MBA how-to coverage'
+fi
+
 if "$setup" --help | grep -Fq 'Ubuntu Desktop 26.04 local Ansible setup'; then
   pass 'help works without target checks'
 else
@@ -37,13 +70,13 @@ else
 fi
 
 if "$setup" --help | grep -Fq './setup.sh [--dry-run] all' &&
-   "$setup" --help | grep -Fq 'all        Bootstrap, run every setup action in order, then verify'; then
+   "$setup" --help | grep -Fq 'all        Bootstrap, run seven workstation actions in order, then verify'; then
   pass 'help advertises the all command'
 else
   fail 'all command help'
 fi
 
-if "$setup" | grep -Fq './setup.sh bootstrap'; then
+if "$setup" | grep -Fq './setup.sh [--dry-run] bootstrap'; then
   pass 'no command defaults to help'
 else
   fail 'default help behavior'
@@ -79,6 +112,13 @@ if grep -Fq 'Toshy_v26.08.0' "$setup" &&
    grep -Fq '7d6904cf64dee3bb52f1cea75040ae943bc8fe32' "$setup" &&
    grep -Fq 'ff312b70705b9bd63524223f4b48755605b6f0970c77c8e35303ce1f20841cab' "$setup" &&
    grep -Fq 'focused-window-dbus@flexagoon.com' "$setup" &&
+   grep -Fq '5ff336fac73b34deaf83f32772e8478885fa4925' "$setup" &&
+   grep -Fq '8fe40d9eecee1e6ed8b998d04832b7bb8faa410233509346a30a4b17e5037c7f' "$setup" &&
+   grep -Fq 'gnome-extensions pack' "$setup" &&
+   grep -Fq 'gnome-extensions install --force' "$setup" &&
+   grep -Fq "gnome-extensions enable \"\$focus_extension\"" "$setup" &&
+   grep -Fq 'gnome-extensions list --active' "$setup" &&
+   grep -Fq 'resume: ./setup.sh keybinds && ./setup.sh verify' "$setup" &&
    grep -Fq '  - gnome-shell-extension-manager' "$repo_dir/vars.yml" &&
    ! grep -Eq 'sudo[[:space:]].*setup_toshy' "$setup"; then
   pass 'Toshy and its keymapper are pinned outside Ansible become'
@@ -93,6 +133,7 @@ if grep -Fq 'start_toshy_services' "$setup" &&
    grep -Fq 'SSH_TTY' "$setup" &&
    grep -Fq 'DBUS_SESSION_BUS_ADDRESS' "$setup" &&
    grep -Fq "\$HOME/.Xmodmap" "$setup" &&
+   grep -A15 -F 'refuse_competing_keymappers() {' "$setup" | grep -Fq '  return 0' &&
    grep -Fq 'XDG_SESSION_TYPE:-}" == wayland' "$setup" &&
    grep -Fq 'toshy-services-enable' "$setup" &&
    grep -Fq 'toshy-services-restart' "$setup" &&
@@ -107,7 +148,7 @@ if grep -Fq 'start_toshy_services' "$setup" &&
    grep -Fq 'verified_toshy_enabled.results' "$repo_dir/verify.yml" &&
    grep -Fq 'ansible_facts.env.WAYLAND_DISPLAY' "$repo_dir/verify.yml" &&
    grep -Fq 'MACOS KEY SERVICES' "$repo_dir/verify.yml" &&
-   grep -A12 -F 'Require the completed core workstation state' "$repo_dir/verify.yml" | grep -Fq 'macos_keys_ready'; then
+   grep -A18 -F 'Require the completed core workstation state' "$repo_dir/verify.yml" | grep -Fq 'macos_keys_ready'; then
   pass 'macOS key services are repaired, checked, and required'
 else
   fail 'macOS key runtime boundary'
@@ -115,8 +156,10 @@ fi
 
 if grep -Fq 'ansible_become_exe=/usr/bin/sudo.ws' "$repo_dir/inventory.ini" &&
    grep -Fq '[[ -x /usr/bin/sudo.ws ]]' "$setup" &&
+   grep -Fq 'command+=(--ask-become-pass)' "$setup" &&
+   ! grep -Fq '/usr/bin/sudo.ws -n /usr/bin/true' "$setup" &&
    ! grep -Eq 'update-alternatives|NOPASSWD' "$setup" "$repo_dir/inventory.ini"; then
-  pass 'Ansible uses scoped Ubuntu classic sudo'
+  pass 'Ansible always prompts through scoped Ubuntu classic sudo'
 else
   fail 'Ubuntu 26.04 sudo-rs compatibility boundary'
 fi
@@ -137,7 +180,7 @@ else
 fi
 
 if grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome keybinds)' "$setup" &&
-   grep -Fq 'bootstrap | all | status | verify | base | apps | tools | terminal | codex | dotfiles | gnome | keybinds)' "$setup" &&
+   grep -Fq 'bootstrap | all | status | state | verify | sources | base | apps | tools | drive | terminal | codex | dotfiles | gnome | keybinds | boot | boot-reset)' "$setup" &&
    grep -Fq "\"\$repo_dir/setup.sh\" bootstrap || die \"all stopped at bootstrap" "$setup" &&
    grep -Fq "[[ \"\$dry_run\" == false ]] || command+=(--dry-run)" "$setup" &&
    grep -Fq 'final_step="status"' "$setup" &&
@@ -146,6 +189,52 @@ if grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome k
   pass 'all sequences only reviewed actions and preserves dry-run safety'
 else
   fail 'all action orchestration'
+fi
+
+# shellcheck disable=SC2016 # Assert the wrapper contains the literal mode expansion.
+if grep -A24 -F 'run_boot() {' "$setup" | grep -Fq -- '--tags boot' &&
+   grep -A24 -F 'run_boot() {' "$setup" | grep -Fq -- '-e setup_action=boot' &&
+   grep -A24 -F 'run_boot() {' "$setup" | grep -Fq -- '-e "boot_branding_mode=$mode"' &&
+   grep -A24 -F 'run_boot() {' "$setup" | grep -Fq 'require_classic_sudo' &&
+   grep -Fq 'boot) run_boot apply ;;' "$setup" &&
+   grep -Fq 'boot-reset) run_boot rollback ;;' "$setup" &&
+   grep -Fq "when: setup_action == 'boot'" "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/boot_branding.yml' "$repo_dir/site.yml" &&
+   grep -Fxq '  - boot' "$repo_dir/vars.yml" &&
+   [[ "$(shasum -a 256 "$repo_dir/assets/boot-branding/mrdemonwolf-logo.png" | awk '{print $1}')" == '860899736ae436938660c24cf1b58a477286afd15d3d6dc4ec8d40b85131b406' ]] &&
+   file "$repo_dir/assets/boot-branding/mrdemonwolf-logo.png" | grep -Fq 'PNG image data, 240 x 240' &&
+   grep -Fq "boot_branding_watermark_horizontal_alignment: '.5'" "$repo_dir/tasks/boot_branding.yml" &&
+   grep -Fq "boot_branding_watermark_vertical_alignment: '.34'" "$repo_dir/tasks/boot_branding.yml" &&
+   grep -Fq "boot_branding_dialog_vertical_alignment: '.64'" "$repo_dir/tasks/boot_branding.yml" &&
+   grep -Fq 'boot_branding_requested_mode in' "$repo_dir/tasks/boot_branding.yml" &&
+   grep -Fq 'Skipping boot branding on an unsupported TPM-backed FDE or UKI layout' "$repo_dir/tasks/boot_branding.yml" &&
+   grep -Fq 'Refusing unmanaged Plymouth theme directory' "$repo_dir/tasks/boot_branding.yml" &&
+   [[ -x "$repo_dir/tests/test-boot-branding-docker.sh" ]]; then
+  pass 'Plymouth branding is opt-in, reversible, checksum-pinned, and excluded from all'
+else
+  fail 'Plymouth boot-branding boundary'
+fi
+
+claude_preflight_call_line="$(grep -n -m1 -F '  repair_known_claude_source_conflict' "$setup" | cut -d: -f1 || true)"
+bootstrap_apt_update_line="$(grep -n -m1 -F '  sudo apt-get update' "$setup" | cut -d: -f1 || true)"
+dry_run_source_preview_line="$(grep -n -m1 -F "\"\$repo_dir/setup.sh\" --dry-run sources" "$setup" | cut -d: -f1 || true)"
+all_step_loop_line="$(grep -n -m1 -F "  for step in \"\${all_actions[@]}\"" "$setup" | cut -d: -f1 || true)"
+if [[ -n "$claude_preflight_call_line" && -n "$bootstrap_apt_update_line" ]] &&
+   (( claude_preflight_call_line < bootstrap_apt_update_line )) &&
+   [[ -n "$dry_run_source_preview_line" && -n "$all_step_loop_line" ]] &&
+   (( dry_run_source_preview_line < all_step_loop_line )) &&
+   grep -Fq 'readonly claude_managed_source=/etc/apt/sources.list.d/claude-desktop.sources' "$setup" &&
+   grep -Fq 'claude_unmanaged_source_present() {' "$setup" &&
+   grep -Fq '/etc/apt/sources.list.d/*.sources' "$setup" &&
+   grep -Fq "\"\$repo_dir/setup.sh\" sources ||" "$setup" &&
+   grep -Fq 'dry-run all stopped before APT' "$setup" &&
+   grep -Fq "setup_action in ['sources', 'apps']" "$repo_dir/site.yml" &&
+   grep -Fq "['!all', '!min', 'architecture', 'distribution', 'env', 'hardware', 'user']" "$repo_dir/site.yml" &&
+   grep -A4 -F 'Read installed package state without using the network' "$repo_dir/site.yml" | grep -Fq "when: setup_action != 'sources'" &&
+   ! grep -A18 -F 'Configure verified core vendor repositories' "$repo_dir/site.yml" | grep -Fq 'update_cache:'; then
+  pass 'Claude Signed-By repair runs before bootstrap parses APT sources'
+else
+  fail 'Claude pre-bootstrap source repair ordering'
 fi
 
 tool_package_manifest="$(awk '
@@ -165,7 +254,7 @@ app_package_manifest="$(awk '
   capture && /^[[:alnum:]_]+:/ { exit }
   capture && /^  - / { sub(/^  - /, ""); print }
 ' "$repo_dir/vars.yml")"
-expected_app_packages=$'bluez\nclaude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nlibfuse2t64\nobs-studio'
+expected_app_packages=$'bluez\nchatgpt\nclaude-desktop\ncloudflare-warp\ncode\ngh\nghostty\ngnome-shell-extension-manager\nlibfuse2t64\nmesa-vulkan-drivers\nobs-studio\nvulkan-tools'
 flatpak_package_manifest="$(awk '
   /^core_flatpak_packages:/ { capture=1; next }
   capture && /^[[:alnum:]_]+:/ { exit }
@@ -173,7 +262,8 @@ flatpak_package_manifest="$(awk '
 ' "$repo_dir/vars.yml")"
 if [[ "$app_package_manifest" == "$expected_app_packages" ]] &&
    grep -A1 -F 'core_snap_packages:' "$repo_dir/vars.yml" | grep -Fq '  - postman' &&
-   [[ "$flatpak_package_manifest" == $'com.rustdesk.RustDesk\norg.upscayl.Upscayl' ]] &&
+   [[ "$flatpak_package_manifest" == $'com.rustdesk.RustDesk\norg.telegram.desktop\norg.upscayl.Upscayl\nsh.cider.Cider\ntv.plex.PlexDesktop' ]] &&
+   ! grep -Eq '^  - (dbeaver|localwp|rpi-imager)$' "$repo_dir/vars.yml" &&
    ! grep -Fq '  - optional' "$repo_dir/vars.yml" &&
    ! grep -Fq 'keybinds | optional' "$setup"; then
   pass 'approved desktop application manifests are exact'
@@ -181,15 +271,84 @@ else
   fail 'approved desktop application manifests'
 fi
 
+if grep -Fq 'Check whether Telegram is installed from Flathub' "$repo_dir/verify.yml" &&
+   grep -Fq 'Check whether Plex Desktop is installed from Flathub' "$repo_dir/verify.yml" &&
+   grep -Fq 'Verify every approved Flatpak application origin' "$repo_dir/site.yml" &&
+   grep -Fq 'Require every approved Flatpak application from Flathub' "$repo_dir/site.yml" &&
+   grep -A16 -F 'Require every approved Flatpak application from Flathub' "$repo_dir/site.yml" | grep -Fq "rejectattr('stdout', 'equalto', core_flatpak_remote.name)" &&
+   grep -Fq 'telegram_ready:' "$repo_dir/verify.yml" &&
+   grep -Fq 'plex_ready:' "$repo_dir/verify.yml" &&
+   grep -Fq '          - telegram_ready' "$repo_dir/verify.yml" &&
+   grep -Fq '          - plex_ready' "$repo_dir/verify.yml" &&
+   grep -Fq 'TELEGRAM           ' "$repo_dir/verify.yml" &&
+   grep -Fq 'PLEX DESKTOP       ' "$repo_dir/verify.yml" &&
+   grep -Fq 'flatpak run org.telegram.desktop' "$repo_dir/README.md" &&
+   grep -Fq 'flatpak run tv.plex.PlexDesktop' "$repo_dir/README.md" &&
+   grep -Fq 'Check whether Cider is installed from Flathub' "$repo_dir/verify.yml" &&
+   grep -Fq 'cider_ready:' "$repo_dir/verify.yml" &&
+   grep -Fq 'CIDER              ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - cider_ready' "$repo_dir/verify.yml" &&
+   grep -Fq 'sudo apt install rpi-imager' "$repo_dir/README.md" &&
+   grep -Fq 'one site at a time' "$repo_dir/README.md"; then
+  pass 'selected desktop app routes are explicit and verifiable'
+else
+  fail 'selected desktop app route policy'
+fi
+
+if grep -Fq 'version: "26.803.81509"' "$repo_dir/vars.yml" &&
+   grep -Fq 'https://persistent.oaistatic.com/codex-app-prod/linux/deb/latest/chatgpt_amd64.deb' "$repo_dir/vars.yml" &&
+   grep -Fq 'a9bf91a368f9f7c4eea38082a9fb8fb46b8d005b719a6d7715d2e5a1982c38eb' "$repo_dir/vars.yml" &&
+   grep -Fq '23e2cfbdef6afe95505f9e95a2cb63585da7ffe9b06a51ec08a32407c847d596' "$repo_dir/vars.yml" &&
+   grep -Fq '9ff8ae7b9e2e73b9fa1a31383c4cde964e159bab39aee762aef4918d1a4f2cfd' "$repo_dir/vars.yml" &&
+   grep -A7 -F 'Download the pinned official ChatGPT package' "$repo_dir/site.yml" | grep -Fq 'checksum: "sha256:{{ chatgpt.sha256 }}"' &&
+   grep -A6 -F 'Install the pinned official ChatGPT package' "$repo_dir/site.yml" | grep -Fq 'deb: "{{ chatgpt_package.path }}"' &&
+   grep -Fq 'CHATGPT DESKTOP    {{' "$repo_dir/verify.yml" &&
+   grep -Fq 'https://learn.chatgpt.com/docs/linux/linux-app' "$repo_dir/README.md"; then
+  pass 'ChatGPT Linux preview uses the pinned official Ubuntu package and repository'
+else
+  fail 'official ChatGPT Linux preview boundary'
+fi
+
 if grep -Fq '  name: flathub' "$repo_dir/vars.yml" &&
    grep -Fq '  url: https://dl.flathub.org/repo/flathub.flatpakrepo' "$repo_dir/vars.yml" &&
    grep -Fq '    - name: Refuse a Flathub remote pointing somewhere else' "$repo_dir/site.yml" &&
    grep -Fq '          - --if-not-exists' "$repo_dir/site.yml" &&
    grep -Fq '      loop: "{{ core_flatpak_packages }}"' "$repo_dir/site.yml" &&
-   ! grep -Fq '          - --user' "$repo_dir/site.yml"; then
+   ! grep -A14 -F 'Add the reviewed Flathub remote' "$repo_dir/site.yml" | grep -Fq -- '- --user' &&
+   ! grep -A20 -F 'Install missing approved Flatpak applications' "$repo_dir/site.yml" | grep -Fq -- '- --user'; then
   pass 'Flatpak stays on the reviewed system Flathub remote'
 else
   fail 'Flatpak remote policy'
+fi
+
+upscayl_install_line="$(grep -n -m1 -F 'Install missing approved Flatpak applications' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+upscayl_verify_line="$(grep -n -m1 -F 'Verify the reviewed Upscayl Flatpak before migration cleanup' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+upscayl_deb_cleanup_line="$(grep -n -m1 -F 'Remove the legacy Upscayl Debian package' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+upscayl_snap_cleanup_line="$(grep -n -m1 -F 'Remove the legacy Upscayl Snap' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+upscayl_user_flatpak_cleanup_line="$(grep -n -m1 -F 'Remove the legacy user-scoped Upscayl Flatpak' "$repo_dir/site.yml" | cut -d: -f1 || true)"
+if [[ -n "$upscayl_install_line" && -n "$upscayl_verify_line" &&
+      -n "$upscayl_deb_cleanup_line" && -n "$upscayl_snap_cleanup_line" &&
+      -n "$upscayl_user_flatpak_cleanup_line" ]] &&
+   (( upscayl_verify_line > upscayl_install_line )) &&
+   (( upscayl_deb_cleanup_line > upscayl_verify_line )) &&
+   (( upscayl_snap_cleanup_line > upscayl_verify_line )) &&
+   (( upscayl_user_flatpak_cleanup_line > upscayl_verify_line )) &&
+   grep -A8 -F 'Verify the reviewed Upscayl Flatpak before migration cleanup' "$repo_dir/site.yml" | grep -Fq -- '- --show-origin' &&
+   grep -A8 -F 'Require the reviewed Upscayl Flatpak before migration cleanup' "$repo_dir/site.yml" | grep -Fq 'migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name' &&
+   grep -A18 -F 'Remove the legacy Upscayl Debian package' "$repo_dir/site.yml" | grep -Fq 'migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name' &&
+   grep -A16 -F 'Remove the legacy Upscayl Snap' "$repo_dir/site.yml" | grep -Fq 'migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name' &&
+   grep -A14 -F 'Remove the legacy user-scoped Upscayl Flatpak' "$repo_dir/site.yml" | grep -Fq 'migrated_upscayl_flatpak.stdout | trim == core_flatpak_remote.name' &&
+   grep -Fq 'argv: [/usr/bin/snap, list]' "$repo_dir/site.yml" &&
+   grep -Fq 'argv: [/usr/bin/flatpak, list, --user, --app, --columns=application]' "$repo_dir/site.yml" &&
+   grep -A8 -F 'Require readable legacy package state before migration' "$repo_dir/site.yml" | grep -Fq 'legacy_upscayl_snaps.rc == 0' &&
+   grep -A8 -F 'Require readable legacy package state before migration' "$repo_dir/site.yml" | grep -Fq 'legacy_upscayl_user_flatpaks.rc == 0' &&
+   grep -A8 -F 'upscayl_ready:' "$repo_dir/verify.yml" | grep -Fq "verified_upscayl_flatpak.stdout | default('') | trim == core_flatpak_remote.name" &&
+   grep -A10 -F 'upscayl_legacy_routes_ready:' "$repo_dir/verify.yml" | grep -Fq 'verified_legacy_upscayl_snaps.rc | default(1) == 0' &&
+   grep -Fq 'User-owned' "$repo_dir/README.md" &&
+   grep -Fq 'AppImage files are left alone' "$repo_dir/README.md"; then
+  pass 'Upscayl verifies Flatpak before removing recognized legacy packages'
+else
+  fail 'Upscayl legacy migration ordering and safety'
 fi
 
 if grep -Fq '    - name: Refresh APT metadata for approved applications' "$repo_dir/site.yml" &&
@@ -209,6 +368,145 @@ if grep -A1 -F 'key: dock-fixed' "$repo_dir/vars.yml" | grep -Fq 'value: "true"'
   pass 'Ubuntu Dock stays visible'
 else
   fail 'Ubuntu Dock visibility preference'
+fi
+
+dock_favorite_manifest="$(awk '
+  /^gnome_dock_favorite_candidates:/ { capture=1; next }
+  capture && /^[[:alnum:]_]+:/ { exit }
+  capture && /desktop_id:/ {
+    sub(/^.*desktop_id: /, "")
+    sub(/,.*/, "")
+    print
+  }
+' "$repo_dir/vars.yml")"
+expected_dock_favorites=$'org.gnome.Nautilus.desktop\ngoogle-chrome.desktop\ndiscord.desktop\nlinux-setup-notion.desktop\ncom.anthropic.Claude.desktop\nchatgpt.desktop\nsh.cider.Cider.desktop\ncom.mitchellh.ghostty.desktop\ncode.desktop\npostman_postman.desktop'
+web_app_manifest="$(awk '
+  /^chrome_web_app_launchers:/ { capture=1; next }
+  capture && /^[[:alnum:]_]+:/ { exit }
+  capture && /desktop_id:/ {
+    sub(/^.*desktop_id: /, "")
+    sub(/,.*/, "")
+    print
+  }
+' "$repo_dir/vars.yml")"
+expected_web_apps=$'linux-setup-google-docs.desktop\nlinux-setup-google-sheets.desktop\nlinux-setup-google-slides.desktop\nlinux-setup-notion.desktop\nlinux-setup-quo.desktop'
+if grep -A1 -F 'key: dash-max-icon-size' "$repo_dir/vars.yml" | grep -Fq 'value: "32"' &&
+   [[ "$dock_favorite_manifest" == "$expected_dock_favorites" ]] &&
+   [[ "$web_app_manifest" == "$expected_web_apps" ]] &&
+   [[ "$(sed -n '/^gnome_dock_managed_unpinned_ids:/,/^gnome_dock_favorite_candidates:/p' "$repo_dir/vars.yml" | grep -c '^  - ')" == 9 ]] &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq '1password.desktop' &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq 'org.telegram.desktop.desktop' &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq 'librepods.desktop' &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq 'tv.plex.PlexDesktop.desktop' &&
+   grep -A10 -F 'gnome_dock_managed_unpinned_ids:' "$repo_dir/vars.yml" | grep -Fq 'linux-setup-quo.desktop' &&
+   grep -Fq 'Install reviewed Chrome web-app launchers' "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/chrome_web_apps.yml' "$repo_dir/site.yml" &&
+   grep -Fq -- '--app={{ chrome_web_app.url }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
+   grep -Fq -- '--class={{ chrome_web_app.wm_class }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
+   grep -Fq 'Icon={{ workstation_home }}/.local/share/icons/{{ chrome_web_app.icon_file }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
+   grep -Fq 'StartupWMClass={{ chrome_web_app.wm_class }}' "$repo_dir/templates/chrome-web-app.desktop.j2" &&
+   grep -Fq 'Refuse unsafe Chrome web-app launcher paths' "$repo_dir/tasks/chrome_web_apps.yml" &&
+   grep -Fq 'Install checksum-pinned official web-app icons' "$repo_dir/tasks/chrome_web_apps.yml" &&
+   grep -A12 -F 'Install checksum-pinned official web-app icons' "$repo_dir/tasks/chrome_web_apps.yml" | grep -Fq 'when: not ansible_check_mode' &&
+   grep -Fq 'Refuse unknown retired Chrome launcher content' "$repo_dir/tasks/chrome_web_apps.yml" &&
+   grep -Fq 'Remove the exact retired Google Drive app launcher' "$repo_dir/tasks/chrome_web_apps.yml" &&
+   grep -Fq 'Verify exact managed Chrome web-app launcher content' "$repo_dir/verify.yml" &&
+   grep -Fq 'Verify exact managed Chrome web-app icon content' "$repo_dir/verify.yml" &&
+   grep -Fq 'WEB APP SHORTCUTS  ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - chrome_web_apps_ready' "$repo_dir/verify.yml" &&
+   grep -Fq 'gnome_dock_favorite_candidates:' "$repo_dir/vars.yml" &&
+   grep -Fq 'Inspect reviewed Dock launcher candidates' "$repo_dir/site.yml" &&
+   grep -Fq 'Build additive GNOME Dock favorites' "$repo_dir/site.yml" &&
+   grep -Fq 'Pin installed reviewed applications to the GNOME Dock' "$repo_dir/site.yml" &&
+   grep -A10 -F 'Parse current GNOME Dock favorites' "$repo_dir/site.yml" | grep -Fq 'current_gnome_dock_favorites.stdout' &&
+   grep -A16 -F 'Build additive GNOME Dock favorites' "$repo_dir/site.yml" | grep -Fq 'gnome_dock_managed_unpinned_ids' &&
+   grep -A16 -F 'Build additive GNOME Dock favorites' "$repo_dir/site.yml" | grep -Fq '| unique' &&
+   grep -Fq 'Require applied GNOME Dock favorites' "$repo_dir/site.yml" &&
+   grep -Fq 'gnome_dock_ready:' "$repo_dir/verify.yml" &&
+   grep -A8 -F 'gnome_dock_ready:' "$repo_dir/verify.yml" | grep -Fq '[0:verified_installed_gnome_dock_favorites | length]' &&
+   grep -Fq 'GNOME DOCK         ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - gnome_dock_ready' "$repo_dir/verify.yml" &&
+   grep -Fq '32 px' "$repo_dir/README.md"; then
+  pass 'GNOME Dock installs reviewed Chrome launchers and pins the MBP-style set at 32 px'
+else
+  fail 'GNOME Dock favorites and icon-size policy'
+fi
+
+if grep -Fq './setup.sh [--dry-run] state' "$setup" &&
+   grep -Fq 'state) run_status false true ;;' "$setup" &&
+   grep -Fq 'diagnostic_state: false' "$repo_dir/verify.yml" &&
+   grep -Fq 'Show read-only diagnostic state' "$repo_dir/verify.yml" &&
+   grep -A35 -F 'Show read-only diagnostic state' "$repo_dir/verify.yml" | grep -Fq 'when: diagnostic_state | bool' &&
+   grep -Fq 'CLAUDE UNMANAGED SOURCES' "$repo_dir/verify.yml" &&
+   grep -Fq 'BRANDING PRETTY HOSTNAME' "$repo_dir/verify.yml" &&
+   grep -Fq 'RETIRED GOOGLE DRIVE LAUNCHER' "$repo_dir/verify.yml"; then
+  pass 'read-only state diagnostics expose failed-check causes without repair'
+else
+  fail 'read-only state diagnostic action'
+fi
+
+if [[ "$(shasum -a 256 "$repo_dir/assets/mrdemonwolf-desktop-wallpaper.png" | awk '{print $1}')" == '1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840' ]] &&
+   [[ "$(shasum -a 256 "$repo_dir/assets/nathanial-henniges-profile-picture.jpg" | awk '{print $1}')" == '1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673' ]] &&
+   grep -Fq 'Install and apply reviewed personal desktop images' "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/desktop_personalization.yml' "$repo_dir/site.yml" &&
+   grep -Fq 'picture-uri-dark' "$repo_dir/tasks/desktop_personalization.yml" &&
+   grep -Fq 'SetIconFile' "$repo_dir/tasks/desktop_personalization.yml" &&
+   grep -Fq 'desktop_images_ready:' "$repo_dir/verify.yml" &&
+   grep -Fq 'DESKTOP IMAGES     ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - desktop_images_ready' "$repo_dir/verify.yml" &&
+   grep -Fq '/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}' "$repo_dir/tasks/desktop_personalization.yml" &&
+   grep -A18 -F 'Set current Ubuntu user profile picture through AccountsService' "$repo_dir/tasks/desktop_personalization.yml" | grep -Fq 'become: true' &&
+   grep -A24 -F 'Set current Ubuntu user profile picture through AccountsService' "$repo_dir/tasks/desktop_personalization.yml" | grep -Fq 'not ansible_check_mode'; then
+  pass 'reviewed wallpaper and Ubuntu profile picture apply safely'
+else
+  fail 'desktop image personalization policy'
+fi
+
+if grep -Fq 'Install supported Ubuntu machine branding' "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/desktop_branding.yml' "$repo_dir/site.yml" &&
+   grep -Fq "desktop_branding_pretty_hostname: 'Nathanials Air'" "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq 'Set the supported pretty device name' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq 'org/gnome/login-screen' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq "logo='/usr/local/share/linux-setup/branding/mrdemonwolf-logo.png'" "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq 'banner-message-enable=true' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq "banner-message-text='Managed by MrDemonWolf, Inc.'" "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq 'desktop_branding_gdm_keyfile_legacy_content:' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq '[desktop_branding_gdm_keyfile_legacy_content, desktop_branding_gdm_keyfile_content]' "$repo_dir/tasks/desktop_branding.yml" &&
+   grep -Fq '/org/gnome/login-screen/banner-message-enable' "$repo_dir/verify.yml" &&
+   grep -Fq '/org/gnome/login-screen/banner-message-text' "$repo_dir/verify.yml" &&
+   grep -Fq "verified_desktop_branding_values.results[0].stdout | default('') | trim == 'Nathanials Air'" "$repo_dir/verify.yml" &&
+   grep -Fq "verified_desktop_branding_values.results[1].stdout | default('') | trim ==" "$repo_dir/verify.yml" &&
+   grep -Fq 'desktop_branding_gdm_keyfile_sha256: 9ec7f788fb6ea1f9dad64f6016df408878986b8ad34d7cc37bb6e99a043bf954' "$repo_dir/vars.yml" &&
+   grep -Fq "verified_desktop_branding_files.results[1].stat.checksum | default('') ==" "$repo_dir/verify.yml" &&
+   grep -Fq 'MACHINE BRANDING   ' "$repo_dir/verify.yml" &&
+   grep -Fq '          - desktop_branding_ready' "$repo_dir/verify.yml" &&
+   grep -Fq 'sources | base | apps | tools | drive | gnome)' "$setup"; then
+  pass 'Ubuntu-supported device name and GDM branding are managed with prompted sudo'
+else
+  fail 'Ubuntu-supported machine branding policy'
+fi
+
+if grep -A5 -F 'Make Ghostty the Ubuntu default terminal' "$repo_dir/site.yml" |
+     grep -Fq 'com.mitchellh.ghostty.desktop' &&
+   ! grep -Fq "join('\\n')" "$repo_dir/site.yml"; then
+  pass 'Ghostty default uses a real newline-delimited terminal entry'
+else
+  fail 'Ghostty default terminal content'
+fi
+
+if grep -A5 -F 'Inspect verified core repository sources' "$repo_dir/verify.yml" |
+     grep -Fq 'checksum_algorithm: sha256' &&
+   grep -Fq "item.source_content | hash('sha256')" "$repo_dir/verify.yml" &&
+   grep -Fq 'claude_repository_opt_out_sha256: cdaadf5733bf59dd14fffbadc4229a428f528ae00ad8d46a26ce7abc05a028db' "$repo_dir/vars.yml" &&
+   grep -Fq 'claude_repository_opt_out_sha256 and' "$repo_dir/verify.yml" &&
+   grep -Fq 'verified_claude_unmanaged_sources.stdout_lines | length == 0' "$repo_dir/verify.yml" &&
+   ! grep -Fq 'not (verified_claude_official_source.stat.exists | default(false))' "$repo_dir/verify.yml" &&
+   grep -Fq 'core_repository_files_ready: true' "$repo_dir/verify.yml" &&
+   grep -Fq 'core_repository_files_ready: false' "$repo_dir/verify.yml" &&
+   ! grep -Fq '{{ core_sources_ready and' "$repo_dir/verify.yml"; then
+  pass 'core repository verification compares exact SHA-256 bytes'
+else
+  fail 'core repository byte verification'
 fi
 
 scan_files=(
@@ -301,8 +599,31 @@ else
   fail 'selected CLI APT boundary'
 fi
 
+if grep -Fxq '  - drive' "$repo_dir/vars.yml" &&
+   grep -Fxq 'readonly -a all_actions=(base apps tools terminal dotfiles gnome keybinds)' "$setup" &&
+   grep -Fq 'drive) configure_google_drive ;;' "$setup" &&
+   grep -Fq '/usr/bin/rclone config' "$setup" &&
+   grep -Fq 'google_drive_remote_ready' "$setup" &&
+   grep -Fq 'Configure the optional Google Drive rclone mount' "$repo_dir/site.yml" &&
+   grep -Fq 'file: tasks/google_drive.yml' "$repo_dir/site.yml" &&
+   grep -Fq -- '--vfs-cache-mode=writes' "$repo_dir/vars.yml" &&
+   grep -Fq -- '--vfs-cache-max-size=2G' "$repo_dir/vars.yml" &&
+   grep -Fq 'Refusing unsafe rclone config' "$repo_dir/tasks/google_drive.yml" &&
+   grep -Fq 'scope: user' "$repo_dir/tasks/google_drive.yml" &&
+   ! grep -Eq 'rclone[[:space:]]+bisync' "$repo_dir/tasks/google_drive.yml" "$setup"; then
+  pass 'Google Drive mount is optional, user-scoped, and bisync-free'
+else
+  fail 'optional Google Drive mount boundary'
+fi
+
 if grep -Fq 'checksum: "sha256:{{ item.key_sha256 }}"' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq 'Read every primary signing-key fingerprint' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Accept only reviewed VS Code source templates' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq '[item.source_content, vscode_package_source_content]' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Disable VS Code package repository self-management' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'question: code/add-microsoft-repo' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq '### THIS FILE IS AUTOMATICALLY CONFIGURED ###' "$repo_dir/vars.yml" &&
+   grep -Fq 'Signed-By: /usr/share/keyrings/microsoft.gpg' "$repo_dir/vars.yml" &&
    grep -Fq 'Preview vendor repository drift' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq 'content: "{{ item.source_content }}"' "$repo_dir/tasks/vendor_repositories.yml"; then
   pass 'vendor keys and sources require integrity checks'
@@ -312,22 +633,37 @@ fi
 
 vendor_install_line="$(grep -n -m1 -F 'Install isolated deb822 vendor sources' "$repo_dir/tasks/vendor_repositories.yml" | cut -d: -f1 || true)"
 claude_cleanup_line="$(grep -n -m1 -F "Remove Anthropic's exact duplicate Claude source" "$repo_dir/tasks/vendor_repositories.yml" | cut -d: -f1 || true)"
+claude_additional_cleanup_line="$(grep -n -m1 -F 'Remove only verified Claude entries from additional APT list files' "$repo_dir/tasks/vendor_repositories.yml" | cut -d: -f1 || true)"
 if grep -A20 -F '  - name: claude-desktop' "$repo_dir/vars.yml" | grep -Fq 'key_sha256: bd70a5e4a268002704024ceba7f8446024114e94f3f0bdd11c23a9e592be81c6' &&
    grep -A20 -F '  - name: claude-desktop' "$repo_dir/vars.yml" | grep -Fq '31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE' &&
    grep -A20 -F '  - name: claude-desktop' "$repo_dir/vars.yml" | grep -Fq 'Signed-By: /etc/apt/keyrings/claude-desktop.asc' &&
    grep -Fq 'claude_official_source_path: /etc/apt/sources.list.d/claude-desktop.list' "$repo_dir/vars.yml" &&
+   grep -Fq 'claude_repository_opt_out_path: /etc/default/claude-desktop' "$repo_dir/vars.yml" &&
+   grep -Fq "Refuse unsafe content in Claude's repository opt-out file" "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Install Claude package repository opt-out as exact content' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'CLAUDE_DESKTOP_ADD_REPO="false"' "$repo_dir/vars.yml" &&
    grep -Fq 'deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' "$repo_dir/vars.yml" &&
    grep -Fq 'deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main' "$repo_dir/vars.yml" &&
+   grep -Fq 'claude_official_source_file_contents:' "$repo_dir/vars.yml" &&
+   grep -Fq '### Managed by the claude-desktop package.' "$repo_dir/vars.yml" &&
+   grep -Fq 'in claude_official_source_file_contents' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Inspect Anthropic's alternate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Refuse an unsafe alternate Claude source path" "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Require Anthropic's exact alternate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Preview removal of Anthropic's duplicate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Discover active Claude entries in other APT list files' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Discover Claude entries in unmanaged deb822 sources' "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Refuse unmanaged Claude deb822 sources' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -Fq "Remove Anthropic's exact duplicate Claude source" "$repo_dir/tasks/vendor_repositories.yml" &&
+   grep -Fq 'Remove only verified Claude entries from additional APT list files' "$repo_dir/tasks/vendor_repositories.yml" &&
    grep -A8 -F "Remove Anthropic's exact duplicate Claude source" "$repo_dir/tasks/vendor_repositories.yml" | grep -Fq 'not ansible_check_mode' &&
-   [[ -n "$vendor_install_line" && -n "$claude_cleanup_line" ]] &&
+   [[ -n "$vendor_install_line" && -n "$claude_cleanup_line" && -n "$claude_additional_cleanup_line" ]] &&
    (( claude_cleanup_line > vendor_install_line )) &&
-   grep -Fq "Inspect Anthropic's duplicate Claude source" "$repo_dir/verify.yml" &&
-   grep -Fq "not (verified_claude_official_source.stat.exists | default(false))" "$repo_dir/verify.yml"; then
+   (( claude_additional_cleanup_line > vendor_install_line )) &&
+   grep -Fq 'Require Claude package installation to honor the repository opt-out' "$repo_dir/site.yml" &&
+   ! grep -Fq 'verified_claude_official_source' "$repo_dir/verify.yml" &&
+   grep -Fq "Inspect Claude's package repository opt-out" "$repo_dir/verify.yml" &&
+   grep -Fq 'Detect Claude entries outside the managed APT source' "$repo_dir/verify.yml"; then
   pass 'Claude duplicate Signed-By source is migrated safely'
 else
   fail 'Claude duplicate Signed-By migration'
@@ -390,7 +726,8 @@ if command -v ansible-playbook >/dev/null 2>&1; then
   if (cd "$repo_dir" &&
       ansible-playbook site.yml --list-tasks --tags dotfiles -e setup_action=dotfiles >/dev/null &&
       ansible-playbook site.yml --list-tasks --tags apps -e setup_action=apps >/dev/null &&
-      ansible-playbook site.yml --list-tasks --tags tools -e setup_action=tools >/dev/null); then
+      ansible-playbook site.yml --list-tasks --tags tools -e setup_action=tools >/dev/null &&
+      ansible-playbook site.yml --list-tasks --tags boot -e setup_action=boot >/dev/null); then
     pass 'tagged task graph resolves'
   else
     fail 'tagged task graph'
@@ -412,6 +749,7 @@ if command -v ansible-playbook >/dev/null 2>&1; then
      ! grep -Fq 'not a directory' <<< "$removal_output"; then
     pass 'local command shadow and obsolete backup are removed after the APT gate'
   else
+    printf '%s\n' "$removal_output" >&2
     fail 'local command shadow removal'
   fi
 
@@ -420,6 +758,7 @@ if command -v ansible-playbook >/dev/null 2>&1; then
      ! grep -Fq 'not a directory' <<< "$check_output"; then
     pass 'check mode leaves local command shadows untouched'
   else
+    printf '%s\n' "$check_output" >&2
     fail 'check-mode local shadow safety'
   fi
 else

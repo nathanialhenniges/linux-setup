@@ -1,11 +1,14 @@
 ---
 supported_actions:
+  - sources
   - base
   - apps
   - tools
+  - drive
   - terminal
   - dotfiles
   - gnome
+  - boot
 
 base_packages:
   - ca-certificates
@@ -31,6 +34,7 @@ base_packages:
 
 core_app_packages:
   - bluez
+  - chatgpt
   - claude-desktop
   - cloudflare-warp
   - code
@@ -38,7 +42,9 @@ core_app_packages:
   - ghostty
   - gnome-shell-extension-manager
   - libfuse2t64
+  - mesa-vulkan-drivers
   - obs-studio
+  - vulkan-tools
 
 core_snap_packages:
   - postman
@@ -50,7 +56,24 @@ core_flatpak_remote:
 
 core_flatpak_packages:
   - com.rustdesk.RustDesk
+  - org.telegram.desktop
   - org.upscayl.Upscayl
+  - sh.cider.Cider
+  - tv.plex.PlexDesktop
+
+chatgpt:
+  version: "26.803.81509"
+  url: https://persistent.oaistatic.com/codex-app-prod/linux/deb/latest/chatgpt_amd64.deb
+  sha256: a9bf91a368f9f7c4eea38082a9fb8fb46b8d005b719a6d7715d2e5a1982c38eb
+  key_path: /usr/share/keyrings/chatgpt-archive-keyring.gpg
+  key_sha256: 23e2cfbdef6afe95505f9e95a2cb63585da7ffe9b06a51ec08a32407c847d596
+  source_path: /etc/apt/sources.list.d/chatgpt.sources
+  source_sha256: 9ff8ae7b9e2e73b9fa1a31383c4cde964e159bab39aee762aef4918d1a4f2cfd
+  defaults_path: /etc/default/chatgpt
+  defaults_sha256: fb6ebc7d7c84dd4bac8805764080244ec8abef185f393f01592731030a76e9bf
+  allowed_defaults_sha256:
+    - fb6ebc7d7c84dd4bac8805764080244ec8abef185f393f01592731030a76e9bf
+    - d7ec575e494acb1c894a2c3b42e46be332982aba839b0f7be281d936e75fbbb3
 
 tool_packages:
   - awscli
@@ -76,6 +99,26 @@ apt_tool_shadow_dirs:
   - { path: "{{ ansible_facts.env.HOME }}/.local/bin", privileged: false }
   - { path: "{{ ansible_facts.env.HOME }}/bin", privileged: false }
   - { path: /usr/local/bin, privileged: true }
+
+google_drive_mount_dir: "{{ ansible_facts.env.HOME }}/Google Drive"
+google_drive_service_path: "{{ ansible_facts.env.HOME }}/.config/systemd/user/linux-setup-google-drive.service"
+google_drive_service_content: |
+  [Unit]
+  Description=Google Drive via rclone
+  Documentation=https://rclone.org/commands/rclone_mount/
+  Wants=network-online.target
+  After=network-online.target
+
+  [Service]
+  Type=notify
+  ExecStart=/usr/bin/rclone mount google-drive: "%h/Google Drive" --config=%h/.config/rclone/rclone.conf --cache-dir=%h/.cache/rclone --vfs-cache-mode=writes --vfs-cache-max-size=2G --vfs-cache-max-age=24h --dir-cache-time=5m --poll-interval=30s --umask=077
+  ExecStop=/usr/bin/fusermount3 -u "%h/Google Drive"
+  Restart=on-failure
+  RestartSec=10
+  TimeoutStopSec=20
+
+  [Install]
+  WantedBy=default.target
 
 oh_my_posh:
   version: "30.5.0"
@@ -118,9 +161,48 @@ dotfiles_allowed_origins:
   - git@github.com:nathanialhenniges/dotfiles.git
 
 claude_official_source_path: /etc/apt/sources.list.d/claude-desktop.list
+claude_managed_source_path: /etc/apt/sources.list.d/claude-desktop.sources
+claude_repository_uri: https://downloads.claude.ai/claude-desktop/apt/stable
 claude_official_source_lines:
   - deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main
   - deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main
+claude_official_source_file_contents:
+  - "{{ claude_official_source_lines[0] }}"
+  - "{{ claude_official_source_lines[1] }}"
+  - |-
+    ### Managed by the claude-desktop package.
+    ### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop
+    ### to force this entry on or off; remove this file too when opting out.
+    {{ claude_official_source_lines[1] }}
+  - |-
+    ### Managed by the claude-desktop package.
+    ### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop
+    ### to force this entry on or off; remove this file too when opting out.
+    ### If the deb line below is commented out, the apt repo isn't live yet —
+    ### uncomment it once it is (the package preserves an uncommented line
+    ### across upgrades).
+    {{ claude_official_source_lines[1] }}
+  - |-
+    ### Managed by the claude-desktop package.
+    ### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop
+    ### to force this entry on or off; remove this file too when opting out.
+    ### If the deb line below is commented out, the apt repo isn't live yet —
+    ### uncomment it once it is (the package preserves an uncommented line
+    ### across upgrades).
+    # {{ claude_official_source_lines[1] }}
+claude_repository_opt_out_path: /etc/default/claude-desktop
+claude_repository_opt_out_line: 'CLAUDE_DESKTOP_ADD_REPO="false"'
+claude_repository_opt_out_sha256: cdaadf5733bf59dd14fffbadc4229a428f528ae00ad8d46a26ce7abc05a028db
+desktop_branding_gdm_keyfile_sha256: 9ec7f788fb6ea1f9dad64f6016df408878986b8ad34d7cc37bb6e99a043bf954
+vscode_package_source_content: |
+  ### THIS FILE IS AUTOMATICALLY CONFIGURED ###
+  # You may comment out this entry, but any other modifications may be lost.
+  Types: deb
+  URIs: https://packages.microsoft.com/repos/code
+  Suites: stable
+  Components: main
+  Architectures: amd64
+  Signed-By: /usr/share/keyrings/microsoft.gpg
 
 core_vendor_repositories:
   - name: github-cli
@@ -209,3 +291,39 @@ gnome_settings:
   - schema: org.gnome.shell.extensions.dash-to-dock
     key: dock-fixed
     value: "true"
+  - schema: org.gnome.shell.extensions.dash-to-dock
+    key: dash-max-icon-size
+    value: "32"
+
+chrome_web_app_launchers:
+  - { name: Google Docs, desktop_id: linux-setup-google-docs.desktop, wm_class: linux-setup-google-docs, url: "https://docs.google.com/document/", icon_file: linux-setup-google-docs.ico, icon_url: "https://docs.google.com/favicon.ico", icon_sha256: 16640c06f6249fdafd7828fd8425753abc360864dfd88f66704a32c38943c805, legacy_icon: x-office-document, categories: "Office;" }
+  - { name: Google Sheets, desktop_id: linux-setup-google-sheets.desktop, wm_class: linux-setup-google-sheets, url: "https://docs.google.com/spreadsheets/", icon_file: linux-setup-google-sheets.ico, icon_url: "https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico", icon_sha256: b4407478dcd25903b7e3719cbd1a3ff42e1f51ae74d690be7a7af11e1964ef57, legacy_icon: x-office-spreadsheet, categories: "Office;" }
+  - { name: Google Slides, desktop_id: linux-setup-google-slides.desktop, wm_class: linux-setup-google-slides, url: "https://docs.google.com/presentation/", icon_file: linux-setup-google-slides.ico, icon_url: "https://ssl.gstatic.com/docs/presentations/images/favicon5.ico", icon_sha256: f6458a567e44809e5e02a8585183c693be0c092aea8b7359669e56b761dcb820, legacy_icon: x-office-presentation, categories: "Office;" }
+  - { name: Notion, desktop_id: linux-setup-notion.desktop, wm_class: linux-setup-notion, url: "https://www.notion.so/", icon_file: linux-setup-notion.ico, icon_url: "https://www.notion.so/front-static/favicon.ico", icon_sha256: 541fc85f92e348bcf46f70944b95fd558d16adbc5a0698eaa1239dccd8c9e455, legacy_icon: accessories-text-editor, categories: "Office;" }
+  - { name: Quo, desktop_id: linux-setup-quo.desktop, wm_class: linux-setup-quo, url: "https://my.quo.com/", icon_file: linux-setup-quo.png, icon_url: "https://my.quo.com/assets/icons/192x192.png", icon_sha256: a79a03300b8080dcff87cb65a398b4353560497f214a4257c0469cdee121f2a4, legacy_icon: call-start, categories: "Network;" }
+
+chrome_web_app_retired_launchers:
+  - { name: Google Drive, desktop_id: linux-setup-google-drive.desktop, wm_class: linux-setup-google-drive, url: "https://drive.google.com/", legacy_icon: folder-remote, categories: "Office;" }
+
+gnome_dock_managed_unpinned_ids:
+  - 1password.desktop
+  - org.telegram.desktop.desktop
+  - librepods.desktop
+  - tv.plex.PlexDesktop.desktop
+  - linux-setup-google-docs.desktop
+  - linux-setup-google-drive.desktop
+  - linux-setup-google-sheets.desktop
+  - linux-setup-google-slides.desktop
+  - linux-setup-quo.desktop
+
+gnome_dock_favorite_candidates:
+  - { desktop_id: org.gnome.Nautilus.desktop, path: /usr/share/applications/org.gnome.Nautilus.desktop }
+  - { desktop_id: google-chrome.desktop, path: /usr/share/applications/google-chrome.desktop }
+  - { desktop_id: discord.desktop, path: /usr/share/applications/discord.desktop }
+  - { desktop_id: linux-setup-notion.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-notion.desktop" }
+  - { desktop_id: com.anthropic.Claude.desktop, path: /usr/share/applications/com.anthropic.Claude.desktop }
+  - { desktop_id: chatgpt.desktop, path: /usr/share/applications/chatgpt.desktop }
+  - { desktop_id: sh.cider.Cider.desktop, path: /var/lib/flatpak/exports/share/applications/sh.cider.Cider.desktop }
+  - { desktop_id: com.mitchellh.ghostty.desktop, path: /usr/share/applications/com.mitchellh.ghostty.desktop }
+  - { desktop_id: code.desktop, path: /usr/share/applications/code.desktop }
+  - { desktop_id: postman_postman.desktop, path: /var/lib/snapd/desktop/applications/postman_postman.desktop }
