@@ -24,6 +24,7 @@ cd linux-setup
 
 ./setup.sh bootstrap
 ./setup.sh status
+./setup.sh state
 ./setup.sh --dry-run all
 ./setup.sh all
 ```
@@ -63,10 +64,12 @@ git pull --ff-only
 
 - [ ] Bootstrap Ansible: `./setup.sh bootstrap`
 - [ ] Inspect current state: `./setup.sh status`
+- [ ] Inspect exact failed-check details when needed: `./setup.sh state`
 - [ ] Repair reviewed vendor sources if requested: `./setup.sh --dry-run sources`, then `./setup.sh sources`
 - [ ] Install the workstation base: `./setup.sh --dry-run base`, then `./setup.sh base`
 - [ ] Install approved desktop apps: `./setup.sh --dry-run apps`, then `./setup.sh apps`
 - [ ] Install selected Ubuntu CLI tools: `./setup.sh --dry-run tools`, then `./setup.sh tools`
+- [ ] Optional: mount Google Drive in Files: `./setup.sh --dry-run drive`, then `./setup.sh drive`
 - [ ] Make launch-tested Ghostty the default: `./setup.sh terminal`
 - [ ] Show the reviewed Codex route: `./setup.sh codex`
 - [ ] Apply desktop-only dotfiles and Zsh: `./setup.sh --dry-run dotfiles`, then `./setup.sh dotfiles`
@@ -108,15 +111,17 @@ It requires the expected origin, `main`, and a clean worktree; fast-forwards onl
 | `bootstrap` | When Ansible is already present, guarded repair of the exact reviewed Claude APT duplicate; then minimal `ansible-core`, Python APT bindings, and Ubuntu's supported classic `sudo.ws` provider | No full Ansible collection bundle, global `sudo` switch, or seven workstation actions |
 | `all` | Bootstraps and runs the seven reviewed setup actions in order, then strict verification | No Codex installer, server/devbox setup, credentials, account sign-ins, Discord download, LocalWP, Raspberry Pi Imager, or browser-profile PWA installation |
 | `status` | Nothing; shows a short table | No network or `sudo` |
+| `state` | Nothing; shows safe file metadata, checksum results, and GNOME values behind failed checks | No repair, secrets, network, or `sudo` |
 | `verify` | Nothing; checks the required workstation state and fails if incomplete | No repair or hidden install |
 | `sources` | Verifies and repairs reviewed vendor keys and APT source files without refreshing APT | No package refresh, package install, account change, or unreviewed source deletion |
 | `base` | Git, SSH client, curl, GnuPG, jq, rsync, zip tools, Snap, Flatpak, Zsh, fzf, eza, direnv, Zsh plugins, and the pinned Oh My Posh + CaskaydiaCove prompt stack | No SSH server, Docker, developer language runtimes, upgrade, or login |
 | `apps` | Official pinned ChatGPT Linux preview bootstrap plus its signed OpenAI APT repo; GitHub CLI, VS Code, Claude Desktop, and WARP from signed vendor APT repos; Ghostty, Extension Manager, OBS, BlueZ, Mesa/Vulkan, and LibrePods' FUSE runtime from Ubuntu; Postman's publisher-supported Snap; Telegram, Cider, Upscayl, and Plex Desktop from reviewed Flathub; pinned LibrePods AppImage | No sign-ins, license activation, autostart, WARP enrollment, automatic GPU claims, LibrePods Bluetooth spoofing, Discord download, LocalWP, Raspberry Pi Imager, PWA creation, or default-terminal change |
 | `tools` | Eight Ubuntu APT packages; removes matching local command shadows and verifies APT wins in `PATH` | No backups of replaced tools, Twitch CLI, account setup, credentials, scans, mirrors, SMART tests, or tokens |
+| `drive` | Runs rclone's interactive Google OAuth flow when needed, installs Ubuntu `fuse3`, and enables a private user mount at `~/Google Drive` with `--vfs-cache-mode writes` | Never runs from `all`; no credentials enter the repository or logs; no unattended bisync |
 | `terminal` | Places Ghostty first in Ubuntu's default-terminal list and backs up an existing list | No `sudo`; does not uninstall Ubuntu's terminal |
 | `codex` | Shows OpenAI's official Linux install page; makes no change | No unpinned installer, unofficial desktop port, or Wine |
 | `dotfiles` | Pulls `nathanialhenniges/dotfiles`, runs only `linux-desktop.sh`, then makes packaged Zsh the current user's login shell | Never calls generic, server, devbox, agent, or root shell setup |
-| `gnome` | Dark mode, battery percent, no hot corners, reviewed wallpaper and profile picture, **Nathanials Air** Device Name and GDM logo, six local Chrome app-mode launchers, and the bottom always-visible 32 px Dock | No browser policy/profile edits, OEM/SMBIOS spoofing, Ubuntu renaming, placeholder pins, extensions, or keyboard interception |
+| `gnome` | Dark mode, battery percent, no hot corners, reviewed wallpaper and profile picture, **Nathanials Air** Device Name and GDM logo, five local Chrome app-mode launchers, and the bottom always-visible 32 px Dock | No browser policy/profile edits, OEM/SMBIOS spoofing, Ubuntu renaming, placeholder pins, extensions, or keyboard interception |
 | `keybinds` | Installs or repairs pinned Toshy, starts its user services, and prints the Mac-mode check board | Requires live GNOME; refuses competing remappers and unverified sources |
 | `boot` | Opt-in clone of Ubuntu's packaged two-step Plymouth theme with the checksum-pinned MrDemonWolf logo; records the exact prior selection and rebuilds existing initramfs images | Cannot replace Apple's firmware logo; skips TPM-backed FDE and UKI layouts; never runs from `all` |
 | `boot-reset` | Restores the exact prior Plymouth selection and mode, rebuilds existing initramfs images, then removes only the managed theme and state | Refuses unknown theme or state content |
@@ -131,13 +136,13 @@ LocalWP stays manual and on-demand. Its publisher provides a Debian package and 
 
 Raspberry Pi Imager is available directly from Ubuntu 26.04 as `rpi-imager`, but it is intentionally outside the default manifest. Install it only when imaging media is needed with `sudo apt install rpi-imager`, then launch it on demand.
 
-The `gnome` action creates local `.desktop` launchers for Docs, Drive, Sheets, Slides, Notion, and Quo. Each uses packaged Chrome's app-window mode and the product's canonical HTTPS URL. This gives them their own app-grid and Dock entries without installing a PWA, writing Chrome's signed-in profile, or marking Chrome as enterprise-managed. Sign-ins remain manual. Before relying on Quo, allow its microphone and notification permissions and complete a real call. Use Drive in the browser window; configure `rclone` only for an explicit transfer.
+The `gnome` action creates local `.desktop` launchers for Docs, Sheets, Slides, Notion, and Quo. Each uses packaged Chrome's app-window mode, the product's canonical HTTPS URL, and a checksum-pinned icon downloaded from that product's official site. This gives them their own app-grid entries without writing Chrome's signed-in profile or marking Chrome as enterprise-managed. Google Drive is intentionally browser-only and its exact retired managed launcher is removed. Notion does not publish a Linux desktop app, so the reviewed Chrome window stays preferred over unofficial wrappers. Sign-ins remain manual. Before relying on Quo, allow its microphone and notification permissions and complete a real call.
 
 GNOME's built-in screenshot and recording UI replaces Shottr. Files plus SFTP replaces Transmit unless queues or batch transfers prove FileZilla necessary. Color picker and image optimizer selection waits for a real task; test optimizers on copies. DBeaver Community stays absent until a GUI database task exists.
 
 This 8 GB machine should not keep LocalWP, Chrome PWAs, Claude, Discord, Postman, and VS Code open together. Do not run OBS capture, Upscayl processing, and Plex playback together. If Plex cannot discover local servers while WARP is connected, review Cloudflare local-network access or split-tunnel policy before changing Plex.
 
-The `gnome` action uses 32 px Dock icons for the MBA's 1366×768 display. It puts installed reviewed launchers first in the Mac-like order—Files, Chrome, Discord, Notion, Claude, ChatGPT, Cider, Ghostty, VS Code, and Postman—then preserves every unrelated favorite. It explicitly removes 1Password, Telegram, LibrePods, Plex, Docs, Drive, Sheets, Slides, and Quo from favorites while leaving them installed and visible in the app drawer. Safari was also only running and has no Ubuntu pin. A native or managed launcher must exist before it is pinned.
+The `gnome` action uses 32 px Dock icons for the MBA's 1366×768 display. It puts installed reviewed launchers first in the Mac-like order—Files, Chrome, Discord, Notion, Claude, ChatGPT, Cider, Ghostty, VS Code, and Postman—then preserves every unrelated favorite. It explicitly removes 1Password, Telegram, LibrePods, Plex, Docs, Drive, Sheets, Slides, and Quo from favorites. Telegram, LibrePods, Plex, Docs, Sheets, Slides, and Quo remain in the app drawer; Drive is browser-only. Safari was also only running and has no Ubuntu pin. A native or managed launcher must exist before it is pinned.
 
 The remaining MBP-only pins stay intentionally absent: Files already covers Finder and the selected Transmit replacement; no Reminders replacement was selected; Affinity and Xcode have no supported Linux releases; no Pixelmator Pro or Final Cut Pro replacement was selected; and DBeaver remains on-demand instead of replacing TablePro before a real database task exists.
 
@@ -179,7 +184,7 @@ Docker verifies package setup, the cloned password assets, exact activation, ide
 Automation verifies package origin and managed state. Finish these user-session and hardware checks on the MBA:
 
 - [ ] Run `./setup.sh status`, resolve every required action, then make `./setup.sh verify` pass.
-- [ ] Confirm the MrDemonWolf wallpaper, Ubuntu account photo, always-visible 32 px Dock, and ten managed pins appear correctly. Confirm Telegram, LibrePods, Plex, Docs, Drive, Sheets, Slides, and Quo remain available from the app drawer.
+- [ ] Confirm the MrDemonWolf wallpaper, Ubuntu account photo, always-visible 32 px Dock, and ten managed pins appear correctly. Confirm Telegram, LibrePods, Plex, Docs, Sheets, Slides, Notion, and Quo remain available from the app drawer and Google Drive does not.
 - [ ] Launch Ghostty from the Dock and confirm Ubuntu opens it as the default terminal. Confirm Chrome and 1Password still use their existing profiles; 1Password should be installed but not pinned.
 - [ ] Open ChatGPT and Claude Desktop and complete their sign-ins.
 - [ ] Open Cider, activate its license, sign in to Apple Music, and play one track. Keep `https://music.apple.com/` as the fallback.
@@ -190,7 +195,7 @@ Automation verifies package origin and managed state. Finish these user-session 
 - [ ] Pair AirPods in GNOME Bluetooth, open LibrePods, test battery data and listening-mode controls, suspend the MBA, resume it, and confirm reconnection. Leave autostart disabled until all checks pass.
 - [ ] Run `vulkaninfo --summary`, launch Upscayl, and upscale a copy of one small image. Never use the only copy of an original for acceptance testing.
 - [ ] Complete the Toshy shortcut board printed by `./setup.sh keybinds`, including Command-C/V, Command-Space, Command-Tab, Command-grave, and Ghostty Control-C.
-- [ ] Open the managed Docs, Drive, Sheets, Slides, and Notion launchers, sign in, and confirm each opens in its own Chrome app window.
+- [ ] Open the managed Docs, Sheets, Slides, and Notion launchers, sign in, and confirm each opens in its own Chrome app window with its real product icon. Open Google Drive in Chrome.
 - [ ] In the managed Quo launcher, allow the microphone and notifications, then complete a real inbound and outbound call before treating the web route as ready.
 - [ ] Install Discord only from its official `.deb`. Keep LocalWP and Raspberry Pi Imager on-demand.
 - [ ] Keep autostart disabled for heavy apps. On this 8 GB MBA, do not leave LocalWP, Chrome PWAs, Claude, Discord, Postman, and VS Code open together.
@@ -212,6 +217,7 @@ cd ~/Developer/nathanialhenniges/linux-setup
 - If a newly installed launcher is missing from the app grid or Dock, sign out and back in once, rerun `./setup.sh gnome`, and check again.
 - If `sources` refuses unknown content, leave it untouched and paste the complete error output. Do not manually delete or edit APT source files, signing keys, or Claude defaults.
 - If `verify` fails, use the exact action named by `status`; `verify` never repairs or installs anything.
+- If the short status line is not specific enough, run `./setup.sh state` and paste its complete output. It is read-only and does not print rclone credentials or managed file contents.
 
 ## Eight selected Ubuntu APT tools
 
@@ -223,7 +229,7 @@ cd ~/Developer/nathanialhenniges/linux-setup
 | `aws` | Ubuntu `awscli` package | AWS command-line client; sign-in remains manual |
 | `nmap` | Ubuntu APT | Inspect only networks and systems you are authorized to test |
 | `smartctl` | Ubuntu `smartmontools` package | Read available SSD health data; device access may need `sudo` |
-| `rclone` | Ubuntu APT | Cloud-file transfers; no remote is configured |
+| `rclone` | Ubuntu APT | Optional Google Drive mount; authentication is a separate `drive` action |
 | `yt-dlp` | Ubuntu APT | Video downloader; FFmpeg is not silently added |
 
 Twitch CLI is not available from Ubuntu 26.04 APT, so the APT-only action leaves it out. Add FFmpeg later only if yt-dlp merging or post-processing actually needs it.
@@ -232,11 +238,17 @@ Before changing anything, `tools` checks all eight command names in `~/.local/bi
 
 The action does not run another package manager's uninstall command. If Linuxbrew, Snap, Cargo, npm, mise, asdf, or another provider elsewhere still wins in `PATH`, the action stops and prints that path so it can be removed with its own package manager.
 
+### Google Drive in Files
+
+Run `./setup.sh --dry-run drive`, then `./setup.sh drive`. If the `google-drive` remote does not exist, the wrapper opens rclone's own interactive configuration and tells you the exact remote name and provider to choose. Browser OAuth stays on the MBA. The action then creates a user-only `~/Google Drive` mount, limits its write cache to 2 GB, enables it at login, and verifies the user service. It never runs from `all`.
+
+The mount provides normal on-demand access in Files; `--vfs-cache-mode writes` buffers changed files locally before upload. It is not an offline mirror. Do not automate `rclone bisync` yet: Ubuntu 26.04's packaged rclone is 1.60, and rclone documents bisync as an advanced command where a wrong initial `--resync` can overwrite or delete data. Add bisync only after naming the exact local and Drive folders, testing `--dry-run`, and deciding which side wins conflicts.
+
 ## Safety boundary
 
 The script fails closed unless it sees Ubuntu 26.04, AMD64, and an Ubuntu desktop installation. Third-party APT keys are downloaded to a temporary directory and checked against the vendors' documented full fingerprints before their isolated `Signed-By` sources are installed. Oh My Posh and the CaskaydiaCove Nerd Font come from versioned upstream release assets and must pass reviewed SHA-256 values before installation. Selected CLI tools come only from Ubuntu APT, and command resolution must point to an APT-owned path. Postman is the one reviewed Snap: the exact package documented by Postman and published by its verified Snap Store account. Telegram, proprietary Cider, Upscayl, and x86-64 Plex Desktop are the four reviewed Flatpaks. The action refuses a `flathub` remote that points anywhere but Flathub's repository and requires each installed app to report that exact origin.
 
-It never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens.
+Except for invoking rclone's own user-local OAuth flow in the optional `drive` action, repository logic never creates or uploads credentials, SSH keys, Git identity, email, hostnames, IP addresses, Wi-Fi details, 1Password references, Cloudflare team data, or tokens. It never reads the rclone token into output or commits its config.
 
 The dependency direction is one-way:
 
@@ -430,7 +442,12 @@ Artifact provenance, reviewed pins, and upstream license links are recorded in [
 - [LibrePods Linux v0.1.0 release](https://github.com/librepods-org/librepods/releases/tag/linux-v0.1.0)
 - [OpenAI Codex](https://github.com/openai/codex)
 - [Toshy](https://github.com/RedBearAK/toshy)
+- [Chrome web apps on Linux](https://support.google.com/chrome/answer/9658361)
+- [Notion desktop support](https://www.notion.com/help/notion-for-desktop)
 - [Ubuntu 26.04 rclone package](https://packages.ubuntu.com/resolute/rclone)
+- [rclone Google Drive configuration](https://rclone.org/drive/)
+- [rclone mount and VFS cache modes](https://rclone.org/commands/rclone_mount/)
+- [rclone bisync safety documentation](https://rclone.org/commands/rclone_bisync/)
 - [Ubuntu 26.04 yt-dlp package](https://packages.ubuntu.com/resolute/yt-dlp)
 - [Ubuntu 26.04 package index](https://packages.ubuntu.com/resolute/allpackages)
 

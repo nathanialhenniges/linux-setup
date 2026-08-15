@@ -81,6 +81,14 @@
       tags: always
 
   tasks:
+    - name: Configure the optional Google Drive rclone mount
+      ansible.builtin.include_tasks:
+        file: tasks/google_drive.yml
+        apply:
+          tags: drive
+      when: setup_action == 'drive'
+      tags: drive
+
     - name: Calculate missing base packages
       ansible.builtin.set_fact:
         missing_base_packages: "{{ base_packages | difference(ansible_facts.packages.keys() | list) }}"

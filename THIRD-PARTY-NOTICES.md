@@ -6,7 +6,7 @@ terms. This file records provenance and does not replace those terms. The
 original code and documentation in this repository are licensed separately
 under the [MIT License](LICENSE).
 
-Last reviewed: **2026-08-12**
+Last reviewed: **2026-08-14**
 
 ## Reviewed immutable pins
 
@@ -41,6 +41,9 @@ automatic version chase.
 | Claude Desktop | Anthropic's signed Ubuntu/Debian APT repository with its documented package-repository opt-out; setup keeps one verified deb822 source and refuses unknown alternatives | [Official Linux install](https://code.claude.com/docs/en/desktop-linux) · [Help Center](https://support.claude.com/en/articles/10065433-install-claude-desktop) · Anthropic terms apply |
 | Cloudflare WARP | Cloudflare's signed APT repository | [Official Linux install](https://developers.cloudflare.com/warp-client/get-started/linux/) · Cloudflare terms apply |
 | Postman | Publisher-verified Snap named `postman` | [Official Linux install](https://learning.postman.com/docs/getting-started/installation/install-app/) · [Postman terms](https://www.postman.com/legal/terms/) |
+| Google Docs, Sheets, and Slides launcher icons | Product favicons downloaded from official `docs.google.com` or `ssl.gstatic.com` URLs and gated by reviewed SHA-256 values | [Google product icon guidance](https://about.google/brand-resource-center/products-and-services/) · Google terms apply |
+| Notion launcher icon | Product favicon downloaded from Notion's official site and gated by its reviewed SHA-256 | [Notion for desktop and web](https://www.notion.com/help/notion-for-desktop) · Notion terms apply |
+| Quo launcher icon | Product icon downloaded from `my.quo.com` and gated by its reviewed SHA-256 | [Quo](https://www.quo.com/) · Quo terms apply |
 | Ubuntu packages | Ubuntu 26.04 archives, including Ansible, Ghostty, OBS Studio, Flatpak, and CLI tools | [Ubuntu package index](https://packages.ubuntu.com/resolute/allpackages); installed copyright and license metadata is under `/usr/share/doc/<package>/copyright` |
 
 Codex is reference-only here: `./setup.sh codex` points to the
