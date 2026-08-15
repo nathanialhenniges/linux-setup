@@ -110,11 +110,25 @@ CONTAINER
 docker run --rm --env QEMU_CPU=max --platform linux/amd64 --interactive "$image" bash -s <<'CONTAINER'
 set -Eeuo pipefail
 
+printf '%s\n' \
+  '### THIS FILE IS AUTOMATICALLY CONFIGURED ###' \
+  '# You may comment out this entry, but any other modifications may be lost.' \
+  'Types: deb' \
+  'URIs: https://packages.microsoft.com/repos/code' \
+  'Suites: stable' \
+  'Components: main' \
+  'Architectures: amd64' \
+  'Signed-By: /usr/share/keyrings/microsoft.gpg' \
+  >/etc/apt/sources.list.d/vscode.sources
+
 if ! runuser -u tester -- env HOME=/home/tester XDG_CURRENT_DESKTOP=ubuntu:GNOME \
   /home/tester/linux-setup/setup.sh sources >/tmp/initial-source-repair.log 2>&1; then
   tail -n 20 /tmp/initial-source-repair.log >&2
   exit 1
 fi
+test "$(sha256sum /etc/apt/sources.list.d/vscode.sources | awk '{print $1}')" = \
+  2d9c8b4070975e7c5d7de70679fec38f8f46c4002e4d43d3442b54fc65582f4a
+test "$(printf '%s\n' 'GET code/add-microsoft-repo' | debconf-communicate code)" = '0 false'
 
 mkdir -p /tmp/claude-test-package/DEBIAN
 printf '%s\n' \
