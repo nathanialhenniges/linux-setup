@@ -173,7 +173,7 @@ flatpak_package_manifest="$(awk '
 ' "$repo_dir/vars.yml")"
 if [[ "$app_package_manifest" == "$expected_app_packages" ]] &&
    grep -A1 -F 'core_snap_packages:' "$repo_dir/vars.yml" | grep -Fq '  - postman' &&
-   [[ "$flatpak_package_manifest" == 'org.upscayl.Upscayl' ]] &&
+   [[ "$flatpak_package_manifest" == $'com.rustdesk.RustDesk\norg.upscayl.Upscayl' ]] &&
    ! grep -Fq '  - optional' "$repo_dir/vars.yml" &&
    ! grep -Fq 'keybinds | optional' "$setup"; then
   pass 'approved desktop application manifests are exact'

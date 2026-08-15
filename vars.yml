@@ -49,6 +49,7 @@ core_flatpak_remote:
   repo_url: https://dl.flathub.org/repo/
 
 core_flatpak_packages:
+  - com.rustdesk.RustDesk
   - org.upscayl.Upscayl
 
 tool_packages:
