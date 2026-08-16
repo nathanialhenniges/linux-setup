@@ -137,6 +137,8 @@ On macOS, open `https://remotedesktop.google.com/access`, select `Nathanials Air
 
 Linux unattended access creates a separate virtual desktop instead of mirroring the locally visible Ubuntu session. Log out of the local GNOME session if the remote session immediately closes. Use `https://remotedesktop.google.com/support` and a temporary code when the currently visible local session must be shared.
 
+Keep the Ubuntu host disabled at boot because its automatic virtual GNOME session can block local graphical login. After applying the Linux desktop dotfiles, log out of GNOME, enter a TTY, and use `crd-start-tty`. Use `crd-status` to inspect it and `crd-stop` after remote work. Never run `crd-start-tty` from an active local GNOME session.
+
 ### Workspace hardening
 
 - Register hosts with a standard Workspace user, not a Super Admin account.
