@@ -8,10 +8,31 @@
   <title>MacBook Air Reinstall Guide</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
-    :root { color-scheme: light; scroll-behavior: smooth; }
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .task:has(input:checked) { background: #f0f9ff; border-color: #7dd3fc; }
-    .task:has(input:checked) .task-text { color: #64748b; text-decoration: line-through; text-decoration-color: #94a3b8; }
+    :root { color-scheme: dark; scroll-behavior: smooth; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background-color: #0b1120; color: #e2e8f0; }
+    .bg-slate-50 { background-color: #0b1120 !important; }
+    .bg-white { background-color: #111827 !important; }
+    .bg-slate-100 { background-color: #1e293b !important; }
+    .bg-slate-200 { background-color: #334155 !important; }
+    .bg-sky-50, [class~="bg-sky-50"] { background-color: #082f49 !important; }
+    .bg-sky-100 { background-color: #0c4a6e !important; }
+    .bg-sky-200 { background-color: #075985 !important; }
+    .bg-sky-300 { background-color: #0369a1 !important; }
+    .bg-amber-50 { background-color: #451a03 !important; }
+    .bg-amber-100 { background-color: #78350f !important; }
+    .bg-rose-50, [class~="bg-rose-50/70"] { background-color: #4c0519 !important; }
+    .text-slate-900 { color: #f8fafc !important; }
+    .text-slate-700 { color: #cbd5e1 !important; }
+    .text-slate-600, .text-slate-500 { color: #94a3b8 !important; }
+    .text-sky-950, .text-sky-900, .text-sky-800 { color: #bae6fd !important; }
+    .text-amber-950 { color: #fde68a !important; }
+    .text-rose-950 { color: #fecdd3 !important; }
+    .border-slate-200 { border-color: #334155 !important; }
+    .border-sky-200, .border-sky-300 { border-color: #0369a1 !important; }
+    .border-amber-200 { border-color: #92400e !important; }
+    .border-rose-200 { border-color: #9f1239 !important; }
+    .task:has(input:checked) { background: #082f49; border-color: #0ea5e9; }
+    .task:has(input:checked) .task-text { color: #94a3b8; text-decoration: line-through; text-decoration-color: #64748b; }
     section { scroll-margin-top: 1rem; }
     @media (prefers-reduced-motion: reduce) { :root { scroll-behavior: auto; } *, *::before, *::after { transition-duration: .01ms !important; } }
   </style>
