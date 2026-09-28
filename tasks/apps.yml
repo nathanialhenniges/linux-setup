@@ -1,0 +1,32 @@
+---
+- name: Install reviewed Hyprland workstation apps and Mac Wi-Fi support
+  become: true
+  ansible.builtin.package:
+    name: "{{ core_pacman_app_packages }}"
+    state: present
+
+- name: Enable Bluetooth for manual LibrePods and AirPods pairing
+  become: true
+  ansible.builtin.systemd_service:
+    name: bluetooth.service
+    enabled: true
+    state: started
+
+- name: Enable NetworkManager for laptop Wi-Fi and tethering
+  become: true
+  ansible.builtin.systemd_service:
+    name: NetworkManager.service
+    enabled: true
+    state: started
+
+- name: Enable the Hyprland login screen for the next boot
+  become: true
+  ansible.builtin.systemd_service:
+    name: sddm.service
+    enabled: true
+
+- name: Install reviewed system Flatpak applications
+  ansible.builtin.import_tasks: flatpak_apps.yml
+
+- name: Install the checksum-pinned LibrePods AppImage
+  ansible.builtin.import_tasks: librepods.yml

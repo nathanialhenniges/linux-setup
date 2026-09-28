@@ -1,0 +1,13 @@
+---
+- name: Install the reviewed base package set
+  become: true
+  ansible.builtin.package:
+    name: "{{ core_base_packages }}"
+    state: present
+
+- name: Enable laptop power profiles
+  become: true
+  ansible.builtin.systemd_service:
+    name: power-profiles-daemon.service
+    enabled: true
+    state: started

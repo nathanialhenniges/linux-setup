@@ -1,58 +1,90 @@
----
 supported_actions:
-  - sources
   - base
   - apps
   - tools
-  - drive
-  - terminal
-  - dotfiles
-  - gnome
-  - boot
+  - desktop
 
-base_packages:
+expected_product_name: MacBookAir7,2
+workstation_home: "{{ ansible_facts.env.HOME }}"
+
+core_base_packages:
+  - ansible-core
+  - base-devel
   - ca-certificates
   - curl
-  - direnv
   - eza
-  - flatpak
-  - fontconfig
-  - fonts-cascadia-code
   - fzf
   - git
-  - gnupg
+  - intel-ucode
   - jq
-  - openssh-client
+  - linux-firmware
+  - openssh
+  - power-profiles-daemon
+  - ripgrep
   - rsync
-  - snapd
   - unzip
-  - xz-utils
   - zip
   - zsh
   - zsh-autosuggestions
   - zsh-syntax-highlighting
 
-core_app_packages:
+core_pacman_app_packages:
   - bluez
-  - chatgpt
-  - claude-desktop
-  - cloudflare-warp
-  - code
-  - gh
+  - bluez-utils
+  - blueman
+  - brightnessctl
+  - discord
+  - flatpak
   - ghostty
-  - gnome-shell-extension-manager
-  - libfuse2t64
-  - mesa-vulkan-drivers
-  - obs-studio
+  - grim
+  - gvfs
+  - gvfs-mtp
+  - hypridle
+  - hyprland
+  - hyprlock
+  - hyprpaper
+  - krdc
+  - libfuse2
+  - linux-headers
+  - mako
+  - mesa
+  - network-manager-applet
+  - networkmanager
+  - pipewire
+  - pipewire-alsa
+  - pipewire-pulse
+  - pavucontrol
+  - playerctl
+  - hyprpolkitagent
+  - qt5-wayland
+  - qt6-wayland
+  - sddm
+  - slurp
+  - thunar
+  - thunar-volman
+  - tumbler
+  - udisks2
   - vulkan-tools
+  - waybar
+  - wireplumber
+  - wl-clipboard
+  - wofi
+  - xorg-xwayland
+  - xdg-desktop-portal
+  - xdg-desktop-portal-gtk
+  - xdg-desktop-portal-hyprland
+  - broadcom-wl
 
-core_snap_packages:
-  - postman
+core_tool_packages:
+  - btop
+  - fastfetch
+  - github-cli
+  - smartmontools
 
 core_flatpak_remote:
   name: flathub
-  url: https://dl.flathub.org/repo/flathub.flatpakrepo
-  repo_url: https://dl.flathub.org/repo/
+  url: https://dl.flathub.org/repo/
+  flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
 
 core_flatpak_packages:
   - org.telegram.desktop
@@ -60,269 +92,31 @@ core_flatpak_packages:
   - sh.cider.Cider
   - tv.plex.PlexDesktop
 
-chatgpt:
-  version: "26.803.81509"
-  url: https://persistent.oaistatic.com/codex-app-prod/linux/deb/latest/chatgpt_amd64.deb
-  sha256: a9bf91a368f9f7c4eea38082a9fb8fb46b8d005b719a6d7715d2e5a1982c38eb
-  key_path: /usr/share/keyrings/chatgpt-archive-keyring.gpg
-  key_sha256: 23e2cfbdef6afe95505f9e95a2cb63585da7ffe9b06a51ec08a32407c847d596
-  source_path: /etc/apt/sources.list.d/chatgpt.sources
-  source_sha256: 9ff8ae7b9e2e73b9fa1a31383c4cde964e159bab39aee762aef4918d1a4f2cfd
-  defaults_path: /etc/default/chatgpt
-  defaults_sha256: fb6ebc7d7c84dd4bac8805764080244ec8abef185f393f01592731030a76e9bf
-  allowed_defaults_sha256:
-    - fb6ebc7d7c84dd4bac8805764080244ec8abef185f393f01592731030a76e9bf
-    - d7ec575e494acb1c894a2c3b42e46be332982aba839b0f7be281d936e75fbbb3
-
-tool_packages:
-  - awscli
-  - btop
-  - fastfetch
-  - httrack
-  - nmap
-  - rclone
-  - smartmontools
-  - yt-dlp
-
-apt_tool_commands:
-  - { package: awscli, command: aws, apt_path: /usr/bin/aws }
-  - { package: btop, command: btop, apt_path: /usr/bin/btop }
-  - { package: fastfetch, command: fastfetch, apt_path: /usr/bin/fastfetch }
-  - { package: httrack, command: httrack, apt_path: /usr/bin/httrack }
-  - { package: nmap, command: nmap, apt_path: /usr/bin/nmap }
-  - { package: rclone, command: rclone, apt_path: /usr/bin/rclone }
-  - { package: smartmontools, command: smartctl, apt_path: /usr/sbin/smartctl }
-  - { package: yt-dlp, command: yt-dlp, apt_path: /usr/bin/yt-dlp }
-
-apt_tool_shadow_dirs:
-  - { path: "{{ ansible_facts.env.HOME }}/.local/bin", privileged: false }
-  - { path: "{{ ansible_facts.env.HOME }}/bin", privileged: false }
-  - { path: /usr/local/bin, privileged: true }
-
-google_drive_mount_dir: "{{ ansible_facts.env.HOME }}/Google Drive"
-google_drive_service_path: "{{ ansible_facts.env.HOME }}/.config/systemd/user/linux-setup-google-drive.service"
-google_drive_service_content: |
-  [Unit]
-  Description=Google Drive via rclone
-  Documentation=https://rclone.org/commands/rclone_mount/
-  Wants=network-online.target
-  After=network-online.target
-
-  [Service]
-  Type=notify
-  ExecStart=/usr/bin/rclone mount google-drive: "%h/Google Drive" --config=%h/.config/rclone/rclone.conf --cache-dir=%h/.cache/rclone --vfs-cache-mode=writes --vfs-cache-max-size=2G --vfs-cache-max-age=24h --dir-cache-time=5m --poll-interval=30s --umask=077
-  ExecStop=/usr/bin/fusermount3 -u "%h/Google Drive"
-  Restart=on-failure
-  RestartSec=10
-  TimeoutStopSec=20
-
-  [Install]
-  WantedBy=default.target
-
-oh_my_posh:
-  version: "30.5.0"
-  url: https://github.com/JanDeDobbeleer/oh-my-posh/releases/download/v30.5.0/posh-linux-amd64
-  sha256: 03bc5c288b6f2fc4ad9db4e11f191e970b31e93d3aa2e55ecc09bd7096226484
-
-nerd_font:
-  version: "3.5.0"
-  url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.5.0/CascadiaCode.tar.xz
-  sha256: f30f67f203f9da78df857ebe558321bdfd8fc313662c72fd9e9fef9d4f4c96e7
-  files:
-    - CaskaydiaCoveNerdFontMono-Regular.ttf
-    - CaskaydiaCoveNerdFontMono-Bold.ttf
-    - CaskaydiaCoveNerdFontMono-Italic.ttf
-    - CaskaydiaCoveNerdFontMono-BoldItalic.ttf
-
 librepods:
   version: linux-v0.1.0
   url: https://github.com/librepods-org/librepods/releases/download/linux-v0.1.0/librepods-x86_64.AppImage
-  sha256: 0569ba9a15aa58e660ec3ccb4d2d39ffd8800d6a5da3741802aefd86fd4b55a6
-  install_path: "{{ ansible_facts.env.HOME }}/.local/bin/librepods"
-  launcher_path: "{{ ansible_facts.env.HOME }}/.local/share/applications/librepods.desktop"
-  desktop_entry: |
-    [Desktop Entry]
-    Type=Application
-    Name=LibrePods
-    Comment=AirPods controls and battery status
-    TryExec={{ ansible_facts.env.HOME }}/.local/bin/librepods
-    Exec={{ ansible_facts.env.HOME }}/.local/bin/librepods
-    Icon=audio-headphones
-    Terminal=false
-    Categories=AudioVideo;Utility;
-    StartupNotify=true
+  sha256: 0569ba9a15aa58e660ec3ccb7d2d39ffd8800d6a5da3741802aefd86fd4b55a6
+  path: "{{ workstation_home }}/.local/bin/librepods.AppImage"
+  launcher_path: "{{ workstation_home }}/.local/share/applications/librepods.desktop"
 
-dotfiles_repo: https://github.com/nathanialhenniges/dotfiles.git
-dotfiles_allowed_origins:
-  - https://github.com/nathanialhenniges/dotfiles
-  - https://github.com/nathanialhenniges/dotfiles.git
-  - git@github.com:nathanialhenniges/dotfiles
-  - git@github.com:nathanialhenniges/dotfiles.git
-
-claude_official_source_path: /etc/apt/sources.list.d/claude-desktop.list
-claude_managed_source_path: /etc/apt/sources.list.d/claude-desktop.sources
-claude_repository_uri: https://downloads.claude.ai/claude-desktop/apt/stable
-claude_official_source_lines:
-  - deb [signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main
-  - deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main
-claude_official_source_file_contents:
-  - "{{ claude_official_source_lines[0] }}"
-  - "{{ claude_official_source_lines[1] }}"
-  - |-
-    ### Managed by the claude-desktop package.
-    ### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop
-    ### to force this entry on or off; remove this file too when opting out.
-    {{ claude_official_source_lines[1] }}
-  - |-
-    ### Managed by the claude-desktop package.
-    ### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop
-    ### to force this entry on or off; remove this file too when opting out.
-    ### If the deb line below is commented out, the apt repo isn't live yet —
-    ### uncomment it once it is (the package preserves an uncommented line
-    ### across upgrades).
-    {{ claude_official_source_lines[1] }}
-  - |-
-    ### Managed by the claude-desktop package.
-    ### Set CLAUDE_DESKTOP_ADD_REPO="true"|"false" in /etc/default/claude-desktop
-    ### to force this entry on or off; remove this file too when opting out.
-    ### If the deb line below is commented out, the apt repo isn't live yet —
-    ### uncomment it once it is (the package preserves an uncommented line
-    ### across upgrades).
-    # {{ claude_official_source_lines[1] }}
-claude_repository_opt_out_path: /etc/default/claude-desktop
-claude_repository_opt_out_line: 'CLAUDE_DESKTOP_ADD_REPO="false"'
-claude_repository_opt_out_sha256: cdaadf5733bf59dd14fffbadc4229a428f528ae00ad8d46a26ce7abc05a028db
-desktop_branding_gdm_keyfile_sha256: 9ec7f788fb6ea1f9dad64f6016df408878986b8ad34d7cc37bb6e99a043bf954
-vscode_package_source_content: |
-  ### THIS FILE IS AUTOMATICALLY CONFIGURED ###
-  # You may comment out this entry, but any other modifications may be lost.
-  Types: deb
-  URIs: https://packages.microsoft.com/repos/code
-  Suites: stable
-  Components: main
-  Architectures: amd64
-  Signed-By: /usr/share/keyrings/microsoft.gpg
-
-core_vendor_repositories:
-  - name: github-cli
-    key_url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
-    key_sha256: 6084d5d7bd8e288441e0e94fc6275570895da18e6751f70f057485dc2d1a811b
-    fingerprints:
-      - 2C6106201985B60E6C7AC87323F3D4EA75716059
-      - 7F38BBB59D064DBCB3D84D725612B36462313325
-    key_path: /etc/apt/keyrings/githubcli-archive-keyring.gpg
-    source_path: /etc/apt/sources.list.d/github-cli.sources
-    uri: https://cli.github.com/packages
-    suite: stable
-    source_content: |
-      Types: deb
-      URIs: https://cli.github.com/packages
-      Suites: stable
-      Components: main
-      Architectures: amd64
-      Signed-By: /etc/apt/keyrings/githubcli-archive-keyring.gpg
-  - name: microsoft-code
-    key_url: https://packages.microsoft.com/keys/microsoft.asc
-    key_sha256: 2fa9c05d591a1582a9aba276272478c262e95ad00acf60eaee1644d93941e3c6
-    fingerprints:
-      - BC528686B50D79E339D3721CEB3E94ADBE1229CF
-    key_path: /etc/apt/keyrings/microsoft.asc
-    source_path: /etc/apt/sources.list.d/vscode.sources
-    uri: https://packages.microsoft.com/repos/code
-    suite: stable
-    source_content: |
-      Types: deb
-      URIs: https://packages.microsoft.com/repos/code
-      Suites: stable
-      Components: main
-      Architectures: amd64
-      Signed-By: /etc/apt/keyrings/microsoft.asc
-
-  - name: claude-desktop
-    key_url: https://downloads.claude.ai/claude-desktop/key.asc
-    key_sha256: bd70a5e4a268002704024ceba7f8446024114e94f3f0bdd11c23a9e592be81c6
-    fingerprints:
-      - 31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE
-    key_path: /etc/apt/keyrings/claude-desktop.asc
-    source_path: /etc/apt/sources.list.d/claude-desktop.sources
-    uri: https://downloads.claude.ai/claude-desktop/apt/stable
-    suite: stable
-    source_content: |
-      Types: deb
-      URIs: https://downloads.claude.ai/claude-desktop/apt/stable
-      Suites: stable
-      Components: main
-      Architectures: amd64
-      Signed-By: /etc/apt/keyrings/claude-desktop.asc
-  - name: cloudflare-warp
-    key_url: https://pkg.cloudflareclient.com/pubkey.gpg
-    key_sha256: 0f37fc298c98e88ee3c0ee68c95b69f1dba9eb477abe3167e13982105911264d
-    fingerprints:
-      - C068A2B5771775193CBE1F2F6E2DD2174FA1C3BA
-    key_path: /etc/apt/keyrings/cloudflare-warp.asc
-    source_path: /etc/apt/sources.list.d/cloudflare-client.sources
-    uri: https://pkg.cloudflareclient.com/
-    suite: resolute
-    source_content: |
-      Types: deb
-      URIs: https://pkg.cloudflareclient.com/
-      Suites: resolute
-      Components: main
-      Architectures: amd64
-      Signed-By: /etc/apt/keyrings/cloudflare-warp.asc
-
-gnome_settings:
-  - schema: org.gnome.desktop.interface
-    key: color-scheme
-    value: "'prefer-dark'"
-  - schema: org.gnome.desktop.interface
-    key: show-battery-percentage
-    value: "true"
-  - schema: org.gnome.desktop.interface
-    key: enable-hot-corners
-    value: "false"
-  - schema: org.gnome.shell.extensions.dash-to-dock
-    key: dock-position
-    value: "'BOTTOM'"
-  - schema: org.gnome.shell.extensions.dash-to-dock
-    key: extend-height
-    value: "false"
-  - schema: org.gnome.shell.extensions.dash-to-dock
-    key: dock-fixed
-    value: "true"
-  - schema: org.gnome.shell.extensions.dash-to-dock
-    key: dash-max-icon-size
-    value: "32"
+desktop_assets:
+  - name: mrdemonwolf-desktop-wallpaper.png
+    sha256: 1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840
+  - name: nathanial-henniges-profile-picture.jpg
+    sha256: 1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673
 
 chrome_web_app_launchers:
-  - { name: Google Docs, desktop_id: linux-setup-google-docs.desktop, wm_class: linux-setup-google-docs, url: "https://docs.google.com/document/", icon_file: linux-setup-google-docs.ico, icon_url: "https://docs.google.com/favicon.ico", icon_sha256: 16640c06f6249fdafd7828fd8425753abc360864dfd88f66704a32c38943c805, legacy_icon: x-office-document, categories: "Office;" }
-  - { name: Google Sheets, desktop_id: linux-setup-google-sheets.desktop, wm_class: linux-setup-google-sheets, url: "https://docs.google.com/spreadsheets/", icon_file: linux-setup-google-sheets.ico, icon_url: "https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico", icon_sha256: b4407478dcd25903b7e3719cbd1a3ff42e1f51ae74d690be7a7af11e1964ef57, legacy_icon: x-office-spreadsheet, categories: "Office;" }
-  - { name: Google Slides, desktop_id: linux-setup-google-slides.desktop, wm_class: linux-setup-google-slides, url: "https://docs.google.com/presentation/", icon_file: linux-setup-google-slides.ico, icon_url: "https://ssl.gstatic.com/docs/presentations/images/favicon5.ico", icon_sha256: f6458a567e44809e5e02a8585183c693be0c092aea8b7359669e56b761dcb820, legacy_icon: x-office-presentation, categories: "Office;" }
-  - { name: Notion, desktop_id: linux-setup-notion.desktop, wm_class: linux-setup-notion, url: "https://www.notion.so/", icon_file: linux-setup-notion.ico, icon_url: "https://www.notion.so/front-static/favicon.ico", icon_sha256: 541fc85f92e348bcf46f70944b95fd558d16adbc5a0698eaa1239dccd8c9e455, legacy_icon: accessories-text-editor, categories: "Office;" }
-  - { name: Quo, desktop_id: linux-setup-quo.desktop, wm_class: linux-setup-quo, url: "https://my.quo.com/", icon_file: linux-setup-quo.png, icon_url: "https://my.quo.com/assets/icons/192x192.png", icon_sha256: a79a03300b8080dcff87cb65a398b4353560497f214a4257c0469cdee121f2a4, legacy_icon: call-start, categories: "Network;" }
+  - { name: Google Docs, desktop_id: linux-setup-google-docs.desktop, wm_class: linux-setup-google-docs, url: "https://docs.google.com/document/", icon_file: linux-setup-google-docs.ico, icon_url: "https://docs.google.com/favicon.ico", icon_sha256: 16640c06f6249fdafd7828fd8425753abc360864dfd88f66704a32c38943c805, categories: "Office;" }
+  - { name: Google Sheets, desktop_id: linux-setup-google-sheets.desktop, wm_class: linux-setup-google-sheets, url: "https://docs.google.com/spreadsheets/", icon_file: linux-setup-google-sheets.ico, icon_url: "https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico", icon_sha256: b4407478dcd25903b7e3719cbd1a3ff42e1f51ae74d690be7a7af11e1964ef57, categories: "Office;" }
+  - { name: Google Slides, desktop_id: linux-setup-google-slides.desktop, wm_class: linux-setup-google-slides, url: "https://docs.google.com/presentation/", icon_file: linux-setup-google-slides.ico, icon_url: "https://ssl.gstatic.com/docs/presentations/images/favicon5.ico", icon_sha256: f6458a567e44809e5e02a8585183c693be0c092aea8b7359669e56b761dcb820, categories: "Office;" }
+  - { name: Notion, desktop_id: linux-setup-notion.desktop, wm_class: linux-setup-notion, url: "https://www.notion.so/", icon_file: linux-setup-notion.ico, icon_url: "https://www.notion.so/front-static/favicon.ico", icon_sha256: 541fc85f92e348bcf46f70944b95fd558d16adbc5a0698eaa1239dccd8c9e455, categories: "Office;" }
+  - { name: Quo, desktop_id: linux-setup-quo.desktop, wm_class: linux-setup-quo, url: "https://my.quo.com/", icon_file: linux-setup-quo.png, icon_url: "https://my.quo.com/assets/icons/192x192.png", icon_sha256: a79a03300b8080dcff87cb65a398b4353560497f214a4257c0469cdee121f2a4, categories: "Network;" }
 
 chrome_web_app_retired_launchers:
-  - { name: Google Drive, desktop_id: linux-setup-google-drive.desktop, wm_class: linux-setup-google-drive, url: "https://drive.google.com/", legacy_icon: folder-remote, categories: "Office;" }
+  - { desktop_id: linux-setup-google-drive.desktop, wm_class: linux-setup-google-drive, url: "https://drive.google.com/", name: Google Drive, categories: "Office;" }
 
-gnome_dock_managed_unpinned_ids:
-  - 1password.desktop
-  - org.telegram.desktop.desktop
-  - librepods.desktop
-  - tv.plex.PlexDesktop.desktop
-  - linux-setup-google-docs.desktop
-  - linux-setup-google-drive.desktop
-  - linux-setup-google-sheets.desktop
-  - linux-setup-google-slides.desktop
-  - linux-setup-quo.desktop
-
-gnome_dock_favorite_candidates:
-  - { desktop_id: org.gnome.Nautilus.desktop, path: /usr/share/applications/org.gnome.Nautilus.desktop }
-  - { desktop_id: google-chrome.desktop, path: /usr/share/applications/google-chrome.desktop }
-  - { desktop_id: discord.desktop, path: /usr/share/applications/discord.desktop }
-  - { desktop_id: linux-setup-notion.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-notion.desktop" }
-  - { desktop_id: com.anthropic.Claude.desktop, path: /usr/share/applications/com.anthropic.Claude.desktop }
-  - { desktop_id: chatgpt.desktop, path: /usr/share/applications/chatgpt.desktop }
-  - { desktop_id: sh.cider.Cider.desktop, path: /var/lib/flatpak/exports/share/applications/sh.cider.Cider.desktop }
-  - { desktop_id: com.mitchellh.ghostty.desktop, path: /usr/share/applications/com.mitchellh.ghostty.desktop }
-  - { desktop_id: code.desktop, path: /usr/share/applications/code.desktop }
-  - { desktop_id: postman_postman.desktop, path: /var/lib/snapd/desktop/applications/postman_postman.desktop }
+chatgpt_launcher:
+  name: ChatGPT
+  desktop_id: linux-setup-chatgpt.desktop
+  wm_class: linux-setup-chatgpt
+  url: https://chatgpt.com/

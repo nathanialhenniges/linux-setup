@@ -1,0 +1,98 @@
+---
+- name: Inspect the LibrePods local binary directory
+  ansible.builtin.stat:
+    path: "{{ workstation_home }}/.local/bin"
+    follow: false
+  register: librepods_bin_directory
+
+- name: Inspect LibrePods local data parent directories
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop:
+    - "{{ workstation_home }}/.local"
+    - "{{ workstation_home }}/.local/share"
+    - "{{ workstation_home }}/.local/share/applications"
+  register: librepods_data_directories
+
+- name: Require a safe LibrePods local binary directory
+  ansible.builtin.assert:
+    that:
+      - not (librepods_bin_directory.stat.islnk | default(false))
+      - >-
+        not (librepods_bin_directory.stat.exists | default(false)) or
+        librepods_bin_directory.stat.isdir | default(false)
+    fail_msg: "Refusing an unsafe ~/.local/bin directory."
+    quiet: true
+
+- name: Refuse linked or non-directory LibrePods data parents
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - not (item.stat.exists | default(false)) or item.stat.isdir | default(false)
+    fail_msg: "Refusing an unsafe LibrePods application directory: {{ item.item }}"
+    quiet: true
+  loop: "{{ librepods_data_directories.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Ensure the user-local binary directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.local/bin"
+    state: directory
+
+- name: Inspect an existing LibrePods AppImage
+  ansible.builtin.stat:
+    path: "{{ librepods.path }}"
+    follow: false
+    checksum_algorithm: sha256
+  register: librepods_binary_state
+
+- name: Refuse an unknown LibrePods binary at the managed path
+  ansible.builtin.assert:
+    that:
+      - not (librepods_binary_state.stat.islnk | default(false))
+      - >-
+        not (librepods_binary_state.stat.exists | default(false)) or
+        (librepods_binary_state.stat.isreg | default(false) and
+         librepods_binary_state.stat.checksum == librepods.sha256)
+    fail_msg: "Refusing unknown content at the LibrePods managed path."
+    quiet: true
+
+- name: Download the reviewed LibrePods release with checksum validation
+  ansible.builtin.get_url:
+    url: "{{ librepods.url }}"
+    dest: "{{ librepods.path }}"
+    checksum: "sha256:{{ librepods.sha256 }}"
+    mode: "0755"
+  when: not ansible_check_mode
+
+- name: Inspect the LibrePods launcher path
+  ansible.builtin.stat:
+    path: "{{ librepods.launcher_path }}"
+    follow: false
+    checksum_algorithm: sha256
+  register: librepods_launcher_state
+
+- name: Refuse unknown LibrePods launcher content
+  ansible.builtin.assert:
+    that:
+      - not (librepods_launcher_state.stat.islnk | default(false))
+      - >-
+        not (librepods_launcher_state.stat.exists | default(false)) or
+        (librepods_launcher_state.stat.isreg | default(false) and
+         librepods_launcher_state.stat.checksum ==
+         (lookup('ansible.builtin.template', 'librepods.desktop.j2') | hash('sha256')))
+    fail_msg: "Refusing unknown or unsafe LibrePods launcher content."
+    quiet: true
+
+- name: Ensure the user-local application directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.local/share/applications"
+    state: directory
+
+- name: Install the user-local LibrePods launcher
+  ansible.builtin.template:
+    src: librepods.desktop.j2
+    dest: "{{ librepods.launcher_path }}"
+    mode: "0644"

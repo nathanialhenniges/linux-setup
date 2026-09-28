@@ -1,5 +1,5 @@
 ---
-- name: Inspect Chrome and the local applications directory
+- name: Require packaged Chrome and inspect managed app paths
   ansible.builtin.stat:
     path: "{{ item.path }}"
     follow: "{{ item.follow | default(false) }}"
@@ -7,27 +7,21 @@
     - { path: /usr/bin/google-chrome-stable, follow: true }
     - { path: "{{ workstation_home }}/.local/share/applications" }
     - { path: "{{ workstation_home }}/.local/share/icons" }
-  loop_control:
-    label: "{{ item.path }}"
   register: chrome_web_app_prerequisites
 
-- name: Require packaged Chrome and a safe applications directory
+- name: Require packaged Chrome and safe local app directories
   ansible.builtin.assert:
     that:
       - chrome_web_app_prerequisites.results[0].stat.isreg | default(false)
       - chrome_web_app_prerequisites.results[0].stat.executable | default(false)
       - not (chrome_web_app_prerequisites.results[1].stat.islnk | default(false))
-      - >-
-        not (chrome_web_app_prerequisites.results[1].stat.exists | default(false)) or
-        chrome_web_app_prerequisites.results[1].stat.isdir | default(false)
+      - not (chrome_web_app_prerequisites.results[1].stat.exists | default(false)) or chrome_web_app_prerequisites.results[1].stat.isdir | default(false)
       - not (chrome_web_app_prerequisites.results[2].stat.islnk | default(false))
-      - >-
-        not (chrome_web_app_prerequisites.results[2].stat.exists | default(false)) or
-        chrome_web_app_prerequisites.results[2].stat.isdir | default(false)
-    fail_msg: "Google Chrome or the local applications directory is missing or unsafe."
+      - not (chrome_web_app_prerequisites.results[2].stat.exists | default(false)) or chrome_web_app_prerequisites.results[2].stat.isdir | default(false)
+    fail_msg: "Google Chrome or a safe local applications/icons directory is missing."
     quiet: true
 
-- name: Inspect managed Chrome web-app launcher paths
+- name: Inspect managed Chrome launcher paths
   ansible.builtin.stat:
     path: "{{ workstation_home }}/.local/share/applications/{{ item.desktop_id }}"
     follow: false
@@ -37,18 +31,16 @@
     label: "{{ item.desktop_id }}"
   register: chrome_web_app_paths
 
-- name: Refuse unsafe Chrome web-app launcher paths
+- name: Refuse unknown or unsafe managed Chrome launcher files
   ansible.builtin.assert:
     that:
       - not (item.stat.islnk | default(false))
       - >-
         not (item.stat.exists | default(false)) or
         (item.stat.isreg | default(false) and
-         (item.stat.checksum | default('') ==
-          (lookup('ansible.builtin.template', 'chrome-web-app.desktop.j2') | hash('sha256')) or
-          item.stat.checksum | default('') ==
-          (lookup('ansible.builtin.template', 'chrome-web-app-legacy.desktop.j2') | hash('sha256'))))
-    fail_msg: "Refusing unknown or unsafe managed Chrome launcher: {{ item.item.desktop_id }}"
+         (item.stat.checksum == (lookup('ansible.builtin.template', 'chrome-web-app.desktop.j2') | hash('sha256')) or
+          item.stat.checksum == (lookup('ansible.builtin.template', 'chrome-web-app-legacy.desktop.j2') | hash('sha256'))))
+    fail_msg: "Refusing unknown managed Chrome launcher: {{ item.item.desktop_id }}"
     quiet: true
   vars:
     chrome_web_app: "{{ item.item }}"
@@ -56,7 +48,7 @@
   loop_control:
     label: "{{ item.item.desktop_id }}"
 
-- name: Inspect retired managed Chrome launcher paths
+- name: Inspect the exact retired Google Drive launcher
   ansible.builtin.stat:
     path: "{{ workstation_home }}/.local/share/applications/{{ item.desktop_id }}"
     follow: false
@@ -64,38 +56,46 @@
   loop: "{{ chrome_web_app_retired_launchers }}"
   loop_control:
     label: "{{ item.desktop_id }}"
-  register: retired_chrome_web_app_paths
+  register: retired_web_app_paths
 
-- name: Refuse unknown retired Chrome launcher content
+- name: Refuse unknown retired launcher content
   ansible.builtin.assert:
     that:
       - not (item.stat.islnk | default(false))
       - >-
         not (item.stat.exists | default(false)) or
         (item.stat.isreg | default(false) and
-         item.stat.checksum | default('') ==
-         (lookup('ansible.builtin.template', 'chrome-web-app-legacy.desktop.j2') | hash('sha256')))
+         item.stat.checksum == (lookup('ansible.builtin.template', 'chrome-web-app-legacy.desktop.j2') | hash('sha256')))
     fail_msg: "Refusing unknown retired Chrome launcher: {{ item.item.desktop_id }}"
     quiet: true
   vars:
     chrome_web_app: "{{ item.item }}"
-  loop: "{{ retired_chrome_web_app_paths.results }}"
+  loop: "{{ retired_web_app_paths.results }}"
   loop_control:
     label: "{{ item.item.desktop_id }}"
 
-- name: Ensure the local applications directory exists
-  ansible.builtin.file:
-    path: "{{ workstation_home }}/.local/share/applications"
-    state: directory
-    mode: "0755"
+- name: Inspect official Chrome icon paths
+  ansible.builtin.stat:
+    path: "{{ workstation_home }}/.local/share/icons/{{ item.icon_file }}"
+    follow: false
+    checksum_algorithm: sha256
+  loop: "{{ chrome_web_app_launchers }}"
+  loop_control:
+    label: "{{ item.icon_file }}"
+  register: chrome_icon_paths
 
-- name: Ensure the local icon directory exists
-  ansible.builtin.file:
-    path: "{{ workstation_home }}/.local/share/icons"
-    state: directory
-    mode: "0755"
+- name: Refuse unknown content at managed Chrome icon paths
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - not (item.stat.exists | default(false)) or (item.stat.isreg | default(false) and item.stat.checksum == item.item.icon_sha256)
+    fail_msg: "Refusing unknown Chrome app icon: {{ item.item.icon_file }}"
+    quiet: true
+  loop: "{{ chrome_icon_paths.results }}"
+  loop_control:
+    label: "{{ item.item.icon_file }}"
 
-- name: Install checksum-pinned official web-app icons
+- name: Download checksum-pinned icons from their official sites
   ansible.builtin.get_url:
     url: "{{ item.icon_url }}"
     dest: "{{ workstation_home }}/.local/share/icons/{{ item.icon_file }}"
@@ -106,7 +106,7 @@
     label: "{{ item.name }}"
   when: not ansible_check_mode
 
-- name: Install exact reviewed Chrome web-app launchers
+- name: Install the reviewed Chrome app-window launchers
   ansible.builtin.template:
     src: chrome-web-app.desktop.j2
     dest: "{{ workstation_home }}/.local/share/applications/{{ item.desktop_id }}"
@@ -117,7 +117,7 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Remove the exact retired Google Drive app launcher
+- name: Remove only the exact retired Google Drive app launcher
   ansible.builtin.file:
     path: "{{ workstation_home }}/.local/share/applications/{{ item.desktop_id }}"
     state: absent

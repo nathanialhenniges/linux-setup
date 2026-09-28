@@ -1,0 +1,59 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 34,
+  "spacing": 8,
+  "margin-top": 6,
+  "margin-left": 8,
+  "margin-right": 8,
+  "modules-left": ["hyprland/workspaces", "hyprland/submap", "hyprland/window"],
+  "modules-center": ["clock"],
+  "modules-right": ["network", "pulseaudio", "battery", "power-profiles-daemon", "tray"],
+  "hyprland/workspaces": {
+    "format": "{name}",
+    "on-click": "activate",
+    "disable-scroll": true
+  },
+  "hyprland/submap": {
+    "format": "REMOTE MAC",
+    "tooltip": false
+  },
+  "hyprland/window": {
+    "max-length": 42,
+    "separate-outputs": true
+  },
+  "clock": {
+    "format": "{:%a %b %d  ·  %I:%M %p}",
+    "tooltip-format": "{:%A, %B %d, %Y}"
+  },
+  "network": {
+    "format-wifi": "Wi-Fi {essid}",
+    "format-ethernet": "Ethernet",
+    "format-disconnected": "Offline",
+    "tooltip-format": "{ifname}: {ipaddr}/{cidr}",
+    "on-click": "nm-connection-editor"
+  },
+  "pulseaudio": {
+    "format": "Audio {volume}%",
+    "format-muted": "Audio muted",
+    "scroll-step": 5,
+    "on-click": "pavucontrol"
+  },
+  "battery": {
+    "states": {
+      "warning": 30,
+      "critical": 15
+    },
+    "format": "Battery {capacity}%",
+    "format-charging": "Charging {capacity}%",
+    "format-plugged": "Power connected"
+  },
+  "power-profiles-daemon": {
+    "format": "Power: {profile}",
+    "tooltip-format": "Click to cycle power profiles",
+    "tooltip": true
+  },
+  "tray": {
+    "spacing": 8
+  }
+}

@@ -1,0 +1,24 @@
+---
+- name: Inspect the ChatGPT app-window launcher path
+  ansible.builtin.stat:
+    path: "{{ workstation_home }}/.local/share/applications/{{ chatgpt_launcher.desktop_id }}"
+    follow: false
+    checksum_algorithm: sha256
+  register: chatgpt_launcher_state
+
+- name: Refuse unknown ChatGPT launcher content
+  ansible.builtin.assert:
+    that:
+      - not (chatgpt_launcher_state.stat.islnk | default(false))
+      - >-
+        not (chatgpt_launcher_state.stat.exists | default(false)) or
+        (chatgpt_launcher_state.stat.isreg | default(false) and
+         chatgpt_launcher_state.stat.checksum == (lookup('ansible.builtin.template', 'chatgpt.desktop.j2') | hash('sha256')))
+    fail_msg: "Refusing unknown or unsafe ChatGPT launcher content."
+    quiet: true
+
+- name: Install the official ChatGPT website app-window launcher
+  ansible.builtin.template:
+    src: chatgpt.desktop.j2
+    dest: "{{ workstation_home }}/.local/share/applications/{{ chatgpt_launcher.desktop_id }}"
+    mode: "0644"

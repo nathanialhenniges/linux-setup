@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#091533">
+  <meta name="description" content="A calm reinstall checklist for EndeavourOS and Hyprland on a 2015 MacBook Air.">
+  <title>MacBook Air Reinstall Guide</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    :root { color-scheme: light; scroll-behavior: smooth; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .task:has(input:checked) { background: #f0f9ff; border-color: #7dd3fc; }
+    .task:has(input:checked) .task-text { color: #64748b; text-decoration: line-through; text-decoration-color: #94a3b8; }
+    section { scroll-margin-top: 1rem; }
+    @media (prefers-reduced-motion: reduce) { :root { scroll-behavior: auto; } *, *::before, *::after { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+  <header class="bg-[#091533] text-white">
+    <div class="mx-auto max-w-6xl px-5 pb-9 pt-5 sm:px-8 sm:pb-12">
+      <nav class="flex items-center justify-between gap-4 text-sm">
+        <a class="font-bold tracking-wide text-sky-300" href="https://github.com/nathanialhenniges/linux-setup">MBA REBUILD</a>
+        <a class="rounded-full border border-white/20 px-4 py-2 text-white/80 hover:bg-white/10 focus:ring-2 focus:ring-sky-300" href="https://github.com/nathanialhenniges/linux-setup#readme">Full README</a>
+      </nav>
+      <div class="mt-10 grid items-center gap-8 md:mt-12 md:grid-cols-[1.25fr_.75fr]">
+        <div>
+          <p class="text-sm font-bold uppercase tracking-[.18em] text-sky-300">2015 MacBook Air · MacBookAir7,2</p>
+          <h1 class="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">One calm checklist.<br><span class="text-sky-300">One step at a time.</span></h1>
+          <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200">Install EndeavourOS, then set up a light Hyprland laptop for work, remote sessions, and everyday use.</p>
+          <div class="mt-6 flex flex-wrap gap-2 text-sm">
+            <span class="rounded-full bg-white/10 px-3 py-1.5">No Linux experience assumed</span>
+            <span class="rounded-full bg-white/10 px-3 py-1.5">Progress saves in this browser</span>
+            <span class="rounded-full bg-white/10 px-3 py-1.5">Fresh install erases the disk</span>
+          </div>
+        </div>
+        <div class="rounded-3xl border border-white/10 bg-white/[.06] p-4 shadow-xl">
+          <svg class="mx-auto h-auto w-full max-w-sm" viewBox="0 0 360 170" role="img" aria-labelledby="flow-title">
+            <title id="flow-title">Prepare USB, test internet, install, set up</title>
+            <path d="M52 78H308" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-dasharray="7 9"/>
+            <g fill="#102346" stroke="#7dd3fc" stroke-width="2"><circle cx="52" cy="78" r="28"/><circle cx="137" cy="78" r="28"/><circle cx="223" cy="78" r="28"/><circle cx="308" cy="78" r="28"/></g>
+            <g fill="none" stroke="#e0f2fe" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M45 70h14v18H45zM48 66h8v4h-8z"/>
+              <rect x="131" y="62" width="12" height="25" rx="4"/><path d="M137 68v4M137 80v2M117 78h14"/>
+              <path d="M213 84h20l-3-14h-14zM210 88h26"/>
+              <path d="M299 70h18v16h-18zM303 66h10v4M303 75h10M303 80h7"/>
+            </g>
+            <g fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="11" font-weight="700" text-anchor="middle"><text x="52" y="128">PREP</text><text x="137" y="128">TEST</text><text x="223" y="128">INSTALL</text><text x="308" y="128">SET UP</text></g>
+          </svg>
+          <p class="text-center text-sm leading-6 text-slate-300">Pause before <strong class="text-white">Erase disk</strong>: test that the live USB can get online.</p>
+        </div>
+      </div>
+      <div class="mt-8 rounded-2xl border border-white/15 bg-white/[.07] p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div><p class="font-bold">Your progress</p><p id="progress-text" class="mt-1 text-sm text-slate-300" aria-live="polite">0 steps checked</p></div>
+          <button id="reset-progress" class="rounded-lg px-3 py-2 text-sm text-slate-300 underline underline-offset-4 hover:text-white focus:ring-2 focus:ring-sky-300">Reset checkboxes</button>
+        </div>
+        <div class="mt-3 h-3 overflow-hidden rounded-full bg-slate-700" role="progressbar" aria-label="Checklist progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-fill" class="h-full rounded-full bg-sky-300 transition-all" style="width:0%"></div></div>
+        <p class="mt-3 text-xs text-slate-400">Checkboxes are saved only in this browser on this device. Nothing is uploaded.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto grid max-w-6xl gap-8 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-[205px_minmax(0,1fr)]">
+    <aside class="lg:sticky lg:top-6 lg:h-fit">
+      <p class="mb-3 text-xs font-bold uppercase tracking-[.15em] text-slate-500">Jump to a step</p>
+      <nav class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1" aria-label="Guide sections">
+        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold hover:border-sky-300" href="#ready">1 · Get ready</a>
+        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold hover:border-sky-300" href="#internet">2 · Test internet</a>
+        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold hover:border-sky-300" href="#install">3 · Install</a>
+        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold hover:border-sky-300" href="#setup">4 · Run setup</a>
+        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold hover:border-sky-300" href="#first-login">5 · First login</a>
+        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold hover:border-sky-300" href="#remote-mac">6 · Remote Mac</a>
+      </nav>
+      <p class="mt-5 hidden rounded-2xl bg-sky-50 p-4 text-sm leading-6 text-sky-950 lg:block"><strong>One thing at a time.</strong><br>If a step fails, pause there. Fix it, then continue.</p>
+    </aside>
+
+    <div class="space-y-7">
+      <section id="ready" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">1</span><div><h2 class="text-2xl font-black">Get ready</h2><p class="mt-1 text-slate-600">Gather these before turning the Mac off.</p></div></div>
+        <div class="mt-5 space-y-3">
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="erase-ok"><span class="task-text leading-6"><strong>I’m ready for a fresh install.</strong> It erases the internal disk; nothing from this broken Ubuntu install needs to be kept.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="charger"><span class="task-text leading-6">Connect the MacBook Air’s power adapter.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="usb"><span class="task-text leading-6">Have an <strong>8 GB or larger USB drive</strong>. Writing the installer erases that USB drive.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="iphone-cable"><span class="task-text leading-6">Have a data-capable <strong>USB-A to Lightning cable</strong> for the iPhone.</span></label>
+          <div class="task flex gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="iso"><div class="leading-6"><label class="task-text cursor-pointer" for="iso">Download EndeavourOS and verify its published checksum or signature.</label> <a class="font-semibold text-sky-800 underline" href="https://endeavouros.com/" target="_blank" rel="noreferrer">Official site</a></div></div>
+          <div class="task flex gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="write-usb"><div class="leading-6"><label class="task-text cursor-pointer" for="write-usb">Write the ISO to the USB drive with balenaEtcher.</label> <a class="font-semibold text-sky-800 underline" href="https://etcher.balena.io/" target="_blank" rel="noreferrer">Download balenaEtcher</a></div></div>
+        </div>
+      </section>
+
+      <section id="internet" class="rounded-3xl border border-sky-200 bg-sky-50 p-5 shadow-sm sm:p-7">
+        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-200 font-black text-sky-950">2</span><div><h2 class="text-2xl font-black">Boot the USB and test internet</h2><p class="mt-1 text-slate-700">Do this in the live session <strong>before opening the installer</strong>.</p></div></div>
+        <div class="mt-5 grid items-center gap-4 rounded-2xl border border-sky-200 bg-white p-4 sm:grid-cols-[1fr_150px] sm:p-5">
+          <div><p class="font-bold">iPhone → cable → MacBook Air → working webpage</p><p class="mt-2 text-sm leading-6 text-slate-600">Internal Broadcom Wi-Fi may need its driver after installation. Confirm the live USB has another working internet route first.</p></div>
+          <svg class="mx-auto h-28 w-40" viewBox="0 0 160 112" role="img" aria-label="iPhone connected by cable to a MacBook"><rect x="4" y="13" width="31" height="56" rx="7" fill="#e0f2fe" stroke="#0369a1" stroke-width="2"/><rect x="9" y="20" width="21" height="38" rx="2" fill="#bae6fd"/><circle cx="20" cy="63" r="2" fill="#0369a1"/><path d="M35 47h18v36c0 8 5 12 12 12h18" fill="none" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/><path d="M70 73h78l-8 25H62z" fill="#e2e8f0" stroke="#334155" stroke-width="2"/><path d="M79 78h60l-4 16H73z" fill="#bae6fd"/><path d="M58 100h94" stroke="#334155" stroke-width="4" stroke-linecap="round"/></svg>
+        </div>
+        <ol class="mt-4 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-700">
+          <li>Start the Mac while holding <strong>Option (⌥)</strong>. Choose the USB’s <strong>EFI</strong> entry.</li>
+          <li>Unlock the iPhone, connect it, then turn on <strong>Settings → Personal Hotspot → Allow Others to Join</strong>. Tap <strong>Trust</strong> if asked.</li>
+          <li>Open a browser in the live session and load a webpage.</li>
+        </ol>
+        <div class="mt-4 rounded-2xl border-l-4 border-rose-500 bg-rose-50 p-4 text-sm leading-6 text-rose-950"><strong>If the page will not load, stop here.</strong> iPhone USB tethering may need packages the live USB does not have. Use USB Ethernet or another known-working connection first. Do not erase the disk yet.</div>
+        <label class="task mt-4 flex cursor-pointer gap-3 rounded-2xl border border-sky-200 bg-white p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="live-internet"><span class="task-text leading-6">The live session loaded a webpage using the iPhone or another connection.</span></label>
+      </section>
+
+      <section id="install" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">3</span><div><h2 class="text-2xl font-black">Install EndeavourOS</h2><p class="mt-1 text-slate-600">The live desktop can look different from the final Hyprland desktop.</p></div></div>
+        <div class="mt-5 space-y-3">
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="online"><span class="task-text leading-6">Start the installer and choose <strong>Online install</strong>.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="no-desktop"><span class="task-text leading-6">Choose <strong>No desktop environment</strong> if offered. This repo installs Hyprland; don’t add GNOME or KDE Plasma to the installed system.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-rose-200 bg-rose-50/70 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-rose-700" type="checkbox" data-check id="erase-disk"><span class="task-text leading-6"><strong>Check the disk name.</strong> Select the MacBook Air’s internal disk, then choose <strong>Erase disk</strong>.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="user"><span class="task-text leading-6">Create your normal user account and password. Do not use root for setup.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="finish-install"><span class="task-text leading-6">Finish installation, remove the USB when prompted, and log in.</span></label>
+        </div>
+      </section>
+
+      <section id="setup" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">4</span><div><h2 class="text-2xl font-black">Copy, paste, and run setup</h2><p class="mt-1 text-slate-600">Use Ghostty or another terminal. Run commands as your normal account, not root.</p></div></div>
+        <div class="mt-5 space-y-4">
+          <div class="rounded-2xl border border-slate-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold">If Git is missing</h3><button class="copy-btn rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold hover:bg-slate-200 focus:ring-2 focus:ring-sky-500" data-copy="cmd-git">Copy command</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm text-sky-100"><code id="cmd-git">sudo pacman -Syu --needed git</code></pre></div>
+          <div class="rounded-2xl border border-slate-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold">Download the setup repo</h3><button class="copy-btn rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold hover:bg-slate-200 focus:ring-2 focus:ring-sky-500" data-copy="cmd-clone">Copy commands</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm leading-6 text-sky-100"><code id="cmd-clone">mkdir -p ~/Developer
+cd ~/Developer
+git clone https://github.com/nathanialhenniges/linux-setup.git
+cd linux-setup</code></pre></div>
+          <div class="rounded-2xl border border-slate-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold">Install Ansible, then check readiness</h3><button class="copy-btn rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold hover:bg-slate-200 focus:ring-2 focus:ring-sky-500" data-copy="cmd-bootstrap">Copy commands</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm leading-6 text-sky-100"><code id="cmd-bootstrap">./setup.sh bootstrap
+./setup.sh status</code></pre><p class="mt-2 text-sm text-slate-600">If the first command reports a problem, stop and read the message.</p></div>
+          <div class="rounded-2xl border border-slate-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold">Preview the full plan</h3><button class="copy-btn rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold hover:bg-slate-200 focus:ring-2 focus:ring-sky-500" data-copy="cmd-preview">Copy command</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm text-sky-100"><code id="cmd-preview">./setup.sh --dry-run all</code></pre><p class="mt-2 text-sm leading-6 text-slate-600">Read the plan before continuing. Dry run makes no changes and does not use sudo or the network.</p></div>
+          <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-amber-950">Run the setup</h3><button class="copy-btn rounded-lg bg-white px-3 py-2 text-sm font-semibold hover:bg-amber-100 focus:ring-2 focus:ring-amber-500" data-copy="cmd-all">Copy command</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm text-sky-100"><code id="cmd-all">./setup.sh all</code></pre><p class="mt-2 text-sm leading-6 text-amber-950">Review the AUR build prompts. Setup does not auto-approve them. Chrome, VS Code, and built-in camera support use AUR packages.</p></div>
+        </div>
+        <label class="task mt-4 flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="setup-finished"><span class="task-text leading-6">Setup finished. If it stopped, I fixed the displayed issue and reran <code>./setup.sh all</code>.</span></label>
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-100 p-4"><p class="font-semibold">Then reboot:</p><div class="flex items-center gap-3"><pre class="rounded-xl bg-[#091533] px-4 py-3 text-sm text-sky-100"><code id="cmd-reboot">reboot</code></pre><button class="copy-btn rounded-lg bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-200 focus:ring-2 focus:ring-sky-500" data-copy="cmd-reboot">Copy</button></div></div>
+      </section>
+
+      <section id="first-login" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">5</span><div><h2 class="text-2xl font-black">First login and quick checks</h2><p class="mt-1 text-slate-600">Choose Hyprland at login. The Mac’s Command key acts as Super.</p></div></div>
+        <div class="mt-5 space-y-3">
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="hyprland"><span class="task-text leading-6">Choose <strong>Hyprland</strong> at the login screen and sign in.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="wifi"><span class="task-text leading-6">Connect to Wi-Fi from the top bar. If internal Wi-Fi is missing, use phone tethering or USB Ethernet; after setup installs the Broadcom driver, reboot once.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="verify"><span class="task-text leading-6">Open Ghostty with <strong>Super + Enter</strong>, then run the verify command.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="hardware"><span class="task-text leading-6">Check camera, audio, brightness keys, trackpad, suspend, and wake. Keep <strong>Power Saver</strong> selected for normal battery use.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="accounts"><span class="task-text leading-6">Sign in to Chrome, Workspace, and Discord as needed. Google Drive stays in the browser; Cider activation and AirPods pairing are manual.</span></label>
+        </div>
+        <div class="mt-4 rounded-2xl border border-slate-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><p class="font-bold">Verify the laptop setup</p><button class="copy-btn rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold hover:bg-slate-200 focus:ring-2 focus:ring-sky-500" data-copy="cmd-verify">Copy command</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm leading-6 text-sky-100"><code id="cmd-verify">cd ~/Developer/linux-setup
+./setup.sh verify</code></pre></div>
+      </section>
+
+      <section id="remote-mac" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">6</span><div><h2 class="text-2xl font-black">Connect to your Mac with Chrome Remote Desktop</h2><p class="mt-1 text-slate-600">This laptop is the client. It does not install a Chrome Remote Desktop host.</p></div></div>
+        <p class="mt-5 rounded-2xl bg-slate-100 p-4 text-sm leading-6 text-slate-700">Hyprland uses Super shortcuts locally. <strong>Remote Mac mode</strong> pauses those while you work on the remote Mac. It helps prevent local shortcuts from consuming Command-key combinations, but Chrome Remote Desktop controls the final key translation.</p>
+        <div class="mt-4 space-y-3">
+          <div class="task flex gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="crd-open"><div class="leading-6"><label class="task-text cursor-pointer" for="crd-open">Open Chrome Remote Desktop in Chrome.</label> <a class="font-semibold text-sky-800 underline" href="https://remotedesktop.google.com/access" target="_blank" rel="noreferrer">Open CRD</a></div></div>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="crd-mode"><span class="task-text leading-6">Before connecting, press <strong>Super + R</strong>. The top bar should say <strong>REMOTE MAC</strong>.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="crd-test"><span class="task-text leading-6">Connect full screen. In a safe text field on the Mac, test <strong>Command + C</strong> and <strong>Command + V</strong>.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="crd-mapping"><span class="task-text leading-6">If a shortcut arrives incorrectly, adjust Chrome Remote Desktop’s key-mapping controls and test again.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="crd-exit"><span class="task-text leading-6">Disconnect and press <strong>Escape</strong>. Confirm the REMOTE MAC label disappears.</span></label>
+        </div>
+        <p class="mt-4 text-sm text-slate-600"><a class="font-semibold text-sky-800 underline" href="https://support.google.com/chrome/answer/1649523?hl=en" target="_blank" rel="noreferrer">Google’s CRD help</a> · <a class="font-semibold text-sky-800 underline" href="https://wiki.hypr.land/Configuring/Basics/Binds/" target="_blank" rel="noreferrer">Hyprland key-binding modes</a></p>
+      </section>
+
+      <section class="rounded-3xl bg-[#091533] p-5 text-white sm:p-7"><h2 class="text-xl font-black">If you only remember three things</h2><ol class="mt-4 space-y-3 text-slate-200"><li>1. Test internet in the live USB before erasing the disk.</li><li>2. Read the dry-run plan before running the full setup.</li><li>3. Test Mac Command shortcuts in a real Chrome Remote Desktop session.</li></ol></section>
+      <footer class="pb-8 text-center text-sm leading-6 text-slate-500"><p>Built for Nathanial’s 2015 MacBook Air (MacBookAir7,2).</p><p>The README and setup.sh remain the setup source of truth.</p></footer>
+    </div>
+  </main>
+
+  <div id="copy-status" class="sr-only" aria-live="polite"></div>
+  <script>
+    (function () {
+      var key = 'mba-reinstall-checklist-v1';
+      var boxes = Array.from(document.querySelectorAll('[data-check]'));
+      var progressText = document.getElementById('progress-text');
+      var progress = document.querySelector('[role="progressbar"]');
+      var progressFill = document.getElementById('progress-fill');
+      var status = document.getElementById('copy-status');
+      var saved = [];
+      try { saved = JSON.parse(localStorage.getItem(key) || '[]'); } catch (error) {}
+      var done = new Set(Array.isArray(saved) ? saved : []);
+
+      function update() {
+        var count = boxes.filter(function (box) { return box.checked; }).length;
+        var percent = boxes.length ? Math.round(count * 100 / boxes.length) : 0;
+        progressText.textContent = count + ' of ' + boxes.length + ' steps checked';
+        progress.setAttribute('aria-valuenow', String(percent));
+        progressFill.style.width = percent + '%';
+        try { localStorage.setItem(key, JSON.stringify(boxes.filter(function (box) { return box.checked; }).map(function (box) { return box.id; }))); } catch (error) {}
+      }
+
+      boxes.forEach(function (box) {
+        box.checked = done.has(box.id);
+        box.addEventListener('change', update);
+      });
+      update();
+
+      document.getElementById('reset-progress').addEventListener('click', function () {
+        if (!window.confirm('Clear the saved checkboxes in this browser?')) return;
+        boxes.forEach(function (box) { box.checked = false; });
+        update();
+      });
+
+      document.querySelectorAll('[data-copy]').forEach(function (button) {
+        button.addEventListener('click', async function () {
+          var code = document.getElementById(button.dataset.copy);
+          try {
+            await navigator.clipboard.writeText(code.textContent);
+            button.textContent = 'Copied';
+            status.textContent = 'Command copied to clipboard.';
+          } catch (error) {
+            var range = document.createRange();
+            range.selectNodeContents(code);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            status.textContent = 'Command selected. Copy it with your keyboard.';
+          }
+          window.setTimeout(function () {
+            button.textContent = button.dataset.copy === 'cmd-clone' || button.dataset.copy === 'cmd-bootstrap' ? 'Copy commands' : 'Copy command';
+          }, 1600);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+---
+- name: Read configured system Flatpak remotes
+  ansible.builtin.command:
+    argv: [flatpak, remotes, --system, --columns=name,url]
+  register: flatpak_remotes
+  changed_when: false
+
+- name: Select the existing Flathub system remote
+  ansible.builtin.set_fact:
+    flathub_system_lines: "{{ flatpak_remotes.stdout_lines | select('match', '^flathub\\s') | list }}"
+
+- name: Refuse a wrong or duplicate Flathub system remote
+  ansible.builtin.assert:
+    that:
+      - flathub_system_lines | length <= 1
+      - flathub_system_lines | length == 0 or flathub_system_lines[0].split()[-1] == core_flatpak_remote.url
+    fail_msg: "The system Flathub remote is duplicated or points to an unreviewed URL."
+    quiet: true
+
+- name: Add the reviewed system Flathub remote when absent
+  become: true
+  ansible.builtin.command:
+    argv: [flatpak, remote-add, --system, "{{ core_flatpak_remote.name }}", "{{ core_flatpak_remote.flatpakrepo_url }}"]
+  when:
+    - flathub_system_lines | length == 0
+    - not ansible_check_mode
+  changed_when: true
+
+- name: Read installed system Flatpak application IDs
+  ansible.builtin.command:
+    argv: [flatpak, list, --system, --columns=application]
+  register: installed_system_flatpaks
+  changed_when: false
+  failed_when: false
+
+- name: Install only the reviewed system Flathub applications
+  become: true
+  ansible.builtin.command:
+    argv: [flatpak, install, --system, --noninteractive, "{{ core_flatpak_remote.name }}", "{{ item }}"]
+  loop: "{{ core_flatpak_packages | difference(installed_system_flatpaks.stdout_lines | default([])) }}"
+  loop_control:
+    label: "{{ item }}"
+  when: not ansible_check_mode
+  changed_when: true
+
+- name: Verify every reviewed Flatpak reports the Flathub origin
+  ansible.builtin.command:
+    argv: [flatpak, info, --system, --show-origin, "{{ item }}"]
+  loop: "{{ core_flatpak_packages }}"
+  loop_control:
+    label: "{{ item }}"
+  register: verified_flatpak_origins
+  changed_when: false
+  failed_when: false
+
+- name: Refuse missing or non-Flathub application origins
+  ansible.builtin.assert:
+    that:
+      - item.rc == 0
+      - item.stdout == core_flatpak_remote.name
+    fail_msg: "{{ item.item }} is missing or did not come from the reviewed system Flathub remote."
+    quiet: true
+  loop: "{{ verified_flatpak_origins.results }}"
+  loop_control:
+    label: "{{ item.item }}"

@@ -1,539 +1,310 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
+set -euo pipefail
 
-repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-dry_run=false
-action="help"
-readonly -a all_actions=(base apps tools terminal dotfiles gnome keybinds)
-readonly toshy_tag="Toshy_v26.08.0"
-readonly toshy_commit="c39ee06d8d7fa299a082034d75275e6da97e0275"
-readonly toshy_tree_sha256="dfa142bd53177d038098b9b6919c50f4904d3c37f4cbd33c6bad5e969c85ed57"
-readonly xwaykeyz_commit="7d6904cf64dee3bb52f1cea75040ae943bc8fe32"
-readonly xwaykeyz_tree_sha256="ff312b70705b9bd63524223f4b48755605b6f0970c77c8e35303ce1f20841cab"
-readonly toshy_repo="https://github.com/RedBearAK/toshy.git"
-readonly xwaykeyz_repo="https://github.com/RedBearAK/xwaykeyz.git"
-readonly focus_extension="focused-window-dbus@flexagoon.com"
-readonly focus_extension_repo="https://github.com/flexagoon/focused-window-dbus.git"
-readonly focus_extension_commit="5ff336fac73b34deaf83f32772e8478885fa4925"
-readonly focus_extension_tree_sha256="8fe40d9eecee1e6ed8b998d04832b7bb8faa410233509346a30a4b17e5037c7f"
-readonly claude_managed_source=/etc/apt/sources.list.d/claude-desktop.sources
-readonly claude_repository_uri=https://downloads.claude.ai/claude-desktop/apt/stable
-readonly claude_list_repository_pattern='^[[:space:]]*deb(-src)?[[:space:]].*https://downloads\.claude\.ai/claude-desktop/apt/stable'
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$ROOT_DIR"
+export ANSIBLE_CONFIG="$ROOT_DIR/ansible.cfg"
 
-die() {
-  printf 'error: %s\n' "$*" >&2
-  exit 1
-}
+AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware)
+DOTFILES_URL=https://github.com/nathanialhenniges/dotfiles.git
+DOTFILES_PATH="${HOME:?HOME is not set}/.local/share/dotfiles"
+
+DRY_RUN=false
+ACTION=
 
 usage() {
   cat <<'EOF'
-Ubuntu Desktop 26.04 local Ansible setup
+Usage: ./setup.sh [--dry-run] <action>
 
-Usage:
-  ./setup.sh [--dry-run] bootstrap
-  ./setup.sh [--dry-run] all
-  ./setup.sh [--dry-run] status
-  ./setup.sh [--dry-run] state
-  ./setup.sh [--dry-run] verify
-  ./setup.sh [--dry-run] sources
-  ./setup.sh [--dry-run] base
-  ./setup.sh [--dry-run] apps
-  ./setup.sh [--dry-run] tools
-  ./setup.sh [--dry-run] drive
-  ./setup.sh [--dry-run] terminal
-  ./setup.sh [--dry-run] codex
-  ./setup.sh [--dry-run] dotfiles
-  ./setup.sh [--dry-run] gnome
-  ./setup.sh [--dry-run] keybinds
-  ./setup.sh [--dry-run] boot
-  ./setup.sh [--dry-run] boot-reset
+Actions:
+  bootstrap   Upgrade the system and install local Ansible
+  all         Run base, apps, tools, desktop, dotfiles, then verify
+  status      Show a short readiness summary
+  state       Show missing packages, Flatpak origins, and service state
+  verify      Fail unless the reviewed workstation state is present
+  base        Install base packages and laptop power profiles
+  apps        Install Hyprland, laptop apps, Wi-Fi support, Flatpaks, and LibrePods
+  tools       Install the selected command-line tools
+  desktop     Configure Hyprland, wallpaper, and Workspace/ChatGPT shortcuts
+  dotfiles    Run only the dedicated dotfiles linux-desktop.sh profile
+  drive       Show the browser-only Google Drive steps
+  terminal    Show the Ghostty keyboard shortcut
+  keybinds    Show the Hyprland keyboard shortcuts
 
-Commands:
-  bootstrap  With Ansible present, repair a reviewed APT conflict; then bootstrap
-  all        Bootstrap, run seven workstation actions in order, then verify
-  status     Read-only ADHD-friendly state board; missing items are allowed
-  state      Read-only diagnostic details for failed status checks
-  verify     Read-only state board that fails until the core setup is ready
-  sources    Repair verified vendor APT sources without refreshing APT
-  base       Core packages, Oh My Posh, and CaskaydiaCove Nerd Font
-  apps       Approved APT apps, Postman Snap, Upscayl Flatpak, and LibrePods
-  tools      Eight Ubuntu APT tools; removes local command shadows
-  drive      Interactive Google OAuth, then a user rclone mount in Files
-  terminal   Make launch-tested Ghostty the Ubuntu default
-  codex      Show the official Codex CLI route; make no change
-  dotfiles   Fast-forward and run only dotfiles/linux-desktop.sh; set user Zsh
-  gnome      Small, reversible macOS-friendly GNOME preferences
-  keybinds   Guarded interactive Toshy install for physical Command shortcuts
-  boot       Opt-in guarded Plymouth logo after Apple firmware hands off
-  boot-reset Restore the exact prior Plymouth selection and remove our theme
-
---dry-run previews without network, sudo, downloads, or managed-state writes.
-Ansible actions may create their ignored local temporary directory.
-
-This repository never configures a server/devbox, sshd, Docker, SSH keys,
-Cloudflare enrollment, or a tunnel. Only the optional drive action invokes
-rclone's own user-local OAuth configuration; the wrapper never prints or
-copies its tokens into this repository.
+--dry-run prints the reviewed plan only. It does not run sudo, Ansible, or network calls.
 EOF
 }
 
+fail() {
+  printf 'setup.sh: %s\n' "$1" >&2
+  exit 1
+}
+
 parse_args() {
-  local selected="" argument
-  for argument in "$@"; do
-    case "$argument" in
+  while (($#)); do
+    case "$1" in
       --dry-run)
-        [[ "$dry_run" == false ]] || die "--dry-run was supplied more than once"
-        dry_run=true
+        DRY_RUN=true
         ;;
-      -h | --help)
-        [[ -z "$selected" ]] || die "choose exactly one command"
-        selected="help"
+      -h|--help)
+        usage
+        exit 0
         ;;
-      bootstrap | all | status | state | verify | sources | base | apps | tools | drive | terminal | codex | dotfiles | gnome | keybinds | boot | boot-reset)
-        [[ -z "$selected" ]] || die "choose exactly one command"
-        selected="$argument"
+      *)
+        [[ -z "$ACTION" ]] || fail 'choose one action'
+        ACTION="$1"
         ;;
-      *) die "unknown option or command: $argument" ;;
     esac
+    shift
   done
-  action="${selected:-help}"
-  [[ "$action" != "help" || "$dry_run" == false ]] || die "--dry-run needs an action"
+  [[ -n "$ACTION" ]] || { usage; exit 2; }
 }
 
-target_preflight() {
-  [[ ${EUID:-$(id -u)} -ne 0 ]] || die "run as your desktop user, not root"
-  [[ -n "${HOME:-}" && "$HOME" == /* && "$HOME" != "/" && -d "$HOME" && ! -L "$HOME" ]] ||
-    die "HOME must be a real, safe absolute directory"
-  [[ -r /etc/os-release ]] || die "cannot read /etc/os-release"
-  command -v dpkg >/dev/null 2>&1 || die "dpkg is required"
+assert_target() {
+  [[ $EUID -ne 0 ]] || fail 'run as your normal user, not root'
+  [[ "$(uname -m)" == x86_64 ]] || fail 'this setup supports x86-64 only'
+  [[ -r /etc/os-release ]] && grep -Eq '^ID=("?(arch|endeavouros)"?)$' /etc/os-release || fail 'this setup supports Arch Linux or EndeavourOS only'
+  [[ -r /sys/class/dmi/id/product_name ]] || fail 'cannot verify the Mac model'
+  [[ "$(< /sys/class/dmi/id/product_name)" == MacBookAir7,2 ]] || fail 'this setup supports MacBookAir7,2 only'
 
-  local os_id os_version architecture
-  # Root-owned OS identity file.
-  # shellcheck disable=SC1091
-  os_id="$(. /etc/os-release; printf '%s' "${ID:-}")"
-  # shellcheck disable=SC1091
-  os_version="$(. /etc/os-release; printf '%s' "${VERSION_ID:-}")"
-  architecture="$(dpkg --print-architecture)"
-
-  [[ "$os_id" == "ubuntu" && "$os_version" == "26.04" ]] ||
-    die "supported target is Ubuntu 26.04 only (found ${os_id:-unknown} ${os_version:-unknown})"
-  [[ "$architecture" == "amd64" ]] || die "supported architecture is amd64 (found $architecture)"
-  [[ -n "${XDG_CURRENT_DESKTOP:-}" || -e /usr/share/wayland-sessions/ubuntu.desktop ||
-     -e /usr/share/xsessions/ubuntu.desktop ]] || die "Ubuntu Desktop was not detected"
-}
-
-claude_unmanaged_source_present() {
-  local path pattern result
-  local -a grep_args
-
-  for path in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
-    [[ "$path" != "$claude_managed_source" ]] || continue
-    [[ -e "$path" || -L "$path" ]] || continue
-    [[ -f "$path" ]] || continue
-    if [[ "$path" == *.sources ]]; then
-      pattern="$claude_repository_uri"
-      grep_args=(-Fq)
-    else
-      pattern="$claude_list_repository_pattern"
-      grep_args=(-Eq)
-    fi
-    if grep "${grep_args[@]}" "$pattern" "$path"; then
-      [[ ! -L "$path" ]] || die "refusing symlinked Claude APT source: $path"
-      return 0
-    else
-      result=$?
-      [[ "$result" -eq 1 ]] || die "could not inspect Claude APT source candidate: $path"
-    fi
-  done
-
-  return 1
-}
-
-repair_known_claude_source_conflict() {
-  claude_unmanaged_source_present || return 0
-  command -v ansible-playbook >/dev/null 2>&1 ||
-    die "Claude has conflicting APT sources, but Ansible is unavailable for the guarded repair"
-
-  printf '%s\n' 'Claude source preflight: verifying the managed source before removing the exact duplicate'
-  "$repo_dir/setup.sh" sources ||
-    die "Claude source preflight refused the local files; leave them untouched and report its first error"
-}
-
-bootstrap_ansible() {
-  target_preflight
-  if [[ "$dry_run" == true ]]; then
-    printf '%s\n' '[dry-run] sudo apt-get update'
-    printf '%s\n' '[dry-run] sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian sudo'
-    return
+  local sshd_enabled
+  if systemctl is-active --quiet sshd.service; then
+    fail 'sshd is active; stop it manually before running setup. This repo will not change SSH service state.'
   fi
-  repair_known_claude_source_conflict
-  sudo apt-get update
-  sudo apt-get install --yes --no-install-recommends ansible-core python3-apt python3-debian sudo
-  ansible-playbook --version | sed -n '1p'
-}
-
-require_ansible_files() {
-  command -v ansible-playbook >/dev/null 2>&1 ||
-    die "Ansible is missing. Run: ./setup.sh bootstrap"
-  [[ -f "$repo_dir/site.yml" && ! -L "$repo_dir/site.yml" ]] || die "site.yml is missing or unsafe"
-  [[ -f "$repo_dir/verify.yml" && ! -L "$repo_dir/verify.yml" ]] || die "verify.yml is missing or unsafe"
-  [[ -f "$repo_dir/inventory.ini" && ! -L "$repo_dir/inventory.ini" ]] || die "inventory.ini is missing or unsafe"
-}
-
-dotfiles_needs_become() {
-  local entry
-  entry="$(getent passwd "$(id -un)" 2>/dev/null || true)"
-  case "${entry##*:}" in
-    /bin/zsh | /usr/bin/zsh) return 1 ;;
-    *) return 0 ;;
+  sshd_enabled="$(systemctl is-enabled sshd.service 2>/dev/null || true)"
+  case "$sshd_enabled" in
+    enabled|enabled-runtime|linked|linked-runtime)
+      fail 'sshd is enabled; disable it manually before running setup. This repo will not change SSH service state.'
+      ;;
   esac
 }
 
-require_classic_sudo() {
-  [[ -x /usr/bin/sudo.ws ]] ||
-    die "Ubuntu's /usr/bin/sudo.ws is required for Ansible. Run: ./setup.sh bootstrap"
+require_ansible() {
+  command -v ansible-playbook >/dev/null 2>&1 || fail 'Ansible is missing; run ./setup.sh bootstrap first'
 }
 
-run_status() {
-  local strict="$1"
-  local diagnostic="${2:-false}"
-  require_ansible_files
-  cd "$repo_dir"
-  exec ansible-playbook verify.yml --limit localhost \
-    -e "strict_verify=$strict" -e "diagnostic_state=$diagnostic"
-}
-
-verify_git_source() {
-  local source_dir="$1" expected_repo="$2" expected_commit="$3" expected_tree_sha256="$4"
-  local origin head tree_sha256
-
-  [[ -d "$source_dir/.git" && ! -L "$source_dir" ]] ||
-    die "$source_dir is not a safe Git checkout"
-  origin="$(git -C "$source_dir" remote get-url origin)"
-  [[ "$origin" == "$expected_repo" ]] || die "unexpected source origin: $origin"
-  [[ -z "$(git -C "$source_dir" status --porcelain)" ]] ||
-    die "source checkout is not clean: $source_dir"
-  head="$(git -C "$source_dir" rev-parse HEAD)"
-  [[ "$head" == "$expected_commit" ]] ||
-    die "source commit verification failed: expected $expected_commit, found $head"
-  tree_sha256="$(git -C "$source_dir" ls-tree -r --full-tree HEAD | sha256sum | awk '{print $1}')"
-  [[ "$tree_sha256" == "$expected_tree_sha256" ]] ||
-    die "source tree SHA-256 verification failed for $source_dir"
-}
-
-show_macos_key_checklist() {
-  printf '%s\n' \
-    "MAC MODE MANUAL CHECKLIST" \
-    "  GUI:      Command+C/V/X/Z/Shift+Z/A/S/F/N/T/W/Q" \
-    "  SEARCH:   Command+Space" \
-    "  WINDOWS:  Command+Tab, Command+Shift+Tab, Command+grave" \
-    "  DESKTOP:  Control+Left/Right changes workspace; Control+Command+Q locks" \
-    "  TEXT:     Option+Left/Right, Option+Delete, Command+arrows" \
-    "  CAPTURE:  Command+Shift+3/4/5" \
-    "  GHOSTTY:  Command+C/V/T/W/D/Shift+D/K; physical Control+C still interrupts" \
-    "If one group fails, run: toshy-debug"
-}
-
-require_live_gnome_session() {
-  local desktop="${XDG_CURRENT_DESKTOP:-}"
-
-  [[ -z "${SSH_CONNECTION:-}${SSH_TTY:-}" ]] ||
-    die "keybinds must run in Ghostty on the MacBook Air, not through SSH"
-  [[ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]] ||
-    die "keybinds must run inside the logged-in Ubuntu desktop, not SSH or a TTY"
-  [[ "${XDG_RUNTIME_DIR:-}" == /* && -d "${XDG_RUNTIME_DIR:-}" ]] ||
-    die "the desktop runtime directory is unavailable; open Ghostty from Ubuntu and retry"
-  [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] ||
-    die "no live Wayland or X11 display was detected"
-  [[ "${desktop,,}" == *gnome* || "${desktop,,}" == *ubuntu* ]] ||
-    die "keybinds supports the Ubuntu GNOME desktop only; detected: ${desktop:-unknown}"
-}
-
-ensure_focus_extension() {
-  local source_parent="$HOME/.local/src"
-  local source_dir="$source_parent/focused-window-dbus-$focus_extension_commit"
-  local bundle="$source_parent/$focus_extension.shell-extension.zip"
-
-  command -v gnome-extensions >/dev/null 2>&1 || die "gnome-extensions is missing"
-  if gnome-extensions list --active | grep -Fxq "$focus_extension"; then
-    return
-  fi
-
-  mkdir -p "$source_parent"
-  if [[ -e "$source_dir" ]]; then
-    [[ -d "$source_dir" ]] || die "$source_dir exists but is not a directory"
-  else
-    git init "$source_dir"
-    git -C "$source_dir" remote add origin "$focus_extension_repo"
-    git -C "$source_dir" fetch --depth 1 origin "$focus_extension_commit"
-    git -C "$source_dir" checkout --detach FETCH_HEAD
-  fi
-  verify_git_source "$source_dir" "$focus_extension_repo" "$focus_extension_commit" "$focus_extension_tree_sha256"
-  [[ ! -L "$bundle" && ( ! -e "$bundle" || -f "$bundle" ) ]] ||
-    die "unsafe Focused Window D-Bus bundle path: $bundle"
-  gnome-extensions pack --force --out-dir="$source_parent" "$source_dir"
-  [[ -f "$bundle" && ! -L "$bundle" ]] || die "Focused Window D-Bus bundle was not created safely"
-  gnome-extensions install --force "$bundle"
-
-  gnome-extensions enable "$focus_extension" >/dev/null 2>&1 || true
-  gnome-extensions list --active | grep -Fxq "$focus_extension" ||
-    die "Focused Window D-Bus is installed for the next GNOME session. Sign out, sign back in, then resume: ./setup.sh keybinds && ./setup.sh verify"
-}
-
-refuse_competing_keymappers() {
-  local unit
-
-  [[ ! -e "$HOME/.Xmodmap" ]] ||
-    die "move ~/.Xmodmap aside before using Toshy; two global keymaps will conflict"
-
-  for unit in xremap.service input-remapper.service input-remapper-daemon.service; do
-    systemctl --user is-active --quiet "$unit" 2>/dev/null &&
-      die "stop and disable the competing user service before Toshy: $unit"
+json_array() {
+  local result='[' separator='' item
+  for item in "$@"; do
+    result+="$separator\"$item\""
+    separator=,
   done
-  for unit in keyd.service input-remapper-daemon.service; do
-    systemctl is-active --quiet "$unit" 2>/dev/null &&
-      die "stop and disable the competing system service before Toshy: $unit"
-  done
-  return 0
+  printf '%s]' "$result"
 }
 
-start_toshy_services() {
-  local bin_dir="$HOME/.local/bin"
-  local command_name
-  local unit
-
-  for command_name in toshy-services-enable toshy-services-restart toshy-services-status; do
-    [[ -x "$bin_dir/$command_name" ]] ||
-      die "Toshy command is missing: $bin_dir/$command_name"
-  done
-
-  "$bin_dir/toshy-services-enable" || die "Toshy could not enable its user services"
-  "$bin_dir/toshy-services-restart" ||
-    die "Toshy is installed but cannot start in this login. Reboot, then rerun: ./setup.sh keybinds"
-  for unit in toshy-config.service toshy-session-monitor.service; do
-    systemctl --user is-enabled --quiet "$unit" ||
-      die "Toshy user service is not enabled at login: $unit"
-    systemctl --user is-active --quiet "$unit" ||
-      die "Toshy user service is not healthy: $unit. Reboot, then rerun: ./setup.sh keybinds"
-  done
-  "$bin_dir/toshy-services-status"
-  show_macos_key_checklist
+extra_vars() {
+  local action="${1:-}" mode="${2:-}" result
+  result="{\"aur_package_names\":$(json_array "${AUR_PACKAGES[@]}")"
+  [[ -z "$action" ]] || result+=",\"setup_action\":\"$action\""
+  [[ -z "$mode" ]] || result+=",\"verification_mode\":\"$mode\""
+  result+='}'
+  printf '%s' "$result"
 }
 
-install_keybinds() {
-  (( EUID != 0 )) || die "run keybinds as the desktop user, not root"
-  [[ "$HOME" == /* && "$HOME" != "/" ]] || die "HOME must be a safe absolute path"
-  target_preflight
-  local source_parent="$HOME/.local/src"
-  local source_dir="$source_parent/toshy-$toshy_tag"
-  local keymapper_dir="$source_parent/xwaykeyz-$xwaykeyz_commit"
-  local answer
-
-  if [[ "$dry_run" == true ]]; then
-    printf '%s\n' "[dry-run] install or enable pinned GNOME extension: $focus_extension"
-    printf '%s\n' "[dry-run] verify Focused Window D-Bus commit and tree SHA-256: $focus_extension_commit"
-    printf '%s\n' "[dry-run] require a live Ubuntu GNOME session and refuse competing keymappers"
-    printf '%s\n' "[dry-run] clone $toshy_repo tag $toshy_tag"
-    printf '%s\n' "[dry-run] verify Toshy commit and tree SHA-256: $toshy_commit"
-    printf '%s\n' "[dry-run] verify xwaykeyz commit and tree SHA-256: $xwaykeyz_commit"
-    printf '%s\n' "[dry-run] run the pinned interactive Toshy user installer"
-    printf '%s\n' "[dry-run] enable, restart, and check Toshy's user services"
-    show_macos_key_checklist
-    return
-  fi
-
-  [[ -t 0 && -t 1 ]] || die "keybinds must run in an interactive desktop terminal"
-  command -v git >/dev/null 2>&1 || die "git is missing. Run: ./setup.sh base"
-  command -v systemctl >/dev/null 2>&1 || die "systemctl is missing"
-  require_live_gnome_session
-  refuse_competing_keymappers
-
-  if [[ "${XDG_SESSION_TYPE:-}" == wayland || -n "${WAYLAND_DISPLAY:-}" ]]; then
-    ensure_focus_extension
-  fi
-
-  if [[ -f "$HOME/.config/toshy/toshy_config.py" &&
-        ! -L "$HOME/.config/toshy/toshy_config.py" &&
-        -d "$source_dir/.git" && -d "$keymapper_dir/.git" ]]; then
-    verify_git_source "$source_dir" "$toshy_repo" "$toshy_commit" "$toshy_tree_sha256"
-    verify_git_source "$keymapper_dir" "$xwaykeyz_repo" "$xwaykeyz_commit" "$xwaykeyz_tree_sha256"
-    printf '%s\n' "Verified the existing pinned Toshy installation"
-    start_toshy_services
-    return
-  fi
-
-  printf '%s\n' "Toshy does not yet list Ubuntu 26.04 in its tested matrix."
-  printf '%s\n' "This runs Toshy's pinned interactive user installer; it may ask for sudo."
-  read -r -p "Continue with the guarded trial? [y/N] " answer
-  [[ "$answer" == "y" || "$answer" == "Y" ]] || die "keybinds install cancelled"
-
-  mkdir -p "$source_parent"
-  if [[ -e "$source_dir" ]]; then
-    [[ -d "$source_dir" ]] || die "$source_dir exists but is not a directory"
-  else
-    git clone --depth 1 --branch "$toshy_tag" --single-branch "$toshy_repo" "$source_dir"
-  fi
-  verify_git_source "$source_dir" "$toshy_repo" "$toshy_commit" "$toshy_tree_sha256"
-
-  if [[ -e "$keymapper_dir" ]]; then
-    [[ -d "$keymapper_dir" ]] || die "$keymapper_dir exists but is not a directory"
-  else
-    git init "$keymapper_dir"
-    git -C "$keymapper_dir" remote add origin "$xwaykeyz_repo"
-    git -C "$keymapper_dir" fetch --depth 1 origin "$xwaykeyz_commit"
-    git -C "$keymapper_dir" checkout --detach FETCH_HEAD
-  fi
-  verify_git_source "$keymapper_dir" "$xwaykeyz_repo" "$xwaykeyz_commit" "$xwaykeyz_tree_sha256"
-
-  printf '%s\n' "Verified Toshy $toshy_tag and xwaykeyz source trees"
-  (cd "$source_dir" && ./setup_toshy.py install --dev-keymapper "$xwaykeyz_commit")
-
-  start_toshy_services
-  printf '%s\n' "If the installer showed its REBOOT banner, reboot before judging any shortcut."
+sync_system() {
+  assert_target
+  command -v sudo >/dev/null 2>&1 || fail 'sudo is required for pacman package updates'
+  sudo pacman -Syu --needed ansible-core
 }
 
-run_action() {
-  target_preflight
-  require_ansible_files
-  cd "$repo_dir"
-  local -a command=(ansible-playbook site.yml --limit localhost --tags "$action" -e "setup_action=$action")
-
-  if [[ "$dry_run" == true ]]; then
-    command+=(--check --diff)
-  else
-    case "$action" in
-      sources | base | apps | tools | drive | gnome)
-        require_classic_sudo
-        command+=(--ask-become-pass)
-        ;;
-      dotfiles)
-        if dotfiles_needs_become; then
-          require_classic_sudo
-          command+=(--ask-become-pass)
-        fi
-        ;;
-    esac
-  fi
-  exec "${command[@]}"
+run_site_action() {
+  local action="$1"
+  require_ansible
+  ansible-playbook -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
+    --limit workstation --tags "$action" --extra-vars "$(extra_vars "$action")"
 }
 
-google_drive_remote_ready() {
-  local config_file="$HOME/.config/rclone/rclone.conf"
-  [[ -f "$config_file" && ! -L "$config_file" ]] || return 1
-  awk '
-    /^\[google-drive\][[:space:]]*$/ { in_remote=1; next }
-    /^\[/ { in_remote=0 }
-    in_remote && /^[[:space:]]*type[[:space:]]*=[[:space:]]*drive[[:space:]]*$/ { found=1 }
-    END { exit(found ? 0 : 1) }
-  ' "$config_file"
-}
-
-configure_google_drive() {
-  local config_parent="$HOME/.config" rclone_dir="$HOME/.config/rclone"
-  local config_file="$HOME/.config/rclone/rclone.conf"
-  target_preflight
-  [[ "$(command -v rclone 2>/dev/null || true)" == /usr/bin/rclone ]] ||
-    die "Ubuntu's rclone is required. Run: ./setup.sh tools"
-  [[ ! -L "$config_parent" && (! -e "$config_parent" || -d "$config_parent") ]] ||
-    die "refusing an unsafe ~/.config path"
-  [[ ! -L "$rclone_dir" && (! -e "$rclone_dir" || -d "$rclone_dir") ]] ||
-    die "refusing an unsafe ~/.config/rclone path"
-  [[ ! -L "$config_file" && (! -e "$config_file" || -f "$config_file") ]] ||
-    die "refusing an unsafe rclone config path"
-
-  if ! google_drive_remote_ready; then
-    if [[ "$dry_run" == true ]]; then
-      printf '%s\n' '[dry-run] would open rclone config for a Google Drive remote named google-drive'
-      printf '%s\n' '[dry-run] would install and enable the user mount at ~/Google Drive'
-      return 0
-    fi
-    printf '%s\n' 'Create a new remote named exactly: google-drive'
-    printf '%s\n' 'Choose Google Drive, use browser OAuth, keep the default root, then quit config.'
-    /usr/bin/rclone config
-    google_drive_remote_ready ||
-      die "Google Drive remote was not created as google-drive; rerun ./setup.sh drive"
-  fi
-
-  run_action
-}
-
-run_boot() {
+run_verification() {
   local mode="$1"
-  target_preflight
-  require_ansible_files
-  cd "$repo_dir"
-  local -a command=(ansible-playbook site.yml --limit localhost --tags boot
-    -e setup_action=boot -e "boot_branding_mode=$mode")
-
-  if [[ "$dry_run" == true ]]; then
-    command+=(--check --diff)
-  else
-    require_classic_sudo
-    command+=(--ask-become-pass)
-  fi
-  exec "${command[@]}"
+  require_ansible
+  ansible-playbook -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/verify.yml" \
+    --limit workstation --extra-vars "$(extra_vars '' "$mode")"
 }
 
-run_all() {
-  local step final_step="verify" step_number=0
-  local total_steps=$(( ${#all_actions[@]} + 1 ))
-  local -a command
+install_aur_apps() {
+  assert_target
+  command -v yay >/dev/null 2>&1 || fail 'yay is required for the reviewed AUR apps; EndeavourOS includes it, plain Arch must install it separately'
+  yay -S --needed "${AUR_PACKAGES[@]}"
+  [[ -x /usr/bin/google-chrome-stable ]] || fail 'Google Chrome did not install its expected executable'
+  [[ -x /usr/bin/code ]] || fail 'Visual Studio Code did not install its expected executable'
+}
 
-  if [[ "$dry_run" == false ]]; then
-    printf '\n[%d/%d] %s\n' 1 "$((total_steps + 1))" bootstrap
-    "$repo_dir/setup.sh" bootstrap || die "all stopped at bootstrap; fix that error, then rerun ./setup.sh all"
-    total_steps=$((total_steps + 1))
-    step_number=1
+ensure_dotfiles_parent() {
+  local parent
+  for parent in "$HOME/.local" "$HOME/.local/share"; do
+    [[ ! -L "$parent" ]] || fail "refusing linked dotfiles parent: $parent"
+    [[ ! -e "$parent" || -d "$parent" ]] || fail "refusing non-directory dotfiles parent: $parent"
+  done
+  mkdir -p "$HOME/.local/share"
+}
+
+run_dotfiles() {
+  assert_target
+  command -v git >/dev/null 2>&1 || fail 'Git is required for the dotfiles desktop profile'
+  ensure_dotfiles_parent
+
+  if [[ -e "$DOTFILES_PATH" || -L "$DOTFILES_PATH" ]]; then
+    [[ -d "$DOTFILES_PATH" && ! -L "$DOTFILES_PATH" ]] || fail 'dotfiles path exists but is not a real directory'
+    git -C "$DOTFILES_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail 'existing dotfiles path is not a Git checkout'
+    [[ "$(git -C "$DOTFILES_PATH" remote get-url origin 2>/dev/null || true)" == "$DOTFILES_URL" ]] || fail 'dotfiles origin does not match the reviewed repository'
+    [[ -z "$(git -C "$DOTFILES_PATH" status --porcelain)" ]] || fail 'dotfiles checkout is not clean; refusing to update or run it'
+    [[ "$(git -C "$DOTFILES_PATH" branch --show-current)" == main ]] || fail 'dotfiles checkout is not on main'
+    git -C "$DOTFILES_PATH" fetch origin main:refs/remotes/origin/main
+    git -C "$DOTFILES_PATH" merge-base --is-ancestor HEAD origin/main || fail 'dotfiles checkout diverged from origin/main'
+    git -C "$DOTFILES_PATH" merge --ff-only origin/main
   else
-    final_step="status"
-    if claude_unmanaged_source_present; then
-      printf '%s\n' '[dry-run] previewing the required Claude source repair before any APT-backed action'
-      "$repo_dir/setup.sh" --dry-run sources ||
-        die "dry-run all could not verify the Claude source repair; leave the files untouched"
-      die "dry-run all stopped before APT; run ./setup.sh sources, then rerun ./setup.sh --dry-run all"
-    fi
-    printf '%s\n' '[dry-run] bootstrap skipped: preview never uses network or sudo'
+    git clone --branch main --single-branch "$DOTFILES_URL" "$DOTFILES_PATH"
   fi
 
-  for step in "${all_actions[@]}"; do
-    step_number=$((step_number + 1))
-    printf '\n[%d/%d] %s\n' "$step_number" "$total_steps" "$step"
-    command=("$repo_dir/setup.sh")
-    [[ "$dry_run" == false ]] || command+=(--dry-run)
-    command+=("$step")
-    "${command[@]}" || {
-      [[ "$step" != keybinds ]] ||
-        die "all stopped at keybinds; fix that error, then resume: ./setup.sh keybinds && ./setup.sh verify"
-      die "all stopped at $step; fix that error, then rerun ./setup.sh all"
-    }
-  done
+  [[ "$(git -C "$DOTFILES_PATH" remote get-url origin 2>/dev/null || true)" == "$DOTFILES_URL" ]] || fail 'dotfiles origin does not match the reviewed repository'
+  [[ "$(git -C "$DOTFILES_PATH" branch --show-current)" == main ]] || fail 'dotfiles checkout is not on main'
+  [[ -z "$(git -C "$DOTFILES_PATH" status --porcelain)" ]] || fail 'dotfiles checkout is not clean after update'
+  [[ -f "$DOTFILES_PATH/linux-desktop.sh" && ! -L "$DOTFILES_PATH/linux-desktop.sh" && -x "$DOTFILES_PATH/linux-desktop.sh" ]] || fail 'dotfiles linux-desktop.sh is missing, linked, or not executable'
+  "$DOTFILES_PATH/linux-desktop.sh"
 
-  step_number=$((step_number + 1))
-  printf '\n[%d/%d] %s\n' "$step_number" "$total_steps" "$final_step"
-  "$repo_dir/setup.sh" "$final_step" ||
-    die "all stopped at $final_step; use ./setup.sh status, fix the failed checks, then rerun ./setup.sh all"
+  local user_name current_shell shell_path
+  user_name="$(id -un)"
+  shell_path=/usr/bin/zsh
+  [[ -x "$shell_path" && ! -L "$shell_path" ]] || fail 'packaged /usr/bin/zsh is missing or unsafe'
+  grep -Fxq "$shell_path" /etc/shells || fail '/usr/bin/zsh is not listed in /etc/shells'
+  current_shell="$(getent passwd "$user_name" | cut -d: -f7)"
+  [[ -n "$current_shell" ]] || fail "could not read the current user's login shell"
+  if [[ "$current_shell" != "$shell_path" ]]; then
+    sudo chsh --shell "$shell_path" "$user_name"
+  fi
+}
+
+dry_run() {
+  printf 'Dry run: %s\n' "$ACTION"
+  case "$ACTION" in
+    bootstrap)
+      printf '  sudo pacman -Syu --needed ansible-core\n'
+      ;;
+    all)
+      printf '  sudo pacman -Syu --needed ansible-core\n'
+      printf '  Ansible actions: base → apps → tools → desktop\n'
+      printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
+      printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
+      printf '  Final: strict status verification\n'
+      ;;
+    base|apps|tools)
+      printf '  sudo pacman -Syu --needed ansible-core\n'
+      printf '  Local Ansible action: %s\n' "$ACTION"
+      [[ "$ACTION" != apps ]] || printf '  Then install reviewed AUR packages: %s\n' "${AUR_PACKAGES[*]}"
+      ;;
+    desktop)
+      printf '  Local Ansible action: desktop\n'
+      printf '  Install Hyprland and Waybar configs, wallpaper, and reviewed Chrome shortcuts\n'
+      ;;
+    dotfiles)
+      printf '  Clone or fast-forward the clean expected dotfiles checkout\n'
+      printf "  Run only linux-desktop.sh; set the current user's shell to /usr/bin/zsh after success\n"
+      ;;
+    status|state|verify)
+      printf '  Read-only local Ansible verification: %s\n' "$ACTION"
+      ;;
+    drive|terminal|keybinds)
+      printf '  No changes; show manual Hyprland setup steps\n'
+      ;;
+    *)
+      fail "unknown action: $ACTION"
+      ;;
+  esac
+}
+
+manual_action() {
+  case "$ACTION" in
+    drive)
+      cat <<'EOF'
+Google Drive:
+  1. Open Chrome from the app launcher.
+  2. Visit https://drive.google.com/ and sign in manually.
+  3. Keep Google Drive browser-only; do not copy browser profiles or OAuth data.
+EOF
+      ;;
+    terminal)
+      cat <<'EOF'
+Default terminal:
+  Press Super + Enter to open Ghostty.
+EOF
+      ;;
+    keybinds)
+      cat <<'EOF'
+Hyprland keyboard shortcuts (Super is the Mac Command key):
+  Super + Enter       Ghostty
+  Super + Space       App launcher
+  Super + E           File manager
+  Super + Q           Close window
+  Super + L           Lock screen
+  Super + F           Toggle fullscreen
+  Super + 1…4         Switch workspace
+  Super + Shift + 1…4 Move window to workspace
+  Super + R           Enter Remote Mac mode before Chrome Remote Desktop
+  Escape              Leave Remote Mac mode
+  Print               Screenshot
+  Super + Shift + S   Select screenshot area and copy it
+  Brightness and media keys work directly.
+EOF
+      ;;
+  esac
 }
 
 main() {
   parse_args "$@"
-  case "$action" in
-    help) usage ;;
-    bootstrap) bootstrap_ansible ;;
-    all) run_all ;;
-    status) run_status false ;;
-    state) run_status false true ;;
-    verify) run_status true ;;
-    drive) configure_google_drive ;;
-    codex)
-      target_preflight
-      printf '%s\n' "No change made. Follow OpenAI's official Linux instructions:"
-      printf '%s\n' 'https://github.com/openai/codex#quickstart'
-      printf '%s\n' 'Then run codex and choose Sign in with ChatGPT.'
+  if [[ "$DRY_RUN" == true ]]; then
+    dry_run
+    return
+  fi
+
+  case "$ACTION" in
+    bootstrap)
+      sync_system
       ;;
-    keybinds) install_keybinds ;;
-    boot) run_boot apply ;;
-    boot-reset) run_boot rollback ;;
-    *) run_action ;;
+    all)
+      sync_system
+      run_site_action base
+      run_site_action apps
+      install_aur_apps
+      run_site_action tools
+      run_site_action desktop
+      run_dotfiles
+      run_verification verify
+      ;;
+    base)
+      sync_system
+      run_site_action base
+      ;;
+    apps)
+      sync_system
+      run_site_action apps
+      install_aur_apps
+      ;;
+    tools)
+      sync_system
+      run_site_action tools
+      ;;
+    desktop)
+      assert_target
+      run_site_action desktop
+      ;;
+    dotfiles)
+      run_dotfiles
+      ;;
+    status)
+      run_verification status
+      ;;
+    state)
+      run_verification state
+      ;;
+    verify)
+      run_verification verify
+      ;;
+    drive|terminal|keybinds)
+      manual_action
+      ;;
+    *)
+      fail "unknown action: $ACTION"
+      ;;
   esac
 }
 
