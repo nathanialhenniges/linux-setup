@@ -19,7 +19,7 @@ For a larger, copy-friendly version with checkboxes saved in your browser, open 
 - [ ] Insert the installer USB. Start the Mac while holding **Option (⌥)** and choose the EFI USB entry.
 - [ ] Open the installer and choose **Online install**.
 - [ ] Choose **GNOME** and leave its EndeavourOS settings enabled. This repository adds Hyprland as a separate session.
-- [ ] On the package screen, keep **Desktop-Base + Common packages** and the installer’s recommended defaults selected. Leave **Firefox** unselected; keep Spell Checker, Firewall, and Intel microcode selected if shown. This setup installs Google Chrome later.
+- [ ] On the package screen, keep **Desktop-Base + Common packages** and the installer’s recommended defaults selected. Keep **Firefox** selected temporarily so the guide is available on first boot. The setup installs Google Chrome early, then asks whether to remove Firefox at the end. Keep Spell Checker, Firewall, and Intel microcode selected if shown.
 - [ ] Keep the regular `linux` kernel and select **LTS kernel in addition** as a fallback.
 - [ ] Select **Printing support (CUPS)** for office printers. Leave **HP printer/scanner support** off until you know the printer make.
 - [ ] Select the internal **Apple SSD · about 465.92 GiB · /dev/sda**, choose **Erase disk**, and turn on **Encrypt System**. Set and safely save the encryption passphrase; you will need it each time the Mac starts.
