@@ -34,7 +34,9 @@ Before starting the online installer, test the Mac’s built-in Wi-Fi in the liv
 - [ ] Connect to Wi-Fi and load a webpage before continuing with **Online install**.
 - [ ] If Wi-Fi still does not work, stop before partitioning and use USB Ethernet or another known-working network route. iPhone USB tethering may need packages that are not present in the live USB.
 
-The live-session driver may not carry into the installed system. The `./setup.sh apps` action installs the reviewed Broadcom Wi-Fi package. Keep backup internet available until setup finishes; if Wi-Fi is missing afterward, rerun that action and reboot.
+Wi-Fi works from the live USB, but the installed system needs its own driver. `./setup.sh apps` installs Arch's `broadcom-wl-dkms` package for this Mac's Broadcom card. Keep another way to get online available until setup finishes. If Wi-Fi is missing after reboot, run `./setup.sh apps` again, then reboot once more.
+
+The setup installs headers for both the regular and LTS kernels so DKMS can build the Wi-Fi and FaceTime camera drivers for either boot option.
 
 When setup enables SDDM, it disables GDM if present. GNOME stays installed and remains available at the login screen alongside Hyprland.
 
@@ -90,7 +92,8 @@ If setup stops, fix the displayed issue and rerun `./setup.sh all`. Finished act
 - [ ] Open Google Drive at [drive.google.com](https://drive.google.com/). Drive stays browser-only.
 - [ ] Sign in to Discord. Open Plex Desktop and Cider as needed; Cider activation and Apple sign-in are manual.
 - [ ] Pair AirPods manually in Bluetooth settings, then open LibrePods if wanted.
-- [ ] Test the built-in camera in a Google Meet preview. Also check audio, brightness keys, trackpad, suspend, and wake.
+- [ ] After reboot, run `./setup.sh camera` to check the FaceTime HD packages, DKMS build, and camera device.
+- [ ] Open Google Meet in Chrome and confirm the camera preview shows video. Also check audio, brightness keys, trackpad, suspend, and wake.
 - [ ] Leave **Power Saver** selected for normal battery use. Click the **Power** item in the top bar to change profiles when plugged in or when you need more performance.
 
 ## 5. Connect to a Mac with Chrome Remote Desktop
@@ -138,6 +141,7 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh chrome` | Install Chrome early so the guide can stay open on the Mac |
 | `./setup.sh state` | Show missing packages, Flatpak origins, and service state |
 | `./setup.sh verify` | Check that reviewed workstation setup is present |
+| `./setup.sh camera` | Check the FaceTime HD camera driver and detected video device |
 | `./setup.sh --dry-run all` | Preview the full plan without sudo or network access |
 | `./setup.sh base` | Install base packages and power profiles |
 | `./setup.sh apps` | Install Hyprland, laptop apps, Wi-Fi support, Flatpaks, and LibrePods |

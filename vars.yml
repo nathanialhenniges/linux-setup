@@ -48,6 +48,7 @@ core_pacman_app_packages:
   - krdc
   - fuse2
   - linux-headers
+  - linux-lts-headers
   - mako
   - mesa
   - network-manager-applet
@@ -68,6 +69,7 @@ core_pacman_app_packages:
   - tumbler
   - udisks2
   - vulkan-tools
+  - v4l-utils
   - waybar
   - wireplumber
   - wl-clipboard
@@ -76,7 +78,7 @@ core_pacman_app_packages:
   - xdg-desktop-portal
   - xdg-desktop-portal-gtk
   - xdg-desktop-portal-hyprland
-  - broadcom-wl
+  - broadcom-wl-dkms
 
 core_tool_packages:
   - btop

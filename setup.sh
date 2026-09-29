@@ -26,6 +26,7 @@ Actions:
   status      Show a short readiness summary
   state       Show missing packages, Flatpak origins, and service state
   verify      Fail unless the reviewed workstation state is present
+  camera      Check FaceTime HD camera packages, DKMS build, and video device
   base        Install base packages and laptop power profiles
   apps        Install Hyprland, laptop apps, Wi-Fi support, Flatpaks, and LibrePods
   tools       Install the selected command-line tools
@@ -289,6 +290,10 @@ dry_run() {
     status|state|verify)
       printf '  Read-only local Ansible verification: %s\n' "$ACTION"
       ;;
+    camera)
+      printf '  Read-only check for camera packages, DKMS build, and /dev/video device\n'
+      printf '  Afterward, open Google Meet in Chrome and confirm the preview shows video\n'
+      ;;
     drive|terminal|keybinds)
       printf '  No changes; show manual Hyprland setup steps\n'
       ;;
@@ -312,6 +317,52 @@ confirm_firefox_purge() {
       return 1
       ;;
   esac
+}
+
+camera_diagnostics() {
+  local missing=0 package dkms_camera_status running_kernel
+  printf 'FaceTime HD camera check (best after reboot):\n'
+
+  for package in facetimehd-dkms facetimehd-firmware v4l-utils; do
+    if pacman -Q "$package"; then
+      :
+    else
+      printf '  MISSING: %s\n' "$package"
+      missing=1
+    fi
+  done
+
+  if command -v dkms >/dev/null 2>&1; then
+    dkms_camera_status="$(dkms status 2>/dev/null | grep -i facetimehd || true)"
+    running_kernel="$(uname -r)"
+    if [[ "$dkms_camera_status" == *"$running_kernel"* && "$dkms_camera_status" == *installed* ]]; then
+      printf 'FaceTime camera driver build: %s\n' "$dkms_camera_status"
+    else
+      printf 'FaceTime camera driver is not built for the running kernel (%s) yet.\n' "$running_kernel"
+      [[ -z "$dkms_camera_status" ]] || printf '%s\n' "$dkms_camera_status"
+      missing=1
+    fi
+  else
+    printf 'DKMS is unavailable; the camera driver cannot be checked.\n'
+    missing=1
+  fi
+
+  if ! command -v v4l2-ctl >/dev/null 2>&1; then
+    printf 'v4l2-ctl is unavailable; install v4l-utils and rerun this check.\n'
+    missing=1
+  elif ! compgen -G '/dev/video*' >/dev/null; then
+    printf 'No /dev/video device detected yet.\n'
+    missing=1
+  else
+    printf 'Detected video device(s):\n'
+    v4l2-ctl --list-devices || missing=1
+  fi
+
+  printf '\nTo confirm the camera produces an image, open Google Meet in Chrome and check its camera preview.\n'
+  if ((missing)); then
+    printf 'If you just installed the camera support, reboot and run ./setup.sh camera again. If it still fails, share this output.\n' >&2
+    return 1
+  fi
 }
 
 manual_action() {
@@ -423,6 +474,10 @@ main() {
       ;;
     drive|terminal|keybinds)
       manual_action
+      ;;
+    camera)
+      assert_target
+      camera_diagnostics
       ;;
     *)
       fail "unknown action: $ACTION"

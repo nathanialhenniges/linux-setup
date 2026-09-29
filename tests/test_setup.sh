@@ -14,6 +14,10 @@ bash -n setup.sh
 grep -Fq 'ansible-doc -t module -F' setup.sh || fail 'collection detection must confirm the pacman module is listed'
 grep -Fq '  - fuse2' vars.yml || fail 'Arch AppImage support must use the fuse2 package name'
 ! grep -Fq '  - libfuse2' vars.yml || fail 'use Arch package fuse2 instead of libfuse2'
+grep -Fq '  - broadcom-wl-dkms' vars.yml || fail 'Arch Wi-Fi support must use broadcom-wl-dkms'
+! grep -Eq '  - broadcom-wl$' vars.yml || fail 'use Arch package broadcom-wl-dkms instead of broadcom-wl'
+grep -Fq '  - v4l-utils' vars.yml || fail 'camera diagnostics need v4l-utils'
+grep -Fq '  - linux-lts-headers' vars.yml || fail 'FaceTime and Broadcom DKMS need LTS headers for the fallback kernel'
 ansible-playbook -i inventory.ini --syntax-check site.yml
 ansible-playbook -i inventory.ini --syntax-check verify.yml
 
@@ -41,6 +45,8 @@ for package in google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-f
   grep -Fq "$package" THIRD-PARTY-NOTICES.md || fail "missing AUR notice: $package"
 done
 grep -Fq 'linux-headers' vars.yml || fail 'camera DKMS needs matching kernel headers'
+grep -Fq 'camera_diagnostics' setup.sh || fail 'setup must provide the post-reboot camera check'
+grep -Fq 'id="cmd-camera"' docs/index.html || fail 'the public guide must include the camera check command'
 
 for app_id in org.telegram.desktop org.upscayl.Upscayl sh.cider.Cider tv.plex.PlexDesktop; do
   grep -Fq "$app_id" vars.yml || fail "missing reviewed Flatpak: $app_id"

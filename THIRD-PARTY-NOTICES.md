@@ -4,7 +4,7 @@ This repository is MIT licensed. Installed software remains under the licenses a
 
 | Software | Reviewed source / pin | Notices |
 | --- | --- | --- |
-| EndeavourOS and Arch packages | Official pacman repositories, including Hyprland, Waybar, Ghostty, Discord, OpenSSH client, `broadcom-wl`, Plymouth, Ansible, and system utilities | [Arch package index](https://archlinux.org/packages/) · package copyright and license metadata under `/usr/share/licenses/<package>/` |
+| EndeavourOS and Arch packages | Official pacman repositories, including Hyprland, Waybar, Ghostty, Discord, OpenSSH client, `broadcom-wl-dkms`, `v4l-utils`, Plymouth, Ansible, and system utilities | [Arch package index](https://archlinux.org/packages/) · package copyright and license metadata under `/usr/share/licenses/<package>/` |
 | AUR applications | `google-chrome`, `visual-studio-code-bin`; built interactively with EndeavourOS `yay` | [Google Chrome AUR](https://aur.archlinux.org/packages/google-chrome) · [VS Code AUR](https://aur.archlinux.org/packages/visual-studio-code-bin) · Google and Microsoft terms apply |
 | FaceTime HD camera | `facetimehd-dkms` driver and `facetimehd-firmware`, built interactively from the AUR | [Driver package](https://aur.archlinux.org/packages/facetimehd-dkms) · [Firmware package](https://aur.archlinux.org/packages/facetimehd-firmware) · The firmware package identifies its license as `LicenseRef-Apple`; review its AUR build prompts. |
 | Flathub applications | System remote `https://dl.flathub.org/repo/`; `org.telegram.desktop`, `org.upscayl.Upscayl`, `sh.cider.Cider`, `tv.plex.PlexDesktop` | [Flathub](https://flathub.org/) · each app retains its own license and publisher terms |
