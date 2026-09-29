@@ -1,7 +1,7 @@
 ---
 - name: Install reviewed Hyprland workstation apps and Mac Wi-Fi support
   become: true
-  ansible.builtin.package:
+  community.general.pacman:
     name: "{{ core_pacman_app_packages }}"
     state: present
 

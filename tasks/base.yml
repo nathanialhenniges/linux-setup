@@ -1,7 +1,7 @@
 ---
 - name: Install the reviewed base package set
   become: true
-  ansible.builtin.package:
+  community.general.pacman:
     name: "{{ core_base_packages }}"
     state: present
 

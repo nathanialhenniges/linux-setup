@@ -1,6 +1,6 @@
 ---
 - name: Install the selected pacman command-line tools
   become: true
-  ansible.builtin.package:
+  community.general.pacman:
     name: "{{ core_tool_packages }}"
     state: present

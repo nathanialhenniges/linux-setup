@@ -50,6 +50,8 @@ sudo pacman -Syu --needed git
 
 Clone this repository and run the setup in order. Before it starts, setup checks which Linux system and Mac model it can identify. If either is missing or differs from EndeavourOS/Arch on a MacBookAir7,2, it shows the detected values and pauses. Type `CONTINUE` only if you recognize the mismatch. If no one can answer the prompt, pass `--accept-target-warning` to acknowledge it. That option does not skip the non-root, x86-64, pacman, or SSH safety checks.
 
+The bootstrap step installs the pinned `community.general` collection that Ansible needs for pacman package actions.
+
 ```bash
 mkdir -p ~/Developer
 cd ~/Developer

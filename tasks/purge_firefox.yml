@@ -49,7 +49,7 @@
 
 - name: Uninstall the Firefox package
   become: true
-  ansible.builtin.package:
+  community.general.pacman:
     name: firefox
     state: absent
 

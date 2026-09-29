@@ -133,6 +133,15 @@ require_ansible() {
   command -v ansible-playbook >/dev/null 2>&1 || fail 'Ansible is missing; run ./setup.sh bootstrap first'
 }
 
+ensure_ansible_collections() {
+  command -v ansible-galaxy >/dev/null 2>&1 || fail 'ansible-galaxy is missing; run ./setup.sh bootstrap first'
+  if ansible-doc -t module community.general.pacman >/dev/null 2>&1; then
+    return
+  fi
+  ansible-galaxy collection install --requirements-file "$ROOT_DIR/requirements.yml"
+  ansible-doc -t module community.general.pacman >/dev/null 2>&1 || fail 'community.general.pacman is unavailable after collection installation'
+}
+
 json_array() {
   local result='[' separator='' item
   for item in "$@"; do
@@ -155,11 +164,13 @@ sync_system() {
   assert_target
   command -v sudo >/dev/null 2>&1 || fail 'sudo is required for pacman package updates'
   sudo pacman -Syu --needed ansible-core
+  ensure_ansible_collections
 }
 
 run_site_action() {
   local action="$1"
   require_ansible
+  ensure_ansible_collections
   ansible-playbook -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
     --limit workstation --tags "$action" --extra-vars "$(extra_vars "$action")"
 }
@@ -236,6 +247,7 @@ dry_run() {
   case "$ACTION" in
     bootstrap)
       printf '  sudo pacman -Syu --needed ansible-core\n'
+      printf '  Install the pinned community.general.pacman collection if missing\n'
       ;;
     chrome)
       printf '  Install Google Chrome with yay -S --needed google-chrome\n'
@@ -243,6 +255,7 @@ dry_run() {
       ;;
     all)
       printf '  sudo pacman -Syu --needed ansible-core\n'
+      printf '  Ensure the pinned community.general.pacman collection is installed\n'
       printf '  Ansible actions: base → apps → tools → desktop → branding, then optional Firefox cleanup\n'
       printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
       printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
@@ -251,6 +264,7 @@ dry_run() {
       ;;
     base|apps|tools)
       printf '  sudo pacman -Syu --needed ansible-core\n'
+      printf '  Ensure the pinned community.general.pacman collection is installed\n'
       printf '  Local Ansible action: %s\n' "$ACTION"
       [[ "$ACTION" != apps ]] || printf '  Then install reviewed AUR packages: %s\n' "${AUR_PACKAGES[*]}"
       ;;
@@ -263,6 +277,7 @@ dry_run() {
       printf '  Set the custom Plymouth theme and quiet splash, then rebuild systemd-boot entries and initrds\n'
       ;;
     purge-firefox)
+      printf '  Ensure the pinned community.general.pacman collection is installed\n'
       printf '  Remove the Firefox package\n'
       printf '  Delete Firefox user data under ~/.mozilla, ~/.cache/mozilla, ~/.config/mozilla, ~/.local/share/mozilla, and ~/.var/app/org.mozilla.firefox\n'
       printf '  Leave Google Chrome and its profile data untouched\n'
