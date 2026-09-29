@@ -46,7 +46,7 @@ core_pacman_app_packages:
   - hyprlock
   - hyprpaper
   - krdc
-  - libfuse2
+  - fuse2
   - linux-headers
   - mako
   - mesa

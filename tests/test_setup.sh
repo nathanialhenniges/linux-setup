@@ -12,6 +12,8 @@ fail() {
 command -v ansible-playbook >/dev/null 2>&1 || fail 'run ./setup.sh bootstrap before this check'
 bash -n setup.sh
 grep -Fq 'ansible-doc -t module -F' setup.sh || fail 'collection detection must confirm the pacman module is listed'
+grep -Fq '  - fuse2' vars.yml || fail 'Arch AppImage support must use the fuse2 package name'
+! grep -Fq '  - libfuse2' vars.yml || fail 'use Arch package fuse2 instead of libfuse2'
 ansible-playbook -i inventory.ini --syntax-check site.yml
 ansible-playbook -i inventory.ini --syntax-check verify.yml
 
