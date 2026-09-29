@@ -1,0 +1,63 @@
+---
+- name: Define Firefox user data locations
+  ansible.builtin.set_fact:
+    firefox_user_data_paths:
+      - "{{ workstation_home }}/.mozilla"
+      - "{{ workstation_home }}/.cache/mozilla"
+      - "{{ workstation_home }}/.config/mozilla"
+      - "{{ workstation_home }}/.local/share/mozilla"
+      - "{{ workstation_home }}/.var/app/org.mozilla.firefox"
+
+- name: Check whether Firefox is running for this user
+  ansible.builtin.command:
+    argv: [pgrep, -x, firefox]
+  register: firefox_process
+  changed_when: false
+  failed_when: false
+
+- name: Require the Firefox process check to succeed
+  ansible.builtin.assert:
+    that:
+      - firefox_process.rc in [0, 1]
+    fail_msg: "Could not check whether Firefox is running. Install procps-ng and retry."
+    quiet: true
+
+- name: Require Firefox to be closed before purging its profile
+  ansible.builtin.assert:
+    that:
+      - firefox_process.rc == 1
+    fail_msg: "Close Firefox before running this cleanup."
+    quiet: true
+
+- name: Inspect Firefox data locations without following symlinks
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop: "{{ firefox_user_data_paths }}"
+  register: firefox_data_locations
+  changed_when: false
+
+- name: Refuse linked Firefox data locations
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+    fail_msg: "Refusing to remove a linked Firefox data path: {{ item.item }}"
+    quiet: true
+  loop: "{{ firefox_data_locations.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Uninstall the Firefox package
+  become: true
+  ansible.builtin.package:
+    name: firefox
+    state: absent
+
+- name: Delete Firefox profiles, settings, and cache
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+    follow: false
+  loop: "{{ firefox_user_data_paths }}"
+  loop_control:
+    label: "{{ item }}"

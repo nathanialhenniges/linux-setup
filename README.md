@@ -19,7 +19,7 @@ For a larger, copy-friendly version with checkboxes saved in your browser, open 
 - [ ] Insert the installer USB. Start the Mac while holding **Option (⌥)** and choose the EFI USB entry.
 - [ ] Open the installer and choose **Online install**.
 - [ ] Choose **GNOME** and leave its EndeavourOS settings enabled. This repository adds Hyprland as a separate session.
-- [ ] On the package screen, keep **Desktop-Base + Common packages** and the installer’s recommended defaults selected. Keep Firefox, Spell Checker, Firewall, and Intel microcode selected if shown.
+- [ ] On the package screen, keep **Desktop-Base + Common packages** and the installer’s recommended defaults selected. Leave **Firefox** unselected; keep Spell Checker, Firewall, and Intel microcode selected if shown. This setup installs Google Chrome later.
 - [ ] Keep the regular `linux` kernel and select **LTS kernel in addition** as a fallback.
 - [ ] Select **Printing support (CUPS)** for office printers. Leave **HP printer/scanner support** off until you know the printer make.
 - [ ] Select the internal **Apple SSD · about 465.92 GiB · /dev/sda**, choose **Erase disk**, and turn on **Encrypt System**. Set and safely save the encryption passphrase; you will need it each time the Mac starts.
@@ -63,6 +63,7 @@ cd linux-setup
 
 - [ ] Read the dry-run plan before continuing. It makes no changes and does not use sudo or the network.
 - [ ] Review the AUR build prompts from `yay`. Setup does not auto-approve them. Chrome, VS Code, and the FaceTime HD camera support use AUR packages.
+- [ ] At the end of `./setup.sh all`, choose whether to uninstall Firefox and erase its local data. Chrome installs before this prompt. Confirming removes Firefox bookmarks, saved logins, cookies, extensions, settings, and cache; Google Chrome and its profile data are left alone. Close Firefox first. If you skip it, you can later review `./setup.sh --dry-run purge-firefox` and run `./setup.sh purge-firefox`.
 - [ ] When setup finishes, reboot:
 
 ```bash
@@ -135,6 +136,7 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh tools` | Install selected command-line tools |
 | `./setup.sh desktop` | Install Hyprland starter settings, wallpaper, and app shortcuts |
 | `./setup.sh branding` | Install the MrDemonWolf Plymouth boot splash (run `apps` first) |
+| `./setup.sh purge-firefox` | Uninstall Firefox and erase its local data; leave Chrome and its profile untouched |
 | `./setup.sh dotfiles` | Run only dotfiles’ dedicated `linux-desktop.sh` profile |
 | `./setup.sh drive` | Show browser-only Google Drive steps |
 

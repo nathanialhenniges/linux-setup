@@ -4,6 +4,7 @@ supported_actions:
   - tools
   - desktop
   - branding
+  - purge-firefox
 
 expected_product_name: MacBookAir7,2
 workstation_home: "{{ ansible_facts.env.HOME }}"

@@ -97,3 +97,8 @@
       ansible.builtin.import_tasks: tasks/branding.yml
       when: setup_action == 'branding'
       tags: [branding]
+
+    - name: Uninstall Firefox and remove its local browser data
+      ansible.builtin.import_tasks: tasks/purge_firefox.yml
+      when: setup_action == 'purge-firefox'
+      tags: [purge-firefox]

@@ -18,7 +18,7 @@ Usage: ./setup.sh [--dry-run] <action>
 
 Actions:
   bootstrap   Upgrade the system and install local Ansible
-  all         Run base, apps, tools, desktop, branding, dotfiles, then verify
+  all         Run base, apps, tools, desktop, branding, dotfiles, verify, then ask about Firefox cleanup
   status      Show a short readiness summary
   state       Show missing packages, Flatpak origins, and service state
   verify      Fail unless the reviewed workstation state is present
@@ -27,6 +27,7 @@ Actions:
   tools       Install the selected command-line tools
   desktop     Configure Hyprland, wallpaper, and Workspace/ChatGPT shortcuts
   branding    Install the branded Plymouth startup splash
+  purge-firefox Uninstall Firefox and erase its profile data (keeps Chrome)
   dotfiles    Run only the dedicated dotfiles linux-desktop.sh profile
   drive       Show the browser-only Google Drive steps
   terminal    Show the Ghostty keyboard shortcut
@@ -183,10 +184,11 @@ dry_run() {
       ;;
     all)
       printf '  sudo pacman -Syu --needed ansible-core\n'
-      printf '  Ansible actions: base → apps → tools → desktop → branding\n'
+      printf '  Ansible actions: base → apps → tools → desktop → branding, then optional Firefox cleanup\n'
       printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
       printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
-      printf '  Final: strict status verification\n'
+      printf '  Chrome installs with the AUR apps before the final Firefox cleanup prompt\n'
+      printf '  Final: strict status verification, then ask whether to uninstall Firefox and erase its data\n'
       ;;
     base|apps|tools)
       printf '  sudo pacman -Syu --needed ansible-core\n'
@@ -201,6 +203,11 @@ dry_run() {
       printf '  Local Ansible action: branding\n'
       printf '  Set the custom Plymouth theme and quiet splash, then rebuild systemd-boot entries and initrds\n'
       ;;
+    purge-firefox)
+      printf '  Remove the Firefox package\n'
+      printf '  Delete Firefox user data under ~/.mozilla, ~/.cache/mozilla, ~/.config/mozilla, ~/.local/share/mozilla, and ~/.var/app/org.mozilla.firefox\n'
+      printf '  Leave Google Chrome and its profile data untouched\n'
+      ;;
     dotfiles)
       printf '  Clone or fast-forward the clean expected dotfiles checkout\n'
       printf "  Run only linux-desktop.sh; set the current user's shell to /usr/bin/zsh after success\n"
@@ -213,6 +220,22 @@ dry_run() {
       ;;
     *)
       fail "unknown action: $ACTION"
+      ;;
+  esac
+}
+
+confirm_firefox_purge() {
+  local answer
+  printf 'Firefox cleanup removes its local profiles, bookmarks, saved logins, cookies, extensions, settings, and cache. Google Chrome and Chrome data stay untouched.\n'
+  if [[ ! -t 0 ]] || ! read -r -p 'Remove Firefox now? [y/N] ' answer; then
+    printf 'Skipped Firefox cleanup; no changes made.\n'
+    return 1
+  fi
+  case "$answer" in
+    y|Y|yes|YES|Yes) return 0 ;;
+    *)
+      printf 'Skipped Firefox cleanup; no changes made.\n'
+      return 1
       ;;
   esac
 }
@@ -275,6 +298,9 @@ main() {
       run_site_action branding
       run_dotfiles
       run_verification verify
+      if confirm_firefox_purge; then
+        run_site_action purge-firefox
+      fi
       ;;
     base)
       sync_system
@@ -296,6 +322,12 @@ main() {
     branding)
       assert_target
       run_site_action branding
+      ;;
+    purge-firefox)
+      assert_target
+      if confirm_firefox_purge; then
+        run_site_action purge-firefox
+      fi
       ;;
     dotfiles)
       run_dotfiles
