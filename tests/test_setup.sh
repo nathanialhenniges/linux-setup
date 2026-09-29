@@ -54,6 +54,8 @@ for app_id in org.telegram.desktop org.upscayl.Upscayl sh.cider.Cider tv.plex.Pl
 done
 
 grep -Fq 'not ansible_check_mode' tasks/flatpak_apps.yml || fail 'Flatpak mutations need a check-mode guard'
+grep -Fq 'argv: [flatpak, remotes, --system, "--columns=name,url"]' tasks/flatpak_apps.yml || fail 'Flatpak remote columns must remain one command argument'
+grep -Fq 'argv: [flatpak, remotes, --system, "--columns=name,url"]' verify.yml || fail 'Flatpak verification remote columns must remain one command argument'
 grep -Fq 'checksum: "sha256:{{ librepods.sha256 }}"' tasks/librepods.yml || fail 'LibrePods download needs checksum validation'
 grep -Fq '0569ba9a15aa58e660ec3ccb7d2d39ffd8800d6a5da3741802aefd86fd4b55a6' THIRD-PARTY-NOTICES.md || fail 'LibrePods pin needs notice coverage'
 grep -Fq '1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840' THIRD-PARTY-NOTICES.md || fail 'wallpaper pin needs notice coverage'

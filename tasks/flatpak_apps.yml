@@ -1,7 +1,7 @@
 ---
 - name: Read configured system Flatpak remotes
   ansible.builtin.command:
-    argv: [flatpak, remotes, --system, --columns=name,url]
+    argv: [flatpak, remotes, --system, "--columns=name,url"]
   register: flatpak_remotes
   changed_when: false
 
