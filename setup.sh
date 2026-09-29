@@ -135,11 +135,11 @@ require_ansible() {
 
 ensure_ansible_collections() {
   command -v ansible-galaxy >/dev/null 2>&1 || fail 'ansible-galaxy is missing; run ./setup.sh bootstrap first'
-  if ansible-doc -t module community.general.pacman >/dev/null 2>&1; then
+  if ansible-doc -t module -F 2>/dev/null | awk '$1 == "community.general.pacman" { found = 1 } END { exit !found }'; then
     return
   fi
   ansible-galaxy collection install --requirements-file "$ROOT_DIR/requirements.yml"
-  ansible-doc -t module community.general.pacman >/dev/null 2>&1 || fail 'community.general.pacman is unavailable after collection installation'
+  ansible-doc -t module -F 2>/dev/null | awk '$1 == "community.general.pacman" { found = 1 } END { exit !found }' || fail 'community.general.pacman is unavailable after collection installation'
 }
 
 json_array() {

@@ -11,6 +11,7 @@ fail() {
 
 command -v ansible-playbook >/dev/null 2>&1 || fail 'run ./setup.sh bootstrap before this check'
 bash -n setup.sh
+grep -Fq 'ansible-doc -t module -F' setup.sh || fail 'collection detection must confirm the pacman module is listed'
 ansible-playbook -i inventory.ini --syntax-check site.yml
 ansible-playbook -i inventory.ini --syntax-check verify.yml
 
