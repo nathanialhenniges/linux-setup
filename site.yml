@@ -95,7 +95,7 @@
       when: setup_action == 'desktop'
       tags: [desktop]
 
-    - name: Configure the GNOME dock and app favorites
+    - name: Configure the GNOME dock, shortcuts, and light styling
       ansible.builtin.import_tasks: tasks/gnome_dock.yml
       when: setup_action == 'gnome-dock'
       tags: [gnome-dock]

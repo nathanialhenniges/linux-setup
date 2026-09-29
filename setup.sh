@@ -32,7 +32,7 @@ Actions:
   apps        Install laptop apps, Wi-Fi support, Flatpaks, and LibrePods
   tools       Install the selected command-line tools
   desktop     Configure wallpaper, app shortcuts, and the account photo
-  gnome-dock  Add the Mac-inspired dock and app favorites to GNOME
+  gnome-dock  Set up the Mac-inspired dock, familiar shortcuts, and light GNOME styling
   remove-hyprland Set GDM as the login screen and uninstall the Hyprland session packages
   branding    Install the branded Plymouth startup splash
   display-manager Set GNOME's GDM login screen as the default
@@ -320,7 +320,7 @@ dry_run() {
     gnome-dock)
       printf '  Require an active GNOME session\n'
       printf '  Install Dash to Dock from the AUR after reviewing yay’s prompt\n'
-      printf '  Set a bottom translucent dock with the installed MBA apps pinned in macOS-like order\n'
+      printf '  Set a warm translucent bottom dock, pinned MBA apps, familiar Super-key shortcuts, and GNOME’s built-in dark style\n'
       ;;
     remove-hyprland)
       printf '  Enable GDM for GNOME, then offer to remove these installed packages: %s\n' "${HYPRLAND_PACKAGES[*]}"

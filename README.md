@@ -124,7 +124,7 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh apps` | Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and keep GDM enabled for GNOME |
 | `./setup.sh tools` | Install selected command-line tools |
 | `./setup.sh desktop` | Set the wallpaper, app shortcuts, and account photo |
-| `./setup.sh gnome-dock` | Install and configure the GNOME dock and app favorites |
+| `./setup.sh gnome-dock` | Set up the GNOME dock, app favorites, familiar shortcuts, and light Mac-style details |
 | `./setup.sh remove-hyprland` | Enable GDM, then review and remove the old Hyprland session packages |
 | `./setup.sh branding` | Select the MrDemonWolf Plymouth boot splash and rebuild boot images (run `apps` first) |
 | `./setup.sh display-manager` | Enable GDM and disable SDDM at startup; reboot to use the GNOME login screen |
@@ -134,6 +134,8 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh drive` | Show browser-only Google Drive steps |
 
 `all` runs base, apps, tools, desktop, GNOME dock, branding, dotfiles, and verification in that order. Start it from GNOME. If an earlier run installed Hyprland, use the separate `remove-hyprland` action from your current desktop first. Pacman lists the packages and unused dependencies, then waits for your confirmation. Your personal config files stay in place. Reboot after removal. You can rerun any action on its own.
+
+On this Mac, Linux calls the Command key **Super**. Press `⌘+Space` for the app grid (`⌘+A` still works), `⌘+Return` for Ghostty, `⌘+E` for Files, `⌘+Q` to close a window, `⌘+F` for fullscreen, or `⌘+L` to lock. `⌘+1` through `⌘+4` choose one of four workspaces; add Shift to move the active window there. Press `⌘+Shift+S` for screenshot options. GNOME's dark appearance and left-side window buttons keep the look familiar, without downloading a theme pack. To switch keyboard layouts, use `Ctrl+⌘+Space`.
 
 ## What this setup does
 

@@ -138,3 +138,40 @@ gnome_dock_favorites:
   - { desktop_id: tv.plex.PlexDesktop.desktop, path: /var/lib/flatpak/exports/share/applications/tv.plex.PlexDesktop.desktop }
   - { desktop_id: org.upscayl.Upscayl.desktop, path: /var/lib/flatpak/exports/share/applications/org.upscayl.Upscayl.desktop }
   - { desktop_id: librepods.desktop, path: "{{ workstation_home }}/.local/share/applications/librepods.desktop" }
+
+gnome_personalization_preferences:
+  - { schema: org.gnome.desktop.interface, key: color-scheme, value: "'prefer-dark'" }
+  - { schema: org.gnome.desktop.wm.preferences, key: button-layout, value: "'close,minimize,maximize:'" }
+  - { schema: org.gnome.desktop.wm.preferences, key: num-workspaces, value: "4" }
+  - { schema: org.gnome.mutter, key: dynamic-workspaces, value: "false" }
+  - { schema: org.gnome.shell.keybindings, key: toggle-application-view, value: "['<Super>a', '<Super>space']" }
+  - { schema: org.gnome.shell.keybindings, key: show-screenshot-ui, value: "['Print', '<Shift><Super>s']" }
+  - { schema: org.gnome.shell.keybindings, key: switch-to-application-1, value: "[]" }
+  - { schema: org.gnome.shell.keybindings, key: switch-to-application-2, value: "[]" }
+  - { schema: org.gnome.shell.keybindings, key: switch-to-application-3, value: "[]" }
+  - { schema: org.gnome.shell.keybindings, key: switch-to-application-4, value: "[]" }
+  - { schema: org.gnome.shell.keybindings, key: switch-to-application-5, value: "[]" }
+  - { schema: org.gnome.shell.keybindings, key: switch-to-application-6, value: "[]" }
+  - { schema: org.gnome.shell.keybindings, key: switch-to-application-7, value: "[]" }
+  - { schema: org.gnome.shell.keybindings, key: switch-to-application-8, value: "[]" }
+  - { schema: org.gnome.shell.keybindings, key: switch-to-application-9, value: "[]" }
+  - { schema: org.gnome.settings-daemon.plugins.media-keys, key: home, value: "['<Super>e']" }
+  - { schema: org.gnome.settings-daemon.plugins.media-keys, key: screensaver, value: "['<Super>l']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: close, value: "['<Alt>F4', '<Super>q']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: toggle-fullscreen, value: "['<Super>f']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: switch-input-source, value: "['<Control><Super>space']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: switch-input-source-backward, value: "['<Control><Shift><Super>space']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: switch-to-workspace-1, value: "['<Super>1', '<Super>Home']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: switch-to-workspace-2, value: "['<Super>2']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: switch-to-workspace-3, value: "['<Super>3']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: switch-to-workspace-4, value: "['<Super>4']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: move-to-workspace-1, value: "['<Shift><Super>1', '<Shift><Super>Home']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: move-to-workspace-2, value: "['<Shift><Super>2']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: move-to-workspace-3, value: "['<Shift><Super>3']" }
+  - { schema: org.gnome.desktop.wm.keybindings, key: move-to-workspace-4, value: "['<Shift><Super>4']" }
+  - { schema: org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linux-setup-terminal/, key: name, value: "'Open Terminal'" }
+  - { schema: org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linux-setup-terminal/, key: command, value: "'ghostty'" }
+  - { schema: org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linux-setup-terminal/, key: binding, value: "'<Super>Return'" }
+
+gnome_custom_keybinding_paths:
+  - /org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linux-setup-terminal/

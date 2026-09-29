@@ -37,6 +37,39 @@
   register: current_gnome_favorites
   changed_when: false
 
+- name: Read currently registered GNOME custom shortcuts
+  ansible.builtin.command:
+    argv: [gsettings, get, org.gnome.settings-daemon.plugins.media-keys, custom-keybindings]
+  register: current_gnome_custom_keybindings
+  changed_when: false
+
+- name: Preserve existing custom shortcuts and add the setup terminal shortcut
+  ansible.builtin.set_fact:
+    gnome_registered_custom_keybinding_paths: >-
+      {{ ((current_gnome_custom_keybindings.stdout
+           | regex_replace('^@as\\s*', '')
+           | from_yaml)
+          + gnome_custom_keybinding_paths)
+         | unique
+         | list }}
+
+- name: Read current GNOME appearance and shortcut preferences
+  ansible.builtin.command:
+    argv: [gsettings, get, "{{ item.schema }}", "{{ item.key }}"]
+  loop: "{{ gnome_personalization_preferences }}"
+  register: current_gnome_personalization
+  changed_when: false
+
+- name: Register the GNOME terminal shortcut
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.settings-daemon.plugins.media-keys
+      - custom-keybindings
+      - "[{% for path in gnome_registered_custom_keybinding_paths %}'{{ path }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+  when: current_gnome_custom_keybindings.stdout | trim != "[{% for path in gnome_registered_custom_keybinding_paths %}'{{ path }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+
 - name: Set the Mac-inspired GNOME app order
   ansible.builtin.command:
     argv:
@@ -46,6 +79,19 @@
       - favorite-apps
       - "[{% for desktop_id in gnome_dock_available_ids %}'{{ desktop_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
   when: current_gnome_favorites.stdout | trim != "[{% for desktop_id in gnome_dock_available_ids %}'{{ desktop_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+
+- name: Apply the lightweight GNOME appearance and familiar shortcuts
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - "{{ item.item.schema }}"
+      - "{{ item.item.key }}"
+      - "{{ item.item.value }}"
+  loop: "{{ current_gnome_personalization.results }}"
+  when: (item.stdout | trim | regex_replace('^@as\\s*', '')) != item.item.value
+  loop_control:
+    label: "{{ item.item.key }}"
 
 - name: Check whether Dash to Dock is enabled
   ansible.builtin.command:
@@ -70,8 +116,12 @@
     - { key: dash-max-icon-size, value: "40" }
     - { key: transparency-mode, value: "'FIXED'" }
     - { key: background-opacity, value: "0.72" }
+    - { key: custom-background-color, value: "true" }
+    - { key: background-color, value: "'#3a2515'" }
     - { key: show-show-apps-button, value: "false" }
     - { key: show-trash, value: "true" }
+    - { key: hot-keys, value: "false" }
+    - { key: shortcut, value: "[]" }
   register: current_dock_preferences
   changed_when: false
 
@@ -84,6 +134,6 @@
       - "{{ item.item.key }}"
       - "{{ item.item.value }}"
   loop: "{{ current_dock_preferences.results }}"
-  when: item.stdout | trim != item.item.value
+  when: (item.stdout | trim | regex_replace('^@as\\s*', '')) != item.item.value
   loop_control:
     label: "{{ item.item.key }}"
