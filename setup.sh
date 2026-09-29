@@ -10,11 +10,14 @@ DOTFILES_URL=https://github.com/nathanialhenniges/dotfiles.git
 DOTFILES_PATH="${HOME:?HOME is not set}/.local/share/dotfiles"
 
 DRY_RUN=false
+ACCEPT_TARGET_WARNING=false
+TARGET_WARNING_ACCEPTED=false
+TARGET_CHECKS_COMPLETE=false
 ACTION=
 
 usage() {
   cat <<'EOF'
-Usage: ./setup.sh [--dry-run] <action>
+Usage: ./setup.sh [--dry-run] [--accept-target-warning] <action>
 
 Actions:
   bootstrap   Upgrade the system and install local Ansible
@@ -35,6 +38,7 @@ Actions:
   keybinds    Show the Hyprland keyboard shortcuts
 
 --dry-run prints the reviewed plan only. It does not run sudo, Ansible, or network calls.
+--accept-target-warning explicitly accepts a mismatch in the detected Mac model or OS identity.
 EOF
 }
 
@@ -43,11 +47,55 @@ fail() {
   exit 1
 }
 
+confirm_target_identity() {
+  [[ "$TARGET_CHECKS_COMPLETE" == true ]] && return
+
+  local os_id=unknown id_like=not-set product_name=unavailable answer
+  if [[ -r /etc/os-release ]]; then
+    os_id="$(awk -F= '$1 == "ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release)"
+    id_like="$(awk -F= '$1 == "ID_LIKE" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release)"
+    os_id="${os_id:-unknown}"
+    id_like="${id_like:-not-set}"
+  fi
+  if [[ -r /sys/class/dmi/id/product_name ]]; then
+    product_name="$(</sys/class/dmi/id/product_name)"
+  fi
+
+  local -a mismatches=()
+  if [[ "$os_id" != arch && "$os_id" != endeavouros ]]; then
+    mismatches+=("OS identity differs from Arch/EndeavourOS (ID=$os_id, ID_LIKE=$id_like)")
+  fi
+  if [[ "$product_name" != MacBookAir7,2 ]]; then
+    mismatches+=("Mac model differs from MacBookAir7,2 (detected: ${product_name:-unavailable})")
+  fi
+
+  if ((${#mismatches[@]})); then
+    printf '\nWARNING: this setup is designed for EndeavourOS/Arch Linux on MacBookAir7,2.\n' >&2
+    printf 'Detected: OS ID=%s, ID_LIKE=%s; model=%s.\n' "$os_id" "$id_like" "$product_name" >&2
+    printf 'A mismatch can mean the setup is not compatible with this computer.\n' >&2
+    printf 'Mismatches:\n' >&2
+    printf '  - %s\n' "${mismatches[@]}" >&2
+    if [[ "$ACCEPT_TARGET_WARNING" == true ]]; then
+      printf 'Warning explicitly accepted with --accept-target-warning.\n' >&2
+      TARGET_WARNING_ACCEPTED=true
+    else
+      [[ -t 0 ]] || fail 'target identity needs confirmation; rerun with --accept-target-warning to explicitly accept this warning'
+      read -r -p 'Type CONTINUE to accept this warning, or press Enter to stop: ' answer || answer=
+      [[ "$answer" == CONTINUE ]] || fail 'target warning was not accepted; no setup actions were run'
+      TARGET_WARNING_ACCEPTED=true
+    fi
+  fi
+  TARGET_CHECKS_COMPLETE=true
+}
+
 parse_args() {
   while (($#)); do
     case "$1" in
       --dry-run)
         DRY_RUN=true
+        ;;
+      --accept-target-warning)
+        ACCEPT_TARGET_WARNING=true
         ;;
       -h|--help)
         usage
@@ -66,9 +114,8 @@ parse_args() {
 assert_target() {
   [[ $EUID -ne 0 ]] || fail 'run as your normal user, not root'
   [[ "$(uname -m)" == x86_64 ]] || fail 'this setup supports x86-64 only'
-  [[ -r /etc/os-release ]] && grep -Eq '^ID=("?(arch|endeavouros)"?)$' /etc/os-release || fail 'this setup supports Arch Linux or EndeavourOS only'
-  [[ -r /sys/class/dmi/id/product_name ]] || fail 'cannot verify the Mac model'
-  [[ "$(< /sys/class/dmi/id/product_name)" == MacBookAir7,2 ]] || fail 'this setup supports MacBookAir7,2 only'
+  command -v pacman >/dev/null 2>&1 || fail 'pacman is required; this setup cannot manage packages on this system'
+  confirm_target_identity
 
   local sshd_enabled
   if systemctl is-active --quiet sshd.service; then
@@ -97,7 +144,7 @@ json_array() {
 
 extra_vars() {
   local action="${1:-}" mode="${2:-}" result
-  result="{\"aur_package_names\":$(json_array "${AUR_PACKAGES[@]}")"
+  result="{\"aur_package_names\":$(json_array "${AUR_PACKAGES[@]}"),\"target_warning_accepted\":$TARGET_WARNING_ACCEPTED"
   [[ -z "$action" ]] || result+=",\"setup_action\":\"$action\""
   [[ -z "$mode" ]] || result+=",\"verification_mode\":\"$mode\""
   result+='}'
@@ -348,12 +395,15 @@ main() {
       run_dotfiles
       ;;
     status)
+      assert_target
       run_verification status
       ;;
     state)
+      assert_target
       run_verification state
       ;;
     verify)
+      assert_target
       run_verification verify
       ;;
     drive|terminal|keybinds)

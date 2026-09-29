@@ -16,17 +16,19 @@
         - /sys/class/dmi/id/product_name
         - /etc/os-release
       register: platform_identity
+      ignore_errors: "{{ target_warning_accepted | default(false) | bool }}"
 
     - name: Require the supported local workstation
       ansible.builtin.assert:
         that:
           - ansible_facts.user_id != 'root'
-          - ansible_facts.os_family == 'Archlinux'
           - ansible_facts.pkg_mgr == 'pacman'
           - ansible_facts.architecture == 'x86_64'
-          - platform_identity.results[0].content | b64decode | trim == expected_product_name
-          - (platform_identity.results[1].content | b64decode) is search('(?m)^ID=(arch|endeavouros)$')
-        fail_msg: "Status and verification require EndeavourOS or Arch Linux on MacBookAir7,2."
+          - (target_warning_accepted | default(false) | bool) or (platform_identity.results[0].content | b64decode | trim == expected_product_name)
+          - >-
+            (target_warning_accepted | default(false) | bool) or
+            ((platform_identity.results[1].content | b64decode) is search('(?m)^ID="?(arch|endeavouros)"?$'))
+        fail_msg: "Status and verification require EndeavourOS or Arch Linux on MacBookAir7,2 unless you explicitly accept the setup.sh target warning."
         quiet: true
 
     - name: Read installed pacman package state

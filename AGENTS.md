@@ -15,7 +15,7 @@ Configure an EndeavourOS or Arch Linux Hyprland workstation on x86-64, specifica
 
 ## Platform and package rules
 
-- Accept only EndeavourOS or Arch Linux, x86-64, and the `MacBookAir7,2`. Fail closed before package changes on any other target. Setup must work from a TTY before the first Hyprland login.
+- The intended target is EndeavourOS or Arch Linux on x86-64 MacBookAir7,2. Before changing anything, check the OS identity and firmware model. If either value is missing or different, show what was detected and ask the user to accept the warning: the interactive prompt requires `CONTINUE`, while `--accept-target-warning` is the explicit choice for non-interactive runs. Never let this choice bypass the non-root, x86-64, pacman, or SSH safety checks. Setup must work from a TTY before the first Hyprland login.
 - Prefer pacman packages. Use the installed EndeavourOS `yay` helper interactively for only the reviewed AUR packages in `setup.sh`; do not pass `--noconfirm` or install an AUR helper automatically.
 - Keep Flatpak system-scoped and use only the exact IDs in `vars.yml`. Before adding or using `flathub`, verify its URL is exactly Flathub's system repository. Verify each installed app reports origin `flathub`.
 - Keep the default `linux` kernel headers installed before interactively building the reviewed `facetimehd-dkms` driver. The paired AUR firmware package uses Apple's camera firmware; disclose its `LicenseRef-Apple` terms. If the selected kernel changes, install matching headers before rebuilding DKMS.

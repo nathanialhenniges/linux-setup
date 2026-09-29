@@ -13,10 +13,9 @@
           - setup_action is defined
           - setup_action in supported_actions
           - ansible_facts.user_id != 'root'
-          - ansible_facts.os_family == 'Archlinux'
           - ansible_facts.pkg_mgr == 'pacman'
           - ansible_facts.architecture == 'x86_64'
-        fail_msg: "Run setup.sh as a non-root user on supported Arch hardware."
+        fail_msg: "Run setup.sh as a non-root user on x86-64 with pacman."
         quiet: true
       tags: [always]
 
@@ -27,14 +26,17 @@
         - /sys/class/dmi/id/product_name
         - /etc/os-release
       register: platform_identity
+      ignore_errors: "{{ target_warning_accepted | default(false) | bool }}"
       tags: [always]
 
-    - name: Require EndeavourOS or Arch Linux on the reviewed MacBook Air
+    - name: Require EndeavourOS or Arch Linux on the reviewed MacBook Air unless explicitly accepted
       ansible.builtin.assert:
         that:
-          - platform_identity.results[0].content | b64decode | trim == expected_product_name
-          - (platform_identity.results[1].content | b64decode) is search('(?m)^ID=(arch|endeavouros)$')
-        fail_msg: "This setup supports EndeavourOS or Arch Linux on MacBookAir7,2 only."
+          - (target_warning_accepted | default(false) | bool) or (platform_identity.results[0].content | b64decode | trim == expected_product_name)
+          - >-
+            (target_warning_accepted | default(false) | bool) or
+            ((platform_identity.results[1].content | b64decode) is search('(?m)^ID="?(arch|endeavouros)"?$'))
+        fail_msg: "This setup supports EndeavourOS or Arch Linux on MacBookAir7,2 only. Review the setup.sh target warning before accepting a mismatch."
         quiet: true
       tags: [always]
 

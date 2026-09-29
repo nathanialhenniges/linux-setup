@@ -48,7 +48,7 @@ If `git` is missing, install it first:
 sudo pacman -Syu --needed git
 ```
 
-Clone this repository and run the setup in order:
+Clone this repository and run the setup in order. Before it starts, setup checks which Linux system and Mac model it can identify. If either is missing or differs from EndeavourOS/Arch on a MacBookAir7,2, it shows the detected values and pauses. Type `CONTINUE` only if you recognize the mismatch. If no one can answer the prompt, pass `--accept-target-warning` to acknowledge it. That option does not skip the non-root, x86-64, pacman, or SSH safety checks.
 
 ```bash
 mkdir -p ~/Developer
@@ -132,6 +132,7 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | Command | What it does |
 | --- | --- |
 | `./setup.sh status` | Show a short readiness summary |
+| `./setup.sh --accept-target-warning <action>` | Explicitly accept a displayed Mac model or OS identity warning for that action |
 | `./setup.sh chrome` | Install Chrome early so the guide can stay open on the Mac |
 | `./setup.sh state` | Show missing packages, Flatpak origins, and service state |
 | `./setup.sh verify` | Check that reviewed workstation setup is present |
