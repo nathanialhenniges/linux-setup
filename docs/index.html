@@ -86,7 +86,7 @@
             </g>
             <g fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="11" font-weight="700" text-anchor="middle"><text x="52" y="128">PREP</text><text x="137" y="128">TEST</text><text x="223" y="128">INSTALL</text><text x="308" y="128">SET UP</text></g>
           </svg>
-          <p class="text-center text-sm leading-6 text-slate-300">Pause before <strong class="text-white">Erase disk</strong>: test that the live USB can get online.</p>
+          <p class="text-center text-sm leading-6 text-slate-300">Test the live USB’s internet first. Before partitioning, verify the selected drive is the MacBook Air’s internal SSD.</p>
         </div>
       </div>
       <div class="mt-8 rounded-2xl border border-white/15 bg-white/[.07] p-4">
@@ -146,18 +146,54 @@
         <div class="mt-5 space-y-3">
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="online"><span class="task-text leading-6">Start the installer and choose <strong>Online install</strong>.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="gnome"><span class="task-text leading-6">Choose <strong>GNOME</strong> and leave its EndeavourOS settings enabled. This repository adds Hyprland as a separate session; you can choose GNOME or Hyprland at login.</span></label>
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-rose-200 bg-rose-50/70 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-rose-700" type="checkbox" data-check id="erase-disk"><span class="task-text leading-6"><strong>Check the disk name.</strong> Select the MacBook Air’s internal disk, then choose <strong>Erase disk</strong>.</span></label>
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="user"><span class="task-text leading-6">Create your normal user account and password. Do not use root for setup.</span></label>
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="finish-install"><span class="task-text leading-6">Finish installation and remove the USB. Log in to GNOME if you selected it; otherwise log in at the text console.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-rose-200 bg-rose-50/70 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-rose-700" type="checkbox" data-check id="erase-disk"><span class="task-text leading-6"><strong>Check the drive name:</strong> use the internal <strong>Apple SSD · about 465.92 GiB · /dev/sda</strong> shown on this Mac. This fresh install replaces its current contents.</span></label>
         </div>
+
+        <div class="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4 sm:p-5">
+          <h3 class="text-lg font-bold text-sky-950">Manual partitioning: what to click</h3>
+          <p class="mt-2 text-sm leading-6 text-slate-700">Your installer shows the Apple SSD as one large <strong>Free Space</strong> entry. The diagram shows the layout we’re building. The EFI partition stays readable by the Mac’s firmware; the Linux system partition is encrypted.</p>
+          <img class="mt-4 w-full rounded-xl border border-slate-200 bg-[#091533]" src="/linux-setup/partition-layout.svg" alt="Disk layout: GPT with a 1 GiB FAT32 EFI partition mounted at /efi, plus an encrypted LUKS2 Btrfs root partition mounted at /. A 16 GiB swapfile will be created inside the encrypted root after installation.">
+          <ol class="mt-5 space-y-3">
+            <li class="rounded-xl border border-sky-200 bg-white p-4">
+              <label class="flex cursor-pointer gap-3"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="partition-gpt"><span class="task-text text-sm leading-6"><strong>1. Create the partition map.</strong> Click <strong>New Partition Table</strong> and choose <strong>GPT</strong>. This is the modern UEFI layout for the Mac. Double-check that the selected device is the Apple SSD.</span></label>
+            </li>
+            <li class="rounded-xl border border-sky-200 bg-white p-4">
+              <label class="flex cursor-pointer gap-3"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="partition-efi"><span class="task-text text-sm leading-6"><strong>2. Create the EFI partition.</strong> Select the new free space and click <strong>Create</strong>. Make it <strong>1 GiB</strong>, choose <strong>FAT32</strong> or <strong>EFI System Partition</strong>, set mount point <code>/efi</code>, and set the EFI/boot flag if offered. Leave this partition unencrypted.</span></label>
+            </li>
+            <li class="rounded-xl border border-sky-200 bg-white p-4">
+              <label class="flex cursor-pointer gap-3"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="partition-root"><span class="task-text text-sm leading-6"><strong>3. Create the encrypted Linux partition.</strong> Select the remaining free space and click <strong>Create</strong>. Use the rest of the disk, choose <strong>Btrfs</strong>, set mount point <code>/</code>, and turn on <strong>Encrypt</strong>. Set a strong LUKS passphrase and save it somewhere safe. If the encryption control does not appear, stop before continuing.</span></label>
+            </li>
+          </ol>
+
+          <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+            <h4 class="font-bold text-slate-900">The other buttons</h4>
+            <dl class="mt-2 grid gap-2 text-sm leading-6 sm:grid-cols-2">
+              <div><dt class="inline font-bold">Create</dt><dd class="inline text-slate-600"> — makes a partition in selected free space.</dd></div>
+              <div><dt class="inline font-bold">Edit</dt><dd class="inline text-slate-600"> — changes the selected partition.</dd></div>
+              <div><dt class="inline font-bold">Delete</dt><dd class="inline text-slate-600"> — removes the selected partition. Don’t use it for this empty layout.</dd></div>
+              <div><dt class="inline font-bold">Volume Group buttons</dt><dd class="inline text-slate-600"> — New, Resize, Deactivate, and Remove manage LVM. We do not need LVM; ignore them.</dd></div>
+            </dl>
+            <p class="mt-3 text-sm leading-6 text-slate-600">The volume-group controls are optional advanced storage tools. They are not needed for GPT + encrypted Btrfs.</p>
+          </div>
+
+          <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+            <strong>Hibernate comes after installation.</strong> Don’t make a separate swap partition here. We’ll create a 16 GiB swapfile inside the encrypted system, then configure and test hibernation. That keeps swap encrypted too; adding a swapfile alone does not finish the hibernate setup.
+          </div>
+          <p class="mt-4 text-xs leading-5 text-slate-600">Research: EndeavourOS documents <code>/efi</code> as the systemd-boot mount point and confirms manual Btrfs + encryption. <a class="font-semibold text-sky-800 underline" href="https://endeavouros-team.github.io/EndeavourOS-Development/" target="_blank" rel="noreferrer">Installer guidance</a> · <a class="font-semibold text-sky-800 underline" href="https://forum.endeavouros.com/t/manual-partitioning-with-luks-and-btrfs/51483" target="_blank" rel="noreferrer">Manual LUKS + Btrfs example</a> · <a class="font-semibold text-sky-800 underline" href="https://wiki.archlinux.org/title/Power_management/Suspend_and_hibernate" target="_blank" rel="noreferrer">Hibernate requirements</a></p>
+        </div>
+
+        <div class="mt-4 space-y-3">
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="user"><span class="task-text leading-6">Create your normal user account and password. Do not use root for setup.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="finish-install"><span class="task-text leading-6">Review the final summary before installing. Confirm the Apple SSD is the target, systemd-boot is selected, and the Linux root partition is encrypted. Finish installation, remove the USB, and sign in to GNOME.</span></label>
+        </div>
+
         <div class="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-slate-700">
-          <h3 class="font-bold text-sky-950">Installer choices for this Mac</h3>
+          <h3 class="font-bold text-sky-950">Other installer choices for this Mac</h3>
           <ul class="mt-2 list-disc space-y-1 pl-5">
             <li><strong>Packages:</strong> Keep <strong>Desktop-Base + Common packages</strong> and the recommended defaults selected. Keep Firefox, Spell Checker, Firewall, and Intel microcode selected if shown; leave GNOME’s EndeavourOS settings enabled.</li>
             <li><strong>Kernel:</strong> Keep the regular <code>linux</code> kernel and select <strong>LTS kernel in addition</strong> as a fallback.</li>
             <li><strong>Printing:</strong> Select general <strong>Printing support (CUPS)</strong>. Leave HP-specific printer/scanner support off until the office printer’s make is known.</li>
-            <li><strong>Encryption:</strong> Select <strong>Encrypt System</strong> and set a LUKS passphrase. You will enter it at startup before Linux loads.</li>
-            <li><strong>Bootloader:</strong> Keep EndeavourOS’s default <strong>systemd-boot</strong>. If the Mac shows its startup picker after installation, hold <strong>Option (⌥)</strong> and choose <strong>EFI Boot</strong>.</li>
+            <li><strong>Bootloader:</strong> Keep EndeavourOS’s default <strong>systemd-boot</strong>. For manual partitioning, the EFI mount point must be <code>/efi</code>. If the Mac shows its startup picker after installation, hold <strong>Option (⌥)</strong> and choose <strong>EFI Boot</strong>.</li>
           </ul>
           <p class="mt-3">GNOME uses Wayland. XWayland lets older X11 apps run inside that desktop; it is not another desktop choice.</p>
           <p class="mt-3"><strong>MrDemonWolf, Inc. branding:</strong> <code>./setup.sh all</code> copies the supplied logo into <code>~/Pictures</code>, applies the existing wolf wallpaper in GNOME when setup runs from its desktop session, and installs a separate Plymouth startup theme. The logo remains visible with the LUKS passphrase prompt. systemd-boot’s menu stays text-only, and the Mac firmware picker stays unchanged. If you enable SDDM auto-login later, the LUKS passphrase is still required at startup, then SDDM skips its login screen.</p>

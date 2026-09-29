@@ -22,9 +22,10 @@ For a larger, copy-friendly version with checkboxes saved in your browser, open 
 - [ ] On the package screen, keep **Desktop-Base + Common packages** and the installer’s recommended defaults selected. Keep Firefox, Spell Checker, Firewall, and Intel microcode selected if shown.
 - [ ] Keep the regular `linux` kernel and select **LTS kernel in addition** as a fallback.
 - [ ] Select **Printing support (CUPS)** for office printers. Leave **HP printer/scanner support** off until you know the printer make.
-- [ ] Select **Encrypt System** and set a LUKS passphrase. You will enter it at startup before Linux loads.
-- [ ] Keep EndeavourOS’s default **systemd-boot**. If the Mac shows its startup picker after installation, hold **Option (⌥)** and choose **EFI Boot**.
-- [ ] Choose the internal disk. Select **Erase disk** only after checking that you selected the MacBook Air’s internal disk.
+- [ ] Keep EndeavourOS’s default **systemd-boot**. For manual partitioning, mount the EFI System Partition at <code>/efi</code>. If the Mac shows its startup picker after installation, hold **Option (⌥)** and choose **EFI Boot**.
+- [ ] In manual partitioning, choose **GPT** for the internal Apple SSD. Create a **1 GiB FAT32 EFI System Partition** mounted at <code>/efi</code>; leave it unencrypted.
+- [ ] Create a root partition from the remaining space, choose **Btrfs**, mount it at <code>/</code>, and enable **Encrypt**. Set and safely save your LUKS passphrase.
+- [ ] Do not create a separate swap partition. After installation, create a **16 GiB swapfile inside the encrypted system** and configure and test hibernation. See the [interactive button-by-button partition guide](https://nathanialhenniges.github.io/linux-setup/#install).
 - [ ] Create your normal user account and password. Do not use root for setup.
 - [ ] Finish installation and remove the USB. Log in to GNOME if you selected it; otherwise log in at the text console.
 
@@ -32,7 +33,7 @@ Before starting the online installer, test the Mac’s built-in Wi-Fi in the liv
 
 - [ ] If EndeavourOS offers to install Wi-Fi drivers, accept the prompt. On this Mac, that enabled the internal Broadcom Wi-Fi in the live session.
 - [ ] Connect to Wi-Fi and load a webpage before continuing with **Online install**.
-- [ ] If Wi-Fi still does not work, stop before choosing **Erase disk** and use USB Ethernet or another known-working network route. iPhone USB tethering may need packages that are not present in the live USB.
+- [ ] If Wi-Fi still does not work, stop before partitioning and use USB Ethernet or another known-working network route. iPhone USB tethering may need packages that are not present in the live USB.
 
 The live-session driver may not carry into the installed system. The `./setup.sh apps` action installs the reviewed Broadcom Wi-Fi package. Keep backup internet available until setup finishes; if Wi-Fi is missing afterward, rerun that action and reboot.
 

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 440" role="img" aria-labelledby="title desc">
+  <title id="title">EndeavourOS manual partition layout and steps</title>
+  <desc id="desc">Use GPT on the 465.92 GiB internal Apple SSD. Create a 1 GiB unencrypted FAT32 EFI partition mounted at slash efi, then an encrypted LUKS2 Btrfs root partition mounted at slash using the remaining space. Add a 16 GiB swapfile inside the encrypted root after installation for hibernation.</desc>
+  <rect width="440" height="440" rx="22" fill="#091533"/>
+  <text x="20" y="32" fill="#7dd3fc" font-family="system-ui,sans-serif" font-size="17" font-weight="800">SYSTEMD-BOOT · MANUAL PARTITIONING</text>
+  <text x="20" y="56" fill="#cbd5e1" font-family="system-ui,sans-serif" font-size="12">Apple SSD · 465.92 GiB · /dev/sda</text>
+  <rect x="18" y="75" width="122" height="140" rx="13" fill="#123b69" stroke="#7dd3fc" stroke-width="2"/>
+  <text x="30" y="102" fill="#e0f2fe" font-family="system-ui,sans-serif" font-size="13" font-weight="800">EFI · 1 GiB</text>
+  <text x="30" y="127" fill="#cbd5e1" font-family="system-ui,sans-serif" font-size="12">FAT32 · /efi</text>
+  <text x="30" y="153" fill="#fde68a" font-family="system-ui,sans-serif" font-size="11" font-weight="700">Unencrypted</text>
+  <text x="30" y="177" fill="#cbd5e1" font-family="system-ui,sans-serif" font-size="10">Mac firmware</text>
+  <text x="30" y="194" fill="#cbd5e1" font-family="system-ui,sans-serif" font-size="10">starts here</text>
+  <rect x="150" y="75" width="272" height="140" rx="13" fill="#0c4a6e" stroke="#38bdf8" stroke-width="2"/>
+  <text x="166" y="102" fill="#e0f2fe" font-family="system-ui,sans-serif" font-size="13" font-weight="800">LUKS2 · ENCRYPTED</text>
+  <text x="166" y="127" fill="#cbd5e1" font-family="system-ui,sans-serif" font-size="12">Btrfs root mounted at /</text>
+  <text x="166" y="150" fill="#cbd5e1" font-family="system-ui,sans-serif" font-size="12">Remaining SSD space</text>
+  <rect x="164" y="165" width="244" height="31" rx="8" fill="#075985" stroke="#7dd3fc"/>
+  <text x="174" y="185" fill="#f8fafc" font-family="system-ui,sans-serif" font-size="11" font-weight="700">Later: 16 GiB hibernate swapfile</text>
+  <g font-family="system-ui,sans-serif" font-size="12">
+    <circle cx="30" cy="255" r="12" fill="#0369a1"/><text x="30" y="259" fill="#fff" text-anchor="middle" font-weight="800">1</text>
+    <text x="52" y="259" fill="#e2e8f0">New Partition Table → GPT</text>
+    <circle cx="30" cy="296" r="12" fill="#0369a1"/><text x="30" y="300" fill="#fff" text-anchor="middle" font-weight="800">2</text>
+    <text x="52" y="300" fill="#e2e8f0">Create EFI · 1 GiB · FAT32 · /efi</text>
+    <circle cx="30" cy="337" r="12" fill="#0369a1"/><text x="30" y="341" fill="#fff" text-anchor="middle" font-weight="800">3</text>
+    <text x="52" y="341" fill="#e2e8f0">Create Btrfs / from remaining space · Encrypt</text>
+    <circle cx="30" cy="378" r="12" fill="#0369a1"/><text x="30" y="382" fill="#fff" text-anchor="middle" font-weight="800">4</text>
+    <text x="52" y="382" fill="#e2e8f0">After install: swapfile + hibernate setup</text>
+  </g>
+  <text x="20" y="419" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="10">EFI stays unencrypted; Linux root and the later swapfile are encrypted.</text>
+</svg>
