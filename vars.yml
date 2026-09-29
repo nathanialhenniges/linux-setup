@@ -3,6 +3,7 @@ supported_actions:
   - apps
   - tools
   - desktop
+  - gnome-dock
   - branding
   - display-manager
   - profile-picture
@@ -41,20 +42,13 @@ core_pacman_app_packages:
   - discord
   - flatpak
   - ghostty
-  - grim
   - gvfs
   - gvfs-mtp
-  - hypridle
-  - hyprland
-  - hyprlock
-  - hyprpaper
   - krdc
   - fuse2
   - linux-headers
   - linux-lts-headers
-  - mako
   - mesa
-  - network-manager-applet
   - networkmanager
   - plymouth
   - pipewire
@@ -62,25 +56,17 @@ core_pacman_app_packages:
   - pipewire-pulse
   - pavucontrol
   - playerctl
-  - hyprpolkitagent
   - gdm
   - qt5-wayland
   - qt6-wayland
-  - slurp
-  - thunar
-  - thunar-volman
-  - tumbler
   - udisks2
   - vulkan-tools
   - v4l-utils
-  - waybar
   - wireplumber
   - wl-clipboard
-  - wofi
   - xorg-xwayland
   - xdg-desktop-portal
   - xdg-desktop-portal-gtk
-  - xdg-desktop-portal-hyprland
   - broadcom-wl-dkms
 
 core_tool_packages:
@@ -138,3 +124,17 @@ chatgpt_launcher:
   desktop_id: linux-setup-chatgpt.desktop
   wm_class: linux-setup-chatgpt
   url: https://chatgpt.com/
+
+gnome_dock_favorites:
+  - { desktop_id: org.gnome.Nautilus.desktop, path: /usr/share/applications/org.gnome.Nautilus.desktop }
+  - { desktop_id: google-chrome.desktop, path: /usr/share/applications/google-chrome.desktop }
+  - { desktop_id: org.telegram.desktop.desktop, path: /var/lib/flatpak/exports/share/applications/org.telegram.desktop.desktop }
+  - { desktop_id: discord.desktop, path: /usr/share/applications/discord.desktop }
+  - { desktop_id: linux-setup-notion.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-notion.desktop" }
+  - { desktop_id: linux-setup-chatgpt.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-chatgpt.desktop" }
+  - { desktop_id: sh.cider.Cider.desktop, path: /var/lib/flatpak/exports/share/applications/sh.cider.Cider.desktop }
+  - { desktop_id: code.desktop, path: /usr/share/applications/code.desktop }
+  - { desktop_id: com.mitchellh.ghostty.desktop, path: /usr/share/applications/com.mitchellh.ghostty.desktop }
+  - { desktop_id: tv.plex.PlexDesktop.desktop, path: /var/lib/flatpak/exports/share/applications/tv.plex.PlexDesktop.desktop }
+  - { desktop_id: org.upscayl.Upscayl.desktop, path: /var/lib/flatpak/exports/share/applications/org.upscayl.Upscayl.desktop }
+  - { desktop_id: librepods.desktop, path: "{{ workstation_home }}/.local/share/applications/librepods.desktop" }

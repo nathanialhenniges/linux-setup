@@ -1,5 +1,5 @@
 ---
-- name: Inspect the local MacBook Air Hyprland workstation
+- name: Inspect the local MacBook Air GNOME workstation
   hosts: workstation
   connection: local
   gather_facts: true
@@ -107,18 +107,19 @@
       changed_when: false
       failed_when: false
 
-    - name: Read required Hyprland user configuration
-      ansible.builtin.stat:
-        path: "{{ workstation_home }}/{{ item }}"
-        follow: false
-      loop:
-        - .config/hypr/hyprland.conf
-        - .config/hypr/hyprpaper.conf
-        - .config/hypr/hypridle.conf
-        - .config/hypr/hyprlock.conf
-        - .config/waybar/config.jsonc
-        - .config/waybar/style.css
-      register: hyprland_config_state
+    - name: Read enabled GNOME Shell extensions
+      ansible.builtin.command:
+        argv: [gnome-extensions, list, --enabled]
+      register: enabled_gnome_extensions
+      changed_when: false
+      failed_when: false
+
+    - name: Read GNOME favorite applications
+      ansible.builtin.command:
+        argv: [gsettings, get, org.gnome.shell, favorite-apps]
+      register: gnome_favorite_apps
+      changed_when: false
+      failed_when: false
 
     - name: Read sshd service state without changing it
       ansible.builtin.command:
@@ -145,10 +146,6 @@
     - name: Report missing system Flatpaks
       ansible.builtin.set_fact:
         missing_flatpak_packages: "{{ core_flatpak_packages | difference(installed_flatpaks.stdout_lines | default([])) }}"
-
-    - name: Report missing Hyprland configuration files
-      ansible.builtin.set_fact:
-        missing_hyprland_configs: "{{ hyprland_config_state.results | rejectattr('stat.isreg', 'equalto', true) | map(attribute='item') | list }}"
 
     - name: Report whether the branded Plymouth splash is fully configured
       ansible.builtin.set_fact:
@@ -177,11 +174,14 @@
           - workstation_services.results | selectattr('rc', 'equalto', 0) | selectattr('stdout', 'equalto', 'active') | list | length == 3
           - gdm_state.stdout == 'enabled'
           - sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime']
-          - missing_hyprland_configs | length == 0
+          - "'dash-to-dock@micxgx.gmail.com' in enabled_gnome_extensions.stdout_lines"
+          - "gnome_favorite_apps.stdout is search('org.gnome.Nautilus.desktop')"
+          - "gnome_favorite_apps.stdout is search('google-chrome.desktop')"
+          - "gnome_favorite_apps.stdout is search('discord.desktop')"
           - plymouth_branding_ready
           - sshd_state.results[0].stdout != 'active'
           - sshd_state.results[1].stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime']
-        fail_msg: "Workstation verification found missing packages, untrusted Flatpaks, missing desktop or boot branding, or inactive laptop services. See the state report."
+        fail_msg: "Workstation verification found missing packages, untrusted Flatpaks, missing GNOME dock or boot branding, or inactive laptop services. See the state report."
         quiet: true
       when: verification_mode == 'verify'
 
@@ -194,7 +194,8 @@
           - "Power, Bluetooth, and NetworkManager services: {{ workstation_services.results | map(attribute='stdout') | list }}"
           - "GDM enablement: {{ gdm_state.stdout }}"
           - "SDDM enablement: {{ sddm_state.stdout }}"
-          - "Missing Hyprland config: {{ missing_hyprland_configs }}"
+          - "Enabled GNOME extensions: {{ enabled_gnome_extensions.stdout_lines }}"
+          - "GNOME favorites: {{ gnome_favorite_apps.stdout }}"
           - "MrDemonWolf Plymouth branding ready: {{ plymouth_branding_ready }}"
           - "sshd service state: {{ sshd_state.results | map(attribute='stdout') | list }}"
           - "AUR apps: {{ aur_package_names | default([]) }}"
@@ -203,7 +204,7 @@
     - name: Show concise workstation status
       ansible.builtin.debug:
         msg: >-
-          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and missing_hyprland_configs | length == 0 and plymouth_branding_ready and gdm_state.stdout == 'enabled' and sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'])
+          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and 'dash-to-dock@micxgx.gmail.com' in enabled_gnome_extensions.stdout_lines and gnome_favorite_apps.stdout is search('google-chrome.desktop') and plymouth_branding_ready and gdm_state.stdout == 'enabled' and sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'])
              else 'Needs setup' }} — {{ missing_pacman_packages | length }} pacman packages and
-          {{ missing_flatpak_packages | length }} system Flatpaks, {{ missing_hyprland_configs | length }} Hyprland configs, Plymouth branding {{ 'ready' if plymouth_branding_ready else 'missing' }}.
+          {{ missing_flatpak_packages | length }} system Flatpaks, GNOME dock {{ 'ready' if 'dash-to-dock@micxgx.gmail.com' in enabled_gnome_extensions.stdout_lines else 'missing' }}, Plymouth branding {{ 'ready' if plymouth_branding_ready else 'missing' }}.
       when: verification_mode == 'status'

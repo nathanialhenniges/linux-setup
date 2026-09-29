@@ -1,5 +1,5 @@
 ---
-- name: Configure the local MacBook Air Hyprland workstation
+- name: Configure the local MacBook Air GNOME workstation
   hosts: workstation
   connection: local
   gather_facts: true
@@ -90,10 +90,15 @@
       when: setup_action == 'tools'
       tags: [tools]
 
-    - name: Configure the Hyprland desktop
+    - name: Configure desktop artwork and Chrome app shortcuts
       ansible.builtin.import_tasks: tasks/desktop_personalization.yml
       when: setup_action == 'desktop'
       tags: [desktop]
+
+    - name: Configure the GNOME dock and app favorites
+      ansible.builtin.import_tasks: tasks/gnome_dock.yml
+      when: setup_action == 'gnome-dock'
+      tags: [gnome-dock]
 
     - name: Set the profile photo without rerunning the full setup
       ansible.builtin.import_tasks: tasks/profile_picture.yml

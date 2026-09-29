@@ -5,7 +5,8 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$ROOT_DIR"
 export ANSIBLE_CONFIG="$ROOT_DIR/ansible.cfg"
 
-AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware)
+AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock)
+HYPRLAND_PACKAGES=(hyprland hypridle hyprlock hyprpaper hyprpolkitagent waybar wofi mako xdg-desktop-portal-hyprland network-manager-applet thunar thunar-volman tumbler grim slurp)
 DOTFILES_URL=https://github.com/nathanialhenniges/dotfiles.git
 DOTFILES_PATH="${HOME:?HOME is not set}/.local/share/dotfiles"
 
@@ -22,23 +23,24 @@ Usage: ./setup.sh [--dry-run] [--accept-target-warning] <action>
 Actions:
   bootstrap   Upgrade the system and install local Ansible
   chrome      Install Google Chrome early so this guide can stay open on the Mac
-  all         Run base, apps, tools, desktop, branding, dotfiles, verify, then ask about Firefox cleanup
+  all         Run base, apps, tools, desktop, GNOME dock, branding, dotfiles, verify, then ask about Firefox cleanup
   status      Show a short readiness summary
   state       Show missing packages, Flatpak origins, and service state
   verify      Fail unless the reviewed workstation state is present
   camera      Check FaceTime HD camera packages, DKMS build, and video device
   base        Install base packages and laptop power profiles
-  apps        Install Hyprland, laptop apps, Wi-Fi support, Flatpaks, and LibrePods
+  apps        Install laptop apps, Wi-Fi support, Flatpaks, and LibrePods
   tools       Install the selected command-line tools
-  desktop     Configure Hyprland, wallpaper, and Workspace/ChatGPT shortcuts
+  desktop     Configure wallpaper, app shortcuts, and the account photo
+  gnome-dock  Add the Mac-inspired dock and app favorites to GNOME
+  remove-hyprland Set GDM as the login screen and uninstall the Hyprland session packages
   branding    Install the branded Plymouth startup splash
   display-manager Set GNOME's GDM login screen as the default
   profile-picture Set the supplied photo as your account/login picture
   purge-firefox Uninstall Firefox and erase its profile data (keeps Chrome)
   dotfiles    Run only the dedicated dotfiles linux-desktop.sh profile
   drive       Show the browser-only Google Drive steps
-  terminal    Show the Ghostty keyboard shortcut
-  keybinds    Show the Hyprland keyboard shortcuts
+  terminal    Show how to open Ghostty from GNOME
 
 --dry-run prints the reviewed plan only. It does not run sudo, Ansible, or network calls.
 --accept-target-warning explicitly accepts a mismatch in the detected Mac model or OS identity.
@@ -204,6 +206,41 @@ install_aur_apps() {
   [[ -x /usr/bin/code ]] || fail 'Visual Studio Code did not install its expected executable'
 }
 
+install_gnome_dock_extension() {
+  command -v yay >/dev/null 2>&1 || fail 'yay is required for the Dash to Dock extension; EndeavourOS includes it, plain Arch must install it separately'
+  yay -S --needed gnome-shell-extension-dash-to-dock
+}
+
+require_gnome_session() {
+  local desktop="${XDG_CURRENT_DESKTOP:-} ${XDG_SESSION_DESKTOP:-}"
+  [[ "$desktop" == *GNOME* ]] || fail 'log in to the GNOME session, open Terminal, and rerun this action there'
+}
+
+remove_hyprland() {
+  assert_target
+  [[ -t 0 ]] || fail 'run this action in an interactive terminal so you can review and approve pacman’s removal list'
+
+  printf 'This removes the old Hyprland session. Save open work; you will need to reboot when it finishes.\n'
+  run_site_action_local display-manager
+
+  local package
+  local -a installed_packages=()
+  for package in "${HYPRLAND_PACKAGES[@]}"; do
+    if pacman -Qq "$package" >/dev/null 2>&1; then
+      installed_packages+=("$package")
+    fi
+  done
+
+  if ((${#installed_packages[@]} == 0)); then
+    printf 'No Hyprland session packages are installed. GDM is enabled for GNOME.\n'
+    return 0
+  fi
+
+  printf 'Pacman will show the exact packages and any now-unused dependencies before asking for confirmation:\n  %s\n' "${installed_packages[*]}"
+  sudo pacman -Rns -- "${installed_packages[@]}"
+  printf 'Hyprland session packages removed. Reboot to refresh the login screen. Personal config files remain untouched.\n'
+}
+
 ensure_dotfiles_parent() {
   local parent
   for parent in "$HOME/.local" "$HOME/.local/share"; do
@@ -261,9 +298,10 @@ dry_run() {
       printf '  Keep Firefox installed for now; its optional cleanup happens at the end of all\n'
       ;;
     all)
+      printf '  Require an active GNOME session before any changes\n'
       printf '  sudo pacman -Syu --needed ansible-core\n'
       printf '  Ensure the pinned community.general.pacman collection is installed\n'
-      printf '  Ansible actions: base → apps → tools → desktop → branding, then optional Firefox cleanup\n'
+      printf '  Ansible actions: base → apps → tools → desktop → GNOME dock → branding, then optional Firefox cleanup\n'
       printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
       printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
       printf '  Chrome installs with the AUR apps before the final Firefox cleanup prompt\n'
@@ -277,7 +315,18 @@ dry_run() {
       ;;
     desktop)
       printf '  Local Ansible action: desktop\n'
-      printf '  Install Hyprland and Waybar configs, logo and wallpaper, the account photo, and reviewed Chrome shortcuts\n'
+      printf '  Copy the logo and wallpaper, set the account photo, and create reviewed Chrome app shortcuts\n'
+      ;;
+    gnome-dock)
+      printf '  Require an active GNOME session\n'
+      printf '  Install Dash to Dock from the AUR after reviewing yay’s prompt\n'
+      printf '  Set a bottom translucent dock with the installed MBA apps pinned in macOS-like order\n'
+      ;;
+    remove-hyprland)
+      printf '  Enable GDM for GNOME, then offer to remove these installed packages: %s\n' "${HYPRLAND_PACKAGES[*]}"
+      printf '  Pacman will include any now-unused dependencies in its review list\n'
+      printf '  Pacman will show its removal list and ask before changing packages; personal config files are left untouched\n'
+      printf '  Reboot after removal to refresh the login screen\n'
       ;;
     branding)
       printf '  Local Ansible action: branding\n'
@@ -309,8 +358,8 @@ dry_run() {
       printf '  Read-only check for camera packages, DKMS build, and /dev/video device\n'
       printf '  Afterward, open Google Meet in Chrome and confirm the preview shows video\n'
       ;;
-    drive|terminal|keybinds)
-      printf '  No changes; show manual Hyprland setup steps\n'
+    drive|terminal)
+      printf '  No changes; show manual setup steps\n'
       ;;
     *)
       fail "unknown action: $ACTION"
@@ -393,25 +442,7 @@ EOF
     terminal)
       cat <<'EOF'
 Default terminal:
-  Press Super + Enter to open Ghostty.
-EOF
-      ;;
-    keybinds)
-      cat <<'EOF'
-Hyprland keyboard shortcuts (Super is the Mac Command key):
-  Super + Enter       Ghostty
-  Super + Space       App launcher
-  Super + E           File manager
-  Super + Q           Close window
-  Super + L           Lock screen
-  Super + F           Toggle fullscreen
-  Super + 1…4         Switch workspace
-  Super + Shift + 1…4 Move window to workspace
-  Super + R           Enter Remote Mac mode before Chrome Remote Desktop
-  Escape              Leave Remote Mac mode
-  Print               Screenshot
-  Super + Shift + S   Select screenshot area and copy it
-  Brightness and media keys work directly.
+  Open GNOME's app grid and choose Ghostty.
 EOF
       ;;
   esac
@@ -432,12 +463,14 @@ main() {
       install_chrome
       ;;
     all)
+      require_gnome_session
       sync_system
       run_site_action base
       run_site_action apps
       install_aur_apps
       run_site_action tools
       run_site_action desktop
+      run_site_action gnome-dock
       run_site_action branding
       run_dotfiles
       run_verification verify
@@ -461,6 +494,15 @@ main() {
     desktop)
       assert_target
       run_site_action desktop
+      ;;
+    gnome-dock)
+      assert_target
+      require_gnome_session
+      install_gnome_dock_extension
+      run_site_action_local gnome-dock
+      ;;
+    remove-hyprland)
+      remove_hyprland
       ;;
     branding)
       assert_target
@@ -495,7 +537,7 @@ main() {
       assert_target
       run_verification verify
       ;;
-    drive|terminal|keybinds)
+    drive|terminal)
       manual_action
       ;;
     camera)

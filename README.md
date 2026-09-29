@@ -1,6 +1,6 @@
 # Nathanial’s MacBook Air
 
-Reinstall and setup guide for the **2015 MacBook Air (`MacBookAir7,2`)**. Install EndeavourOS with GNOME for the familiar desktop, then use this repository to add the laptop apps and MrDemonWolf branding. GNOME stays the normal desktop; Hyprland remains an optional session.
+Reinstall and setup guide for the **2015 MacBook Air (`MacBookAir7,2`)**. Install EndeavourOS with GNOME, then use this repository to add the laptop apps, a Mac-inspired dock, and MrDemonWolf branding. GNOME is the desktop this setup configures.
 
 Follow the checkboxes from top to bottom. Stop when a step fails; fix that issue, then continue.
 
@@ -18,7 +18,7 @@ For a larger, copy-friendly version with checkboxes saved in your browser, open 
 
 - [ ] Insert the installer USB. Start the Mac while holding **Option (⌥)** and choose the EFI USB entry.
 - [ ] Open the installer and choose **Online install**.
-- [ ] Choose **GNOME** and leave its EndeavourOS settings enabled. This repository adds Hyprland as a separate session.
+- [ ] Choose **GNOME** and leave its EndeavourOS settings enabled. This repository keeps GNOME as the only configured desktop session.
 - [ ] On the package screen, keep **Desktop-Base + Common packages** and the installer’s recommended defaults selected. Keep **Firefox** selected temporarily so the guide is available on first boot. The setup installs Google Chrome early, then asks whether to remove Firefox at the end. Keep Spell Checker, Firewall, and Intel microcode selected if shown.
 - [ ] Keep the regular `linux` kernel and select **LTS kernel in addition** as a fallback.
 - [ ] Select **Printing support (CUPS)** for office printers. Leave **HP printer/scanner support** off until you know the printer make.
@@ -38,7 +38,7 @@ Wi-Fi works from the live USB, but the installed system needs its own driver. `.
 
 The setup installs headers for both the regular and LTS kernels so DKMS can build the Wi-Fi and FaceTime camera drivers for either boot option.
 
-Setup keeps GDM enabled so the familiar GNOME login stays the default. Hyprland remains installed as an optional session.
+Setup keeps GDM enabled and gives GNOME a bottom dock with the apps installed for this Mac. If an earlier setup added Hyprland, open a terminal in the desktop you are using and run `./setup.sh remove-hyprland`. Save open work first. The action turns on GDM, shows pacman’s removal list, and waits for your approval. It leaves personal configuration files in place. Reboot afterward and choose GNOME at sign-in.
 
 Use the supplied `assets/mrdemonwolf-logo.svg` and the existing wolf wallpaper for MrDemonWolf, Inc. branding. `./setup.sh all` copies the logo into `~/Pictures`, applies the wallpaper when its desktop session is active, sets the supplied profile photo as your account/login picture, and installs the separate Plymouth startup theme. You can rerun only `./setup.sh profile-picture` to set the photo, `./setup.sh display-manager` to restore GDM as the login manager, or `./setup.sh branding` to rebuild the branded splash. The splash keeps the LUKS passphrase prompt visible and leaves EndeavourOS’s packaged theme files intact. With systemd-boot selected, setup preserves the existing root and LUKS options, adds `quiet splash`, and rebuilds the boot entries and initrds for installed kernels. The systemd-boot menu stays text-only and the Mac firmware picker is unchanged.
 
@@ -50,7 +50,7 @@ If `git` is missing, install it first:
 sudo pacman -Syu --needed git
 ```
 
-Clone this repository and run the setup in order. Before it starts, setup checks which Linux system and Mac model it can identify. If either is missing or differs from EndeavourOS/Arch on a MacBookAir7,2, it shows the detected values and pauses. Type `CONTINUE` only if you recognize the mismatch. If no one can answer the prompt, pass `--accept-target-warning` to acknowledge it. That option does not skip the non-root, x86-64, pacman, or SSH safety checks.
+Clone this repository and run setup from a GNOME terminal. Before it starts, setup checks which Linux system and Mac model it can identify. If either is missing or differs from EndeavourOS/Arch on a MacBookAir7,2, it shows the detected values and pauses. Type `CONTINUE` only if you recognize the mismatch. If no one can answer the prompt, pass `--accept-target-warning` to acknowledge it. That option does not skip the non-root, x86-64, pacman, or SSH safety checks.
 
 The bootstrap step installs the pinned `community.general` collection that Ansible needs for pacman package actions.
 
@@ -70,7 +70,7 @@ google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' >/dev/nu
 
 - [ ] Chrome is installed and the guide is open in Chrome on the Mac. The later `all` action safely skips Chrome if it is already installed.
 - [ ] Read the full setup dry-run before continuing. It makes no changes and does not use sudo or the network.
-- [ ] Review the AUR build prompts from `yay`. Setup does not auto-approve them. Chrome, VS Code, and the FaceTime HD camera support use AUR packages.
+- [ ] Review the AUR build prompts from `yay`. Setup does not auto-approve them. Chrome, VS Code, Dash to Dock, and the FaceTime HD camera support use AUR packages.
 - [ ] At the end of `./setup.sh all`, choose whether to uninstall Firefox and erase its local data. Chrome installs before this prompt. Confirming removes Firefox bookmarks, saved logins, cookies, extensions, settings, and cache; Google Chrome and its profile data are left alone. Close Firefox first. If you skip it, you can later review `./setup.sh --dry-run purge-firefox` and run `./setup.sh purge-firefox`.
 - [ ] When setup finishes, reboot:
 
@@ -78,16 +78,16 @@ google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' >/dev/nu
 reboot
 ```
 
-- [ ] At the GDM login screen, choose **GNOME** for the familiar desktop. Hyprland remains an optional session if you want to try it later.
+- [ ] At the GDM login screen, choose **GNOME**.
 - [ ] Run `./setup.sh verify` from `~/Developer/linux-setup`.
 
-If a step needs repair, rerun that action only. For example, `./setup.sh profile-picture`, `./setup.sh display-manager`, and `./setup.sh branding` do not rerun the full setup. Finished actions are safe to repeat.
+If a step needs repair, rerun that action only. For example, `./setup.sh gnome-dock`, `./setup.sh profile-picture`, `./setup.sh display-manager`, and `./setup.sh branding` do not rerun the full setup. Finished actions are safe to repeat.
 
 ## 4. First login
 
 - [ ] Check Wi-Fi from the top bar after setup and reboot. If it is missing, use USB Ethernet or another working network route, rerun `./setup.sh apps`, then reboot.
-- [ ] If using GNOME, open Terminal from the app grid. If using Hyprland, press **Super + Enter** for Ghostty; on this Mac, Super is the Command (⌘) key.
-- [ ] If using Hyprland, press **Super + Space** to open its app launcher.
+- [ ] Open Terminal from GNOME’s app grid. Ghostty is pinned in the dock.
+- [ ] Check the bottom dock for Files, Chrome, Telegram, Discord, Notion, ChatGPT, Cider, VS Code, Ghostty, Plex, Upscayl, and LibrePods. The script pins apps that are installed; Apple Messages and Reminders do not have native Linux apps in this setup.
 - [ ] Open Chrome and sign in to Google. Docs, Sheets, Slides, Notion, Quo, and ChatGPT shortcuts appear in the launcher.
 - [ ] Open Google Drive at [drive.google.com](https://drive.google.com/). Drive stays browser-only.
 - [ ] Sign in to Discord. Open Plex Desktop and Cider as needed; Cider activation and Apple sign-in are manual.
@@ -100,37 +100,14 @@ If a step needs repair, rerun that action only. For example, `./setup.sh profile
 
 This MacBook uses Chrome Remote Desktop as a **client** in Chrome. The setup does not install or configure the Chrome Remote Desktop host here. Google supports accessing another computer, including a Mac, from the web client at [remotedesktop.google.com/access](https://remotedesktop.google.com/access).
 
-Hyprland normally uses Super shortcuts for local actions. Remote Mac mode pauses those local shortcuts so they do not consume Command-key combinations intended for the Mac.
-
 - [ ] Open Chrome and go to [remotedesktop.google.com/access](https://remotedesktop.google.com/access).
-- [ ] Before connecting, press **Super + R**. The top bar should show **REMOTE MAC**.
 - [ ] Connect to the Mac and use Chrome Remote Desktop’s full-screen control so Chrome is less likely to capture remote shortcuts.
 - [ ] Test the Mac’s **Command + C** and **Command + V** in a safe text field. Test any other shortcuts you rely on before doing real work.
-- [ ] If a shortcut stays local or arrives as the wrong modifier, check Chrome Remote Desktop’s key-mapping controls and retest. Modifier translation can depend on the CRD client; the Hyprland mode prevents local Hyprland binds from taking the keys, but cannot guarantee CRD’s translation for every shortcut.
-- [ ] Disconnect, then press **Escape** to leave Remote Mac mode. The **REMOTE MAC** label should disappear.
+- [ ] If a shortcut arrives incorrectly, adjust Chrome Remote Desktop’s key-mapping controls and test again.
 
-Google’s [Chrome Remote Desktop help](https://support.google.com/chrome/answer/1649523?hl=en) covers connecting to another computer. Hyprland’s [submap documentation](https://wiki.hypr.land/Configuring/Basics/Binds/) explains the temporary key-binding mode used here.
+Google’s [Chrome Remote Desktop help](https://support.google.com/chrome/answer/1649523?hl=en) covers connecting to another computer.
 
-## 6. Keyboard shortcuts
-
-| Shortcut | Action |
-| --- | --- |
-| Super + Enter | Open Ghostty |
-| Super + Space | Open the app launcher |
-| Super + E | Open the file manager |
-| Super + Q | Close the active window |
-| Super + L | Lock the screen |
-| Super + F | Toggle fullscreen |
-| Super + 1–4 | Switch workspace |
-| Super + Shift + 1–4 | Move window to workspace |
-| Super + R | Enter Remote Mac mode before a CRD session |
-| Escape | Leave Remote Mac mode |
-| Print Screen | Copy a full screenshot |
-| Super + Shift + S | Select an area and copy a screenshot |
-
-Brightness and media keys work directly. Run `./setup.sh keybinds` or `./setup.sh terminal` to print the shortcuts from the setup tool.
-
-## 7. Useful setup commands
+## 6. Useful setup commands
 
 Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 
@@ -146,7 +123,9 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh base` | Install base packages and power profiles |
 | `./setup.sh apps` | Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and keep GDM enabled for GNOME |
 | `./setup.sh tools` | Install selected command-line tools |
-| `./setup.sh desktop` | Install optional Hyprland settings, wallpaper, app shortcuts, and the account photo |
+| `./setup.sh desktop` | Set the wallpaper, app shortcuts, and account photo |
+| `./setup.sh gnome-dock` | Install and configure the GNOME dock and app favorites |
+| `./setup.sh remove-hyprland` | Enable GDM, then review and remove the old Hyprland session packages |
 | `./setup.sh branding` | Select the MrDemonWolf Plymouth boot splash and rebuild boot images (run `apps` first) |
 | `./setup.sh display-manager` | Enable GDM and disable SDDM at startup; reboot to use the GNOME login screen |
 | `./setup.sh profile-picture` | Set the supplied profile photo without rerunning the full setup |
@@ -154,7 +133,7 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh dotfiles` | Run only dotfiles’ dedicated `linux-desktop.sh` profile |
 | `./setup.sh drive` | Show browser-only Google Drive steps |
 
-`all` runs base, apps, tools, desktop, branding, dotfiles, and verification in that order. The desktop step also sets the profile photo. Each action can be rerun on its own.
+`all` runs base, apps, tools, desktop, GNOME dock, branding, dotfiles, and verification in that order. Start it from GNOME. If an earlier run installed Hyprland, use the separate `remove-hyprland` action from your current desktop first. Pacman lists the packages and unused dependencies, then waits for your confirmation. Your personal config files stay in place. Reboot after removal. You can rerun any action on its own.
 
 ## What this setup does
 

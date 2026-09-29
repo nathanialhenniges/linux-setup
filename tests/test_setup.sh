@@ -25,7 +25,16 @@ grep -Fq -- '--limit workstation' setup.sh || fail 'setup must limit Ansible to 
 grep -Fq 'ansible_connection=local' inventory.ini || fail 'inventory must stay local'
 grep -Fq 'setup_action in supported_actions' site.yml || fail 'Ansible must require an explicit reviewed action'
 grep -Fq 'MacBookAir7,2' site.yml || fail 'Ansible must lock the target model'
-grep -Fq 'hyprland' vars.yml || fail 'the reviewed desktop package set must include Hyprland'
+! grep -Fq '  - hyprland' vars.yml || fail 'the regular desktop package set must stay GNOME-only'
+grep -Fq 'HYPRLAND_PACKAGES=(hyprland' setup.sh || fail 'legacy Hyprland removal must use an explicit package list'
+grep -Fq 'sudo pacman -Rns --' setup.sh || fail 'legacy package removal must remain interactive and let pacman review dependencies'
+grep -Fq "when: setup_action == 'gnome-dock'" site.yml || fail 'GNOME dock setup must be a standalone action'
+grep -Fq 'dash-to-dock@micxgx.gmail.com' tasks/gnome_dock.yml || fail 'GNOME dock setup must enable the reviewed Dash to Dock extension'
+grep -Fq 'org.gnome.shell, favorite-apps' tasks/gnome_dock.yml || fail 'GNOME dock setup must pin the curated app favorites'
+grep -Fq "value: \"'BOTTOM'\"" tasks/gnome_dock.yml || fail 'GNOME dock must use the bottom edge'
+for app_id in org.gnome.Nautilus.desktop google-chrome.desktop org.telegram.desktop.desktop discord.desktop linux-setup-notion.desktop linux-setup-chatgpt.desktop sh.cider.Cider.desktop code.desktop com.mitchellh.ghostty.desktop tv.plex.PlexDesktop.desktop org.upscayl.Upscayl.desktop librepods.desktop; do
+  grep -Fq "$app_id" vars.yml || fail "missing curated GNOME dock favorite: $app_id"
+done
 grep -Fq 'plymouth' vars.yml || fail 'the reviewed apps package set must include Plymouth'
 grep -Fq 'gdm.service' tasks/login_manager.yml || fail 'GDM must remain the default login manager'
 grep -Fq 'sddm.service' tasks/login_manager.yml || fail 'SDDM must be disabled when restoring GNOME'
@@ -34,24 +43,20 @@ grep -Fq 'SetIconFile' tasks/profile_picture.yml || fail 'the profile picture ac
 grep -Fq 'mrdemonwolf' tasks/branding.yml || fail 'branding must select the MrDemonWolf Plymouth theme'
 grep -Fq "when: setup_action == 'branding'" site.yml || fail 'branding must remain an explicit setup action'
 grep -Fq '/usr/bin/reinstall-kernels' tasks/branding.yml || fail 'branding must rebuild systemd-boot kernel images'
-grep -Fq 'bind = $mainMod, R, submap, remote_mac' templates/hyprland.conf.j2 || fail 'Hyprland must provide Remote Mac key passthrough'
-grep -Fq 'bind = , Escape, submap, reset' templates/hyprland.conf.j2 || fail 'Remote Mac mode must have a local escape key'
-grep -Fq '"hyprland/submap"' templates/waybar-config.jsonc.j2 || fail 'Waybar must show active Hyprland submaps'
-grep -Fq '"format": "REMOTE MAC"' templates/waybar-config.jsonc.j2 || fail 'Waybar must label Remote Mac mode'
 grep -Fq 'yay -S --needed' setup.sh || fail 'AUR package installation must stay interactive'
 grep -Fq 'linux-desktop.sh' setup.sh || fail 'dotfiles must use the dedicated desktop entry point'
 grep -Fq 'status --porcelain' setup.sh || fail 'dotfiles must fail closed on dirty checkouts'
 grep -Fq 'sshd.service' setup.sh || fail 'setup must preflight sshd before package changes'
 grep -Fq 'sshd.service' site.yml || fail 'Ansible must check that sshd remains inactive and disabled'
 
-for package in google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware; do
+for package in google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock; do
   grep -Fq "$package" setup.sh || fail "missing reviewed AUR package: $package"
   grep -Fq "$package" THIRD-PARTY-NOTICES.md || fail "missing AUR notice: $package"
 done
 grep -Fq 'linux-headers' vars.yml || fail 'camera DKMS needs matching kernel headers'
 grep -Fq 'camera_diagnostics' setup.sh || fail 'setup must provide the post-reboot camera check'
 grep -Fq 'id="cmd-camera"' docs/index.html || fail 'the public guide must include the camera check command'
-for action in display-manager branding profile-picture; do
+for action in display-manager branding profile-picture gnome-dock remove-hyprland; do
   grep -Fq "id=\"cmd-$action\"" docs/index.html || fail "the public guide must include the $action repair command"
 done
 

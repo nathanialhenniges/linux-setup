@@ -1,0 +1,89 @@
+---
+- name: Require an active GNOME session for personal dock settings
+  ansible.builtin.assert:
+    that:
+      - "'GNOME' in (ansible_facts.env.XDG_CURRENT_DESKTOP | default(''))"
+    fail_msg: "Log in to GNOME, then rerun ./setup.sh gnome-dock from its terminal."
+    quiet: true
+
+- name: Find installed applications for the dock
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    follow: true
+  loop: "{{ gnome_dock_favorites }}"
+  register: gnome_dock_desktop_files
+
+- name: Keep only installed app shortcuts in dock favorites
+  ansible.builtin.set_fact:
+    gnome_dock_available_ids: >-
+      {{ gnome_dock_desktop_files.results
+         | selectattr('stat.isreg', 'defined')
+         | selectattr('stat.isreg', 'equalto', true)
+         | map(attribute='item.desktop_id')
+         | list }}
+
+- name: Require the core dock applications
+  ansible.builtin.assert:
+    that:
+      - "'org.gnome.Nautilus.desktop' in gnome_dock_available_ids"
+      - "'google-chrome.desktop' in gnome_dock_available_ids"
+      - "'discord.desktop' in gnome_dock_available_ids"
+    fail_msg: "GNOME Files, Google Chrome, or Discord is missing. Run ./setup.sh apps and ./setup.sh desktop first."
+    quiet: true
+
+- name: Read current GNOME dock favorites
+  ansible.builtin.command:
+    argv: [gsettings, get, org.gnome.shell, favorite-apps]
+  register: current_gnome_favorites
+  changed_when: false
+
+- name: Set the Mac-inspired GNOME app order
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.shell
+      - favorite-apps
+      - "[{% for desktop_id in gnome_dock_available_ids %}'{{ desktop_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+  when: current_gnome_favorites.stdout | trim != "[{% for desktop_id in gnome_dock_available_ids %}'{{ desktop_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+
+- name: Check whether Dash to Dock is enabled
+  ansible.builtin.command:
+    argv: [gnome-extensions, list, --enabled]
+  register: enabled_gnome_extensions
+  changed_when: false
+
+- name: Enable Dash to Dock
+  ansible.builtin.command:
+    argv: [gnome-extensions, enable, dash-to-dock@micxgx.gmail.com]
+  when: "'dash-to-dock@micxgx.gmail.com' not in enabled_gnome_extensions.stdout_lines"
+
+- name: Read current Dash to Dock preferences
+  ansible.builtin.command:
+    argv: [gsettings, get, org.gnome.shell.extensions.dash-to-dock, "{{ item.key }}"]
+  loop:
+    - { key: dock-position, value: "'BOTTOM'" }
+    - { key: dock-fixed, value: "true" }
+    - { key: autohide, value: "false" }
+    - { key: intellihide, value: "false" }
+    - { key: extend-height, value: "false" }
+    - { key: dash-max-icon-size, value: "40" }
+    - { key: transparency-mode, value: "'FIXED'" }
+    - { key: background-opacity, value: "0.72" }
+    - { key: show-show-apps-button, value: "false" }
+    - { key: show-trash, value: "true" }
+  register: current_dock_preferences
+  changed_when: false
+
+- name: Apply the floating bottom dock appearance
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.shell.extensions.dash-to-dock
+      - "{{ item.item.key }}"
+      - "{{ item.item.value }}"
+  loop: "{{ current_dock_preferences.results }}"
+  when: item.stdout | trim != item.item.value
+  loop_control:
+    label: "{{ item.item.key }}"

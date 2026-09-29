@@ -2,7 +2,7 @@
 
 ## Scope
 
-Configure an EndeavourOS or Arch Linux Hyprland workstation on x86-64, specifically the 2015 MacBook Air `MacBookAir7,2`. Keep the repository small, local-only, auditable, idempotent, and safe for public use.
+Configure an EndeavourOS or Arch Linux GNOME workstation on x86-64, specifically the 2015 MacBook Air `MacBookAir7,2`. Keep the repository small, local-only, auditable, idempotent, and safe for public use.
 
 ## Safety boundary
 
@@ -15,15 +15,15 @@ Configure an EndeavourOS or Arch Linux Hyprland workstation on x86-64, specifica
 
 ## Platform and package rules
 
-- The intended target is EndeavourOS or Arch Linux on x86-64 MacBookAir7,2. Before changing anything, check the OS identity and firmware model. If either value is missing or different, show what was detected and ask the user to accept the warning: the interactive prompt requires `CONTINUE`, while `--accept-target-warning` is the explicit choice for non-interactive runs. Never let this choice bypass the non-root, x86-64, pacman, or SSH safety checks. Setup must work from a TTY before the first Hyprland login.
+- The intended target is EndeavourOS or Arch Linux on x86-64 MacBookAir7,2. Before changing anything, check the OS identity and firmware model. If either value is missing or different, show what was detected and ask the user to accept the warning: the interactive prompt requires `CONTINUE`, while `--accept-target-warning` is the explicit choice for non-interactive runs. Never let this choice bypass the non-root, x86-64, pacman, or SSH safety checks. Apply GNOME session preferences only from the user's active GNOME session.
 - Prefer pacman packages. Use the installed EndeavourOS `yay` helper interactively for only the reviewed AUR packages in `setup.sh`; do not pass `--noconfirm` or install an AUR helper automatically.
 - Keep Flatpak system-scoped and use only the exact IDs in `vars.yml`. Before adding or using `flathub`, verify its URL is exactly Flathub's system repository. Verify each installed app reports origin `flathub`.
 - Keep the default `linux` kernel headers installed before interactively building the reviewed `facetimehd-dkms` driver. The paired AUR firmware package uses Apple's camera firmware; disclose its `LicenseRef-Apple` terms. If the selected kernel changes, install matching headers before rebuilding DKMS.
 - Keep Google Drive browser-only at `https://drive.google.com/`; sign in manually. Do not add a sync client, file-manager plugin, or store OAuth data in this repository.
 - Keep LibrePods on the reviewed immutable x86-64 AppImage with its SHA-256 and user-local launcher. Do not add autostart, Bluetooth VendorID spoofing, Bluetooth configuration edits, or audio-service restarts.
 - Keep ChatGPT as a Chrome app-window shortcut to `https://chatgpt.com/`; do not install unofficial packages.
-- Keep the reviewed wallpaper and profile photo checksum-pinned in `assets/`, copied only into the workstation user's `~/Pictures`. Apply the wallpaper through the user-local Hyprpaper configuration. Do not change distribution branding or firmware artwork.
-- Use Hyprland's regular SDDM session with lightweight Waybar, Wofi, Mako, Hyprpaper, Hypridle, and Hyprlock configs. Preserve any existing regular user configs; never overwrite them or follow config-path symlinks.
+- Keep the reviewed wallpaper and profile photo checksum-pinned in `assets/`, copied only into the workstation user's `~/Pictures`. Apply the wallpaper through GNOME's user settings. Do not change distribution branding or firmware artwork.
+- Keep GDM enabled and configure GNOME as the normal session. Use the reviewed Dash to Dock extension and pin only app launchers that exist. The optional `remove-hyprland` action may uninstall only the explicit legacy package list, must let pacman show and confirm dependency removals, and must leave personal configuration files untouched.
 - Do not add TLP alongside `power-profiles-daemon`.
 - Keep each Ansible mutation in a focused task selected by an explicit `setup.sh` action. `all` is wrapper-only, runs reviewed leaf actions in order, and stops on first failure. Never create an Ansible `all` tag.
 - Keep `THIRD-PARTY-NOTICES.md` synchronized with package sources, AUR packages, checksummed artifacts, and license references. Call immutable pins reviewed pins, not upstream latest.

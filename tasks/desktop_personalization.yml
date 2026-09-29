@@ -6,8 +6,6 @@
   loop:
     - "{{ workstation_home }}/Pictures"
     - "{{ workstation_home }}/.config"
-    - "{{ workstation_home }}/.config/hypr"
-    - "{{ workstation_home }}/.config/waybar"
     - "{{ workstation_home }}/.local"
     - "{{ workstation_home }}/.local/share"
     - "{{ workstation_home }}/.local/share/applications"
@@ -32,8 +30,6 @@
   loop:
     - "{{ workstation_home }}/Pictures"
     - "{{ workstation_home }}/.config"
-    - "{{ workstation_home }}/.config/hypr"
-    - "{{ workstation_home }}/.config/waybar"
     - "{{ workstation_home }}/.local"
     - "{{ workstation_home }}/.local/share"
     - "{{ workstation_home }}/.local/share/applications"
@@ -132,40 +128,6 @@
     - >-
       (gnome_dark_wallpaper.stdout | trim | regex_replace("(^'|'$)", "")) !=
       "file://" ~ workstation_home ~ "/Pictures/mrdemonwolf-desktop-wallpaper.png"
-
-- name: Inspect existing Hyprland starter configuration files
-  ansible.builtin.stat:
-    path: "{{ workstation_home }}/{{ item.dest }}"
-    follow: false
-  loop:
-    - { src: hyprland.conf.j2, dest: .config/hypr/hyprland.conf }
-    - { src: hyprpaper.conf.j2, dest: .config/hypr/hyprpaper.conf }
-    - { src: hypridle.conf.j2, dest: .config/hypr/hypridle.conf }
-    - { src: hyprlock.conf.j2, dest: .config/hypr/hyprlock.conf }
-    - { src: waybar-config.jsonc.j2, dest: .config/waybar/config.jsonc }
-    - { src: waybar-style.css.j2, dest: .config/waybar/style.css }
-  register: hyprland_config_targets
-
-- name: Refuse linked or non-file Hyprland configuration paths
-  ansible.builtin.assert:
-    that:
-      - not (item.stat.islnk | default(false))
-      - not (item.stat.exists | default(false)) or item.stat.isreg | default(false)
-    fail_msg: "Refusing an unsafe Hyprland configuration file: {{ item.item.dest }}"
-    quiet: true
-  loop: "{{ hyprland_config_targets.results }}"
-  loop_control:
-    label: "{{ item.item.dest }}"
-
-- name: Install starter Hyprland configurations without replacing user files
-  ansible.builtin.template:
-    src: "{{ item.item.src }}"
-    dest: "{{ workstation_home }}/{{ item.item.dest }}"
-    mode: "0644"
-    force: false
-  loop: "{{ hyprland_config_targets.results }}"
-  loop_control:
-    label: "{{ item.item.dest }}"
 
 - name: Install checksum-pinned Chrome web-app icons and launchers
   ansible.builtin.import_tasks: chrome_web_apps.yml
