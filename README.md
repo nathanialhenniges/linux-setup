@@ -57,11 +57,15 @@ git clone https://github.com/nathanialhenniges/linux-setup.git
 cd linux-setup
 ./setup.sh bootstrap
 ./setup.sh status
+./setup.sh --dry-run chrome
+./setup.sh chrome
+google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' >/dev/null 2>&1 &
 ./setup.sh --dry-run all
 ./setup.sh all
 ```
 
-- [ ] Read the dry-run plan before continuing. It makes no changes and does not use sudo or the network.
+- [ ] Chrome is installed and the guide is open in Chrome on the Mac. The later `all` action safely skips Chrome if it is already installed.
+- [ ] Read the full setup dry-run before continuing. It makes no changes and does not use sudo or the network.
 - [ ] Review the AUR build prompts from `yay`. Setup does not auto-approve them. Chrome, VS Code, and the FaceTime HD camera support use AUR packages.
 - [ ] At the end of `./setup.sh all`, choose whether to uninstall Firefox and erase its local data. Chrome installs before this prompt. Confirming removes Firefox bookmarks, saved logins, cookies, extensions, settings, and cache; Google Chrome and its profile data are left alone. Close Firefox first. If you skip it, you can later review `./setup.sh --dry-run purge-firefox` and run `./setup.sh purge-firefox`.
 - [ ] When setup finishes, reboot:
@@ -128,6 +132,7 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | Command | What it does |
 | --- | --- |
 | `./setup.sh status` | Show a short readiness summary |
+| `./setup.sh chrome` | Install Chrome early so the guide can stay open on the Mac |
 | `./setup.sh state` | Show missing packages, Flatpak origins, and service state |
 | `./setup.sh verify` | Check that reviewed workstation setup is present |
 | `./setup.sh --dry-run all` | Preview the full plan without sudo or network access |

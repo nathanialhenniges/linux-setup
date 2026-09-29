@@ -18,6 +18,7 @@ Usage: ./setup.sh [--dry-run] <action>
 
 Actions:
   bootstrap   Upgrade the system and install local Ansible
+  chrome      Install Google Chrome early so this guide can stay open on the Mac
   all         Run base, apps, tools, desktop, branding, dotfiles, verify, then ask about Firefox cleanup
   status      Show a short readiness summary
   state       Show missing packages, Flatpak origins, and service state
@@ -123,6 +124,13 @@ run_verification() {
     --limit workstation --extra-vars "$(extra_vars '' "$mode")"
 }
 
+install_chrome() {
+  assert_target
+  command -v yay >/dev/null 2>&1 || fail 'yay is required for Google Chrome; EndeavourOS includes it, plain Arch must install it separately'
+  yay -S --needed google-chrome
+  [[ -x /usr/bin/google-chrome-stable ]] || fail 'Google Chrome did not install its expected executable'
+}
+
 install_aur_apps() {
   assert_target
   command -v yay >/dev/null 2>&1 || fail 'yay is required for the reviewed AUR apps; EndeavourOS includes it, plain Arch must install it separately'
@@ -181,6 +189,10 @@ dry_run() {
   case "$ACTION" in
     bootstrap)
       printf '  sudo pacman -Syu --needed ansible-core\n'
+      ;;
+    chrome)
+      printf '  Install Google Chrome with yay -S --needed google-chrome\n'
+      printf '  Keep Firefox installed for now; its optional cleanup happens at the end of all\n'
       ;;
     all)
       printf '  sudo pacman -Syu --needed ansible-core\n'
@@ -287,6 +299,9 @@ main() {
   case "$ACTION" in
     bootstrap)
       sync_system
+      ;;
+    chrome)
+      install_chrome
       ;;
     all)
       sync_system
