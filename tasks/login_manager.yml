@@ -1,0 +1,32 @@
+---
+- name: Check for the GDM service
+  ansible.builtin.stat:
+    path: /usr/lib/systemd/system/gdm.service
+    follow: false
+  register: gdm_service
+
+- name: Require GNOME Display Manager
+  ansible.builtin.assert:
+    that:
+      - gdm_service.stat.isreg | default(false)
+    fail_msg: "GDM is missing. Install GNOME with the EndeavourOS installer, then run ./setup.sh apps."
+    quiet: true
+
+- name: Check for SDDM
+  ansible.builtin.stat:
+    path: /usr/lib/systemd/system/sddm.service
+    follow: false
+  register: sddm_service
+
+- name: Disable SDDM at startup when it is installed
+  become: true
+  ansible.builtin.systemd_service:
+    name: sddm.service
+    enabled: false
+  when: sddm_service.stat.exists | default(false)
+
+- name: Enable GDM as the login screen
+  become: true
+  ansible.builtin.systemd_service:
+    name: gdm.service
+    enabled: true

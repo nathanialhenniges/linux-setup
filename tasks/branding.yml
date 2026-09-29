@@ -182,6 +182,20 @@
     insertafter: '^\[Daemon\]'
   register: selected_plymouth_theme
 
+- name: Confirm Plymouth resolves the custom theme
+  become: true
+  ansible.builtin.command:
+    argv: [/usr/bin/plymouth-set-default-theme]
+  register: resolved_plymouth_theme
+  changed_when: false
+
+- name: Require Plymouth to resolve the custom theme name
+  ansible.builtin.assert:
+    that:
+      - resolved_plymouth_theme.stdout | trim == 'mrdemonwolf'
+    fail_msg: "Plymouth is not resolving the MrDemonWolf theme. The boot splash will not use the custom logo."
+    quiet: true
+
 - name: Add quiet branded splash parameters without replacing existing boot options
   become: true
   ansible.builtin.lineinfile:
@@ -196,8 +210,4 @@
   become: true
   ansible.builtin.command:
     argv: [/usr/bin/reinstall-kernels]
-  when: >-
-    copied_spinner_assets.changed or copied_brand_theme.changed or copied_brand_logo.changed or
-    configured_dracut_plymouth.changed or selected_plymouth_theme.changed or
-    (systemd_boot_splash_options.results | selectattr('changed', 'equalto', true) | list | length > 0)
   changed_when: true

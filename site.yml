@@ -95,6 +95,16 @@
       when: setup_action == 'desktop'
       tags: [desktop]
 
+    - name: Set the profile photo without rerunning the full setup
+      ansible.builtin.import_tasks: tasks/profile_picture.yml
+      when: setup_action == 'profile-picture'
+      tags: [profile-picture]
+
+    - name: Restore GDM as the default login manager
+      ansible.builtin.import_tasks: tasks/login_manager.yml
+      when: setup_action == 'display-manager'
+      tags: [display-manager]
+
     - name: Apply MrDemonWolf startup branding
       ansible.builtin.import_tasks: tasks/branding.yml
       when: setup_action == 'branding'

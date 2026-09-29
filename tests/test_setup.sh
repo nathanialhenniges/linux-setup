@@ -27,7 +27,11 @@ grep -Fq 'setup_action in supported_actions' site.yml || fail 'Ansible must requ
 grep -Fq 'MacBookAir7,2' site.yml || fail 'Ansible must lock the target model'
 grep -Fq 'hyprland' vars.yml || fail 'the reviewed desktop package set must include Hyprland'
 grep -Fq 'plymouth' vars.yml || fail 'the reviewed apps package set must include Plymouth'
-grep -Fq 'sddm.service' tasks/apps.yml || fail 'the Hyprland login manager must be enabled'
+grep -Fq 'gdm.service' tasks/login_manager.yml || fail 'GDM must remain the default login manager'
+grep -Fq 'sddm.service' tasks/login_manager.yml || fail 'SDDM must be disabled when restoring GNOME'
+grep -Fq 'profile-picture' setup.sh || fail 'profile picture must have a standalone setup action'
+grep -Fq 'SetIconFile' tasks/profile_picture.yml || fail 'the profile picture action must update AccountsService'
+grep -Fq 'mrdemonwolf' tasks/branding.yml || fail 'branding must select the MrDemonWolf Plymouth theme'
 grep -Fq "when: setup_action == 'branding'" site.yml || fail 'branding must remain an explicit setup action'
 grep -Fq '/usr/bin/reinstall-kernels' tasks/branding.yml || fail 'branding must rebuild systemd-boot kernel images'
 grep -Fq 'bind = $mainMod, R, submap, remote_mac' templates/hyprland.conf.j2 || fail 'Hyprland must provide Remote Mac key passthrough'
@@ -47,6 +51,9 @@ done
 grep -Fq 'linux-headers' vars.yml || fail 'camera DKMS needs matching kernel headers'
 grep -Fq 'camera_diagnostics' setup.sh || fail 'setup must provide the post-reboot camera check'
 grep -Fq 'id="cmd-camera"' docs/index.html || fail 'the public guide must include the camera check command'
+for action in display-manager branding profile-picture; do
+  grep -Fq "id=\"cmd-$action\"" docs/index.html || fail "the public guide must include the $action repair command"
+done
 
 for app_id in org.telegram.desktop org.upscayl.Upscayl sh.cider.Cider tv.plex.PlexDesktop; do
   grep -Fq "$app_id" vars.yml || fail "missing reviewed Flatpak: $app_id"
@@ -62,6 +69,7 @@ grep -Fq '0569ba9a15aa58e660ec3ccb4d2d39ffd8800d6a5da3741802aefd86fd4b55a6' THIR
 grep -Fq '1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840' THIRD-PARTY-NOTICES.md || fail 'wallpaper pin needs notice coverage'
 grep -Fq '22903bf7891d144cf729cef04f3838567f1f9bc994e7c35dd65aeccbbeaac7f0' THIRD-PARTY-NOTICES.md || fail 'Plymouth logo pin needs notice coverage'
 grep -Fq '1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673' THIRD-PARTY-NOTICES.md || fail 'profile image pin needs notice coverage'
+grep -Fq 'cc3daf6176c3c7797b436fd446daacbd14640984cc4d7517fb99a1ec037134d3' THIRD-PARTY-NOTICES.md || fail 'AccountsService profile PNG pin needs notice coverage'
 
 git diff --check
 printf 'Setup checks passed.\n'

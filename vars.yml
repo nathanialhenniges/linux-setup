@@ -4,6 +4,8 @@ supported_actions:
   - tools
   - desktop
   - branding
+  - display-manager
+  - profile-picture
   - purge-firefox
 
 expected_product_name: MacBookAir7,2
@@ -31,6 +33,7 @@ core_base_packages:
   - zsh-syntax-highlighting
 
 core_pacman_app_packages:
+  - accountsservice
   - bluez
   - bluez-utils
   - blueman
@@ -60,9 +63,9 @@ core_pacman_app_packages:
   - pavucontrol
   - playerctl
   - hyprpolkitagent
+  - gdm
   - qt5-wayland
   - qt6-wayland
-  - sddm
   - slurp
   - thunar
   - thunar-volman
@@ -111,6 +114,10 @@ desktop_assets:
     sha256: 073aa24eea5a1385f42d4156e0328e8261a696ab3faeb1ec3544d7db30b586bf
   - name: nathanial-henniges-profile-picture.jpg
     sha256: 1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673
+
+profile_picture_asset:
+  name: nathanial-henniges-profile-picture.png
+  sha256: cc3daf6176c3c7797b436fd446daacbd14640984cc4d7517fb99a1ec037134d3
 
 plymouth_theme_sha256: b580642ff16800847051de2e3e57e83e7f7b876fe027f7f4520f07d20b45eefa
 plymouth_logo_sha256: 22903bf7891d144cf729cef04f3838567f1f9bc994e7c35dd65aeccbbeaac7f0

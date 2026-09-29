@@ -32,6 +32,8 @@ Actions:
   tools       Install the selected command-line tools
   desktop     Configure Hyprland, wallpaper, and Workspace/ChatGPT shortcuts
   branding    Install the branded Plymouth startup splash
+  display-manager Set GNOME's GDM login screen as the default
+  profile-picture Set the supplied photo as your account/login picture
   purge-firefox Uninstall Firefox and erase its profile data (keeps Chrome)
   dotfiles    Run only the dedicated dotfiles linux-desktop.sh profile
   drive       Show the browser-only Google Drive steps
@@ -168,12 +170,16 @@ sync_system() {
   ensure_ansible_collections
 }
 
-run_site_action() {
+run_site_action_local() {
   local action="$1"
   require_ansible
-  ensure_ansible_collections
   ansible-playbook -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
     --limit workstation --tags "$action" --extra-vars "$(extra_vars "$action")"
+}
+
+run_site_action() {
+  ensure_ansible_collections
+  run_site_action_local "$1"
 }
 
 run_verification() {
@@ -271,11 +277,20 @@ dry_run() {
       ;;
     desktop)
       printf '  Local Ansible action: desktop\n'
-      printf '  Install Hyprland and Waybar configs, logo and wallpaper, and reviewed Chrome shortcuts\n'
+      printf '  Install Hyprland and Waybar configs, logo and wallpaper, the account photo, and reviewed Chrome shortcuts\n'
       ;;
     branding)
       printf '  Local Ansible action: branding\n'
       printf '  Set the custom Plymouth theme and quiet splash, then rebuild systemd-boot entries and initrds\n'
+      ;;
+    display-manager)
+      printf '  Local Ansible action: display-manager\n'
+      printf '  Disable SDDM at startup and enable GNOME GDM; reboot to use the GNOME login flow\n'
+      ;;
+    profile-picture)
+      printf '  Local Ansible action: profile-picture\n'
+      printf '  Set the bundled PNG as the current account photo through AccountsService\n'
+      printf '  Requires ./setup.sh apps to have been run once\n'
       ;;
     purge-firefox)
       printf '  Ensure the pinned community.general.pacman collection is installed\n'
@@ -450,6 +465,14 @@ main() {
     branding)
       assert_target
       run_site_action branding
+      ;;
+    display-manager)
+      assert_target
+      run_site_action_local display-manager
+      ;;
+    profile-picture)
+      assert_target
+      run_site_action_local profile-picture
       ;;
     purge-firefox)
       assert_target

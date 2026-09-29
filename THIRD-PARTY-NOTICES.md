@@ -4,7 +4,7 @@ This repository is MIT licensed. Installed software remains under the licenses a
 
 | Software | Reviewed source / pin | Notices |
 | --- | --- | --- |
-| EndeavourOS and Arch packages | Official pacman repositories, including Hyprland, Waybar, Ghostty, Discord, OpenSSH client, `broadcom-wl-dkms`, `v4l-utils`, Plymouth, Ansible, and system utilities | [Arch package index](https://archlinux.org/packages/) · package copyright and license metadata under `/usr/share/licenses/<package>/` |
+| EndeavourOS and Arch packages | Official pacman repositories, including GNOME Display Manager (GDM), AccountsService, Hyprland, Waybar, Ghostty, Discord, OpenSSH client, `broadcom-wl-dkms`, `v4l-utils`, Plymouth, Ansible, and system utilities | [Arch package index](https://archlinux.org/packages/) · package copyright and license metadata under `/usr/share/licenses/<package>/` |
 | AUR applications | `google-chrome`, `visual-studio-code-bin`; built interactively with EndeavourOS `yay` | [Google Chrome AUR](https://aur.archlinux.org/packages/google-chrome) · [VS Code AUR](https://aur.archlinux.org/packages/visual-studio-code-bin) · Google and Microsoft terms apply |
 | FaceTime HD camera | `facetimehd-dkms` driver and `facetimehd-firmware`, built interactively from the AUR | [Driver package](https://aur.archlinux.org/packages/facetimehd-dkms) · [Firmware package](https://aur.archlinux.org/packages/facetimehd-firmware) · The firmware package identifies its license as `LicenseRef-Apple`; review its AUR build prompts. |
 | Flathub applications | System remote `https://dl.flathub.org/repo/`; `org.telegram.desktop`, `org.upscayl.Upscayl`, `sh.cider.Cider`, `tv.plex.PlexDesktop` | [Flathub](https://flathub.org/) · each app retains its own license and publisher terms |
@@ -19,5 +19,6 @@ This repository is MIT licensed. Installed software remains under the licenses a
 | MrDemonWolf, Inc. logo | Tracked `assets/mrdemonwolf-logo.svg`; SHA-256 `073aa24eea5a1385f42d4156e0328e8261a696ab3faeb1ec3544d7db30b586bf` | Supplied brand asset; MrDemonWolf, Inc. |
 | Plymouth logo | Tracked `assets/mrdemonwolf-plymouth-logo.png`, rasterized from the supplied SVG at 256×256; SHA-256 `22903bf7891d144cf729cef04f3838567f1f9bc994e7c35dd65aeccbbeaac7f0` | Supplied brand asset; MrDemonWolf, Inc. |
 | Profile photo | Tracked `assets/nathanial-henniges-profile-picture.jpg`; SHA-256 `1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673` | Nathanial Henniges |
+| AccountsService profile photo | Tracked `assets/nathanial-henniges-profile-picture.png`; SHA-256 `cc3daf6176c3c7797b436fd446daacbd14640984cc4d7517fb99a1ec037134d3` | Nathanial Henniges; PNG copy for the account-photo service |
 
 Chrome, VS Code, Flatpak, and LibrePods sign-ins or license activation remain manual. No credential or application profile is included here.

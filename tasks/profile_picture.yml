@@ -1,0 +1,96 @@
+---
+- name: Verify the profile photo PNG source
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/assets/{{ profile_picture_asset.name }}"
+    checksum_algorithm: sha256
+    follow: false
+  register: profile_picture_source
+
+- name: Refuse a missing or changed profile photo
+  ansible.builtin.assert:
+    that:
+      - profile_picture_source.stat.isreg | default(false)
+      - profile_picture_source.stat.checksum == profile_picture_asset.sha256
+    fail_msg: "The reviewed profile photo is missing or has changed: {{ profile_picture_asset.name }}"
+    quiet: true
+
+- name: Check that AccountsService is installed
+  ansible.builtin.command:
+    argv: [pacman, -Q, accountsservice]
+  register: accountsservice_package
+  changed_when: false
+  failed_when: false
+
+- name: Require AccountsService before setting the account photo
+  ansible.builtin.assert:
+    that:
+      - accountsservice_package.rc == 0
+    fail_msg: "AccountsService is not installed. Run ./setup.sh apps once, then rerun ./setup.sh profile-picture."
+    quiet: true
+
+- name: Read the current account photo from AccountsService
+  become: true
+  ansible.builtin.command:
+    argv:
+      - busctl
+      - --system
+      - get-property
+      - org.freedesktop.Accounts
+      - "/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}"
+      - org.freedesktop.Accounts.User
+      - IconFile
+  register: current_profile_icon
+  changed_when: false
+
+- name: Save the current AccountsService icon path
+  ansible.builtin.set_fact:
+    current_profile_icon_path: "{{ current_profile_icon.stdout | trim | regex_replace('^s \"', '') | regex_replace('\"$', '') }}"
+
+- name: Inspect the current AccountsService icon file
+  become: true
+  ansible.builtin.stat:
+    path: "{{ current_profile_icon_path }}"
+    checksum_algorithm: sha256
+    follow: false
+  register: current_profile_icon_file
+  when: current_profile_icon_path | length > 0
+
+- name: Set the supplied profile photo through AccountsService
+  become: true
+  ansible.builtin.command:
+    argv:
+      - busctl
+      - --system
+      - call
+      - org.freedesktop.Accounts
+      - "/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}"
+      - org.freedesktop.Accounts.User
+      - SetIconFile
+      - s
+      - "{{ playbook_dir }}/assets/{{ profile_picture_asset.name }}"
+  when: >-
+    current_profile_icon_path | length == 0 or
+    not (current_profile_icon_file.stat.isreg | default(false)) or
+    current_profile_icon_file.stat.checksum | default('') != profile_picture_asset.sha256
+  changed_when: true
+
+- name: Read the account photo after applying it
+  become: true
+  ansible.builtin.command:
+    argv:
+      - busctl
+      - --system
+      - get-property
+      - org.freedesktop.Accounts
+      - "/org/freedesktop/Accounts/User{{ ansible_facts.user_uid }}"
+      - org.freedesktop.Accounts.User
+      - IconFile
+  register: applied_profile_icon
+  changed_when: false
+
+- name: Confirm AccountsService has an account photo
+  ansible.builtin.assert:
+    that:
+      - (applied_profile_icon.stdout | trim | regex_replace('^s \"', '') | regex_replace('\"$', '')) | length > 0
+    fail_msg: "AccountsService did not report a profile photo after the update."
+    quiet: true

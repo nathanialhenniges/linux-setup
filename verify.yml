@@ -86,10 +86,24 @@
       changed_when: false
       failed_when: false
 
+    - name: Read GDM enablement without starting the login screen
+      ansible.builtin.command:
+        argv: [systemctl, is-enabled, gdm.service]
+      register: gdm_state
+      changed_when: false
+      failed_when: false
+
     - name: Read SDDM enablement without starting the login screen
       ansible.builtin.command:
         argv: [systemctl, is-enabled, sddm.service]
       register: sddm_state
+      changed_when: false
+      failed_when: false
+
+    - name: Read the selected Plymouth theme
+      ansible.builtin.command:
+        argv: [plymouth-set-default-theme]
+      register: selected_plymouth_theme
       changed_when: false
       failed_when: false
 
@@ -143,6 +157,7 @@
              plymouth_branding_files.results[1].stat.checksum | default('') == plymouth_logo_sha256 and
              plymouth_branding_files.results[2].stat.checksum | default('') == dracut_plymouth_config_sha256 and
              'Theme=mrdemonwolf' in plymouth_branding_settings.results[0].stdout and
+             selected_plymouth_theme.stdout | default('') | trim == 'mrdemonwolf' and
              'quiet' in plymouth_branding_settings.results[1].stdout.split() and
              'splash' in plymouth_branding_settings.results[1].stdout.split() }}
 
@@ -160,7 +175,8 @@
           - flathub_system_lines | length == 1
           - flathub_system_lines[0].split()[-1] == core_flatpak_remote.url
           - workstation_services.results | selectattr('rc', 'equalto', 0) | selectattr('stdout', 'equalto', 'active') | list | length == 3
-          - sddm_state.stdout == 'enabled'
+          - gdm_state.stdout == 'enabled'
+          - sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime']
           - missing_hyprland_configs | length == 0
           - plymouth_branding_ready
           - sshd_state.results[0].stdout != 'active'
@@ -176,6 +192,7 @@
           - "Missing system Flatpaks: {{ missing_flatpak_packages }}"
           - "Flatpak origins: {{ flatpak_origins.results | map(attribute='stdout') | list }}"
           - "Power, Bluetooth, and NetworkManager services: {{ workstation_services.results | map(attribute='stdout') | list }}"
+          - "GDM enablement: {{ gdm_state.stdout }}"
           - "SDDM enablement: {{ sddm_state.stdout }}"
           - "Missing Hyprland config: {{ missing_hyprland_configs }}"
           - "MrDemonWolf Plymouth branding ready: {{ plymouth_branding_ready }}"
@@ -186,7 +203,7 @@
     - name: Show concise workstation status
       ansible.builtin.debug:
         msg: >-
-          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and missing_hyprland_configs | length == 0 and plymouth_branding_ready and sddm_state.stdout == 'enabled')
+          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and missing_hyprland_configs | length == 0 and plymouth_branding_ready and gdm_state.stdout == 'enabled' and sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'])
              else 'Needs setup' }} — {{ missing_pacman_packages | length }} pacman packages and
           {{ missing_flatpak_packages | length }} system Flatpaks, {{ missing_hyprland_configs | length }} Hyprland configs, Plymouth branding {{ 'ready' if plymouth_branding_ready else 'missing' }}.
       when: verification_mode == 'status'

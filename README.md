@@ -1,6 +1,6 @@
 # Nathanial’s MacBook Air
 
-Reinstall and setup guide for the **2015 MacBook Air (`MacBookAir7,2`)**. Install EndeavourOS with GNOME for the familiar desktop, then use this repository to add its light Hyprland session for Chrome, Google Workspace, ChatGPT, Discord, Ghostty, VS Code Remote SSH, remote desktops, Plex Desktop, and LibrePods.
+Reinstall and setup guide for the **2015 MacBook Air (`MacBookAir7,2`)**. Install EndeavourOS with GNOME for the familiar desktop, then use this repository to add the laptop apps and MrDemonWolf branding. GNOME stays the normal desktop; Hyprland remains an optional session.
 
 Follow the checkboxes from top to bottom. Stop when a step fails; fix that issue, then continue.
 
@@ -38,9 +38,9 @@ Wi-Fi works from the live USB, but the installed system needs its own driver. `.
 
 The setup installs headers for both the regular and LTS kernels so DKMS can build the Wi-Fi and FaceTime camera drivers for either boot option.
 
-When setup enables SDDM, it disables GDM if present. GNOME stays installed and remains available at the login screen alongside Hyprland.
+Setup keeps GDM enabled so the familiar GNOME login stays the default. Hyprland remains installed as an optional session.
 
-Use the supplied `assets/mrdemonwolf-logo.svg` and the existing wolf wallpaper for MrDemonWolf, Inc. branding. `./setup.sh all` copies the SVG into `~/Pictures`, applies the wolf wallpaper in GNOME when setup runs from its desktop session (and in the configured Hyprland session), then installs a separate Plymouth theme for the startup splash. The theme keeps the LUKS passphrase prompt visible and leaves EndeavourOS’s packaged theme files intact. With systemd-boot selected, setup preserves the existing root and LUKS options, adds `quiet splash`, and rebuilds the boot entries and initrds for installed kernels. The systemd-boot menu stays text-only and the Mac firmware picker is unchanged. If you enable SDDM auto-login later, the LUKS passphrase is still required at startup, then SDDM skips its login screen.
+Use the supplied `assets/mrdemonwolf-logo.svg` and the existing wolf wallpaper for MrDemonWolf, Inc. branding. `./setup.sh all` copies the logo into `~/Pictures`, applies the wallpaper when its desktop session is active, sets the supplied profile photo as your account/login picture, and installs the separate Plymouth startup theme. You can rerun only `./setup.sh profile-picture` to set the photo, `./setup.sh display-manager` to restore GDM as the login manager, or `./setup.sh branding` to rebuild the branded splash. The splash keeps the LUKS passphrase prompt visible and leaves EndeavourOS’s packaged theme files intact. With systemd-boot selected, setup preserves the existing root and LUKS options, adds `quiet splash`, and rebuilds the boot entries and initrds for installed kernels. The systemd-boot menu stays text-only and the Mac firmware picker is unchanged.
 
 ## 3. Set up the laptop
 
@@ -78,10 +78,10 @@ google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' >/dev/nu
 reboot
 ```
 
-- [ ] At the SDDM login screen, choose **GNOME** for the familiar desktop or **Hyprland** for this repository’s configured Wayland desktop.
+- [ ] At the GDM login screen, choose **GNOME** for the familiar desktop. Hyprland remains an optional session if you want to try it later.
 - [ ] Run `./setup.sh verify` from `~/Developer/linux-setup`.
 
-If setup stops, fix the displayed issue and rerun `./setup.sh all`. Finished actions are safe to repeat.
+If a step needs repair, rerun that action only. For example, `./setup.sh profile-picture`, `./setup.sh display-manager`, and `./setup.sh branding` do not rerun the full setup. Finished actions are safe to repeat.
 
 ## 4. First login
 
@@ -144,15 +144,17 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh camera` | Check the FaceTime HD camera driver and detected video device |
 | `./setup.sh --dry-run all` | Preview the full plan without sudo or network access |
 | `./setup.sh base` | Install base packages and power profiles |
-| `./setup.sh apps` | Install Hyprland, laptop apps, Wi-Fi support, Flatpaks, and LibrePods |
+| `./setup.sh apps` | Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and keep GDM enabled for GNOME |
 | `./setup.sh tools` | Install selected command-line tools |
-| `./setup.sh desktop` | Install Hyprland starter settings, wallpaper, and app shortcuts |
-| `./setup.sh branding` | Install the MrDemonWolf Plymouth boot splash (run `apps` first) |
+| `./setup.sh desktop` | Install optional Hyprland settings, wallpaper, app shortcuts, and the account photo |
+| `./setup.sh branding` | Select the MrDemonWolf Plymouth boot splash and rebuild boot images (run `apps` first) |
+| `./setup.sh display-manager` | Enable GDM and disable SDDM at startup; reboot to use the GNOME login screen |
+| `./setup.sh profile-picture` | Set the supplied profile photo without rerunning the full setup |
 | `./setup.sh purge-firefox` | Uninstall Firefox and erase its local data; leave Chrome and its profile untouched |
 | `./setup.sh dotfiles` | Run only dotfiles’ dedicated `linux-desktop.sh` profile |
 | `./setup.sh drive` | Show browser-only Google Drive steps |
 
-`all` runs base, apps, tools, desktop, branding, dotfiles, and verification in that order. Each action can be rerun.
+`all` runs base, apps, tools, desktop, branding, dotfiles, and verification in that order. The desktop step also sets the profile photo. Each action can be rerun on its own.
 
 ## What this setup does
 

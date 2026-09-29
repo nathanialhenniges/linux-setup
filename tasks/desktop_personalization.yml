@@ -88,6 +88,9 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: Set the account profile photo
+  ansible.builtin.import_tasks: profile_picture.yml
+
 - name: Read the current GNOME light wallpaper
   ansible.builtin.command:
     argv: [gsettings, get, org.gnome.desktop.background, picture-uri]
