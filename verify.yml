@@ -33,6 +33,27 @@
       ansible.builtin.package_facts:
         manager: pacman
 
+    - name: Read branded boot files without following links
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+        checksum_algorithm: sha256
+        follow: false
+      loop:
+        - { path: /usr/share/plymouth/themes/mrdemonwolf/mrdemonwolf.plymouth }
+        - { path: /usr/share/plymouth/themes/mrdemonwolf/watermark.png }
+        - { path: /etc/dracut.conf.d/99-mrdemonwolf-plymouth.conf }
+      register: plymouth_branding_files
+
+    - name: Read Plymouth and systemd-boot branding settings
+      ansible.builtin.command:
+        argv: [cat, "{{ item }}"]
+      loop:
+        - /etc/plymouth/plymouthd.conf
+        - /etc/kernel/cmdline
+      register: plymouth_branding_settings
+      changed_when: false
+      failed_when: false
+
     - name: Read installed system Flatpak IDs
       ansible.builtin.command:
         argv: [flatpak, list, --system, --columns=application]
@@ -113,6 +134,16 @@
       ansible.builtin.set_fact:
         missing_hyprland_configs: "{{ hyprland_config_state.results | rejectattr('stat.isreg', 'equalto', true) | map(attribute='item') | list }}"
 
+    - name: Report whether the branded Plymouth splash is fully configured
+      ansible.builtin.set_fact:
+        plymouth_branding_ready: >-
+          {{ plymouth_branding_files.results[0].stat.checksum | default('') == plymouth_theme_sha256 and
+             plymouth_branding_files.results[1].stat.checksum | default('') == plymouth_logo_sha256 and
+             plymouth_branding_files.results[2].stat.checksum | default('') == dracut_plymouth_config_sha256 and
+             'Theme=mrdemonwolf' in plymouth_branding_settings.results[0].stdout and
+             'quiet' in plymouth_branding_settings.results[1].stdout.split() and
+             'splash' in plymouth_branding_settings.results[1].stdout.split() }}
+
     - name: Select the configured Flathub system remote
       ansible.builtin.set_fact:
         flathub_system_lines: "{{ flatpak_remotes.stdout_lines | default([]) | select('match', '^flathub\\s') | list }}"
@@ -129,9 +160,10 @@
           - workstation_services.results | selectattr('rc', 'equalto', 0) | selectattr('stdout', 'equalto', 'active') | list | length == 3
           - sddm_state.stdout == 'enabled'
           - missing_hyprland_configs | length == 0
+          - plymouth_branding_ready
           - sshd_state.results[0].stdout != 'active'
           - sshd_state.results[1].stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime']
-        fail_msg: "Workstation verification found missing packages, untrusted Flatpaks, missing Hyprland config, or inactive laptop services. See the state report."
+        fail_msg: "Workstation verification found missing packages, untrusted Flatpaks, missing desktop or boot branding, or inactive laptop services. See the state report."
         quiet: true
       when: verification_mode == 'verify'
 
@@ -144,6 +176,7 @@
           - "Power, Bluetooth, and NetworkManager services: {{ workstation_services.results | map(attribute='stdout') | list }}"
           - "SDDM enablement: {{ sddm_state.stdout }}"
           - "Missing Hyprland config: {{ missing_hyprland_configs }}"
+          - "MrDemonWolf Plymouth branding ready: {{ plymouth_branding_ready }}"
           - "sshd service state: {{ sshd_state.results | map(attribute='stdout') | list }}"
           - "AUR apps: {{ aur_package_names | default([]) }}"
       when: verification_mode in ['state', 'verify']
@@ -151,7 +184,7 @@
     - name: Show concise workstation status
       ansible.builtin.debug:
         msg: >-
-          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and missing_hyprland_configs | length == 0 and sddm_state.stdout == 'enabled')
+          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and missing_hyprland_configs | length == 0 and plymouth_branding_ready and sddm_state.stdout == 'enabled')
              else 'Needs setup' }} — {{ missing_pacman_packages | length }} pacman packages and
-          {{ missing_flatpak_packages | length }} system Flatpaks, {{ missing_hyprland_configs | length }} Hyprland configs missing.
+          {{ missing_flatpak_packages | length }} system Flatpaks, {{ missing_hyprland_configs | length }} Hyprland configs, Plymouth branding {{ 'ready' if plymouth_branding_ready else 'missing' }}.
       when: verification_mode == 'status'

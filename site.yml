@@ -92,3 +92,8 @@
       ansible.builtin.import_tasks: tasks/desktop_personalization.yml
       when: setup_action == 'desktop'
       tags: [desktop]
+
+    - name: Apply MrDemonWolf startup branding
+      ansible.builtin.import_tasks: tasks/branding.yml
+      when: setup_action == 'branding'
+      tags: [branding]

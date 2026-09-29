@@ -1,6 +1,6 @@
 # Nathanial’s MacBook Air
 
-Reinstall and setup guide for the **2015 MacBook Air (`MacBookAir7,2`)**. This repository configures EndeavourOS with a light Hyprland desktop for Chrome, Google Workspace, ChatGPT, Discord, Ghostty, VS Code Remote SSH, remote desktops, Plex Desktop, and LibrePods.
+Reinstall and setup guide for the **2015 MacBook Air (`MacBookAir7,2`)**. Install EndeavourOS with GNOME for the familiar desktop, then use this repository to add its light Hyprland session for Chrome, Google Workspace, ChatGPT, Discord, Ghostty, VS Code Remote SSH, remote desktops, Plex Desktop, and LibrePods.
 
 Follow the checkboxes from top to bottom. Stop when a step fails; fix that issue, then continue.
 
@@ -10,8 +10,7 @@ For a larger, copy-friendly version with checkboxes saved in your browser, open 
 
 - [ ] Confirm you want a fresh install. The installer erases the Mac’s internal disk.
 - [ ] Have the Mac’s power adapter connected.
-- [ ] Prepare an EndeavourOS installer USB drive (8 GB or larger) and a data-capable USB-A-to-Lightning cable for the iPhone.
-- [ ] Plan internet access for the installer. This Mac’s Broadcom Wi-Fi may need its driver after installation.
+- [ ] Prepare an EndeavourOS installer USB drive (8 GB or larger) and a known-working backup internet route in case live-session Wi-Fi fails.
 - [ ] Download EndeavourOS from the [official EndeavourOS site](https://endeavouros.com/) and verify its published checksum or signature.
 - [ ] Write the ISO to a USB drive with [balenaEtcher](https://etcher.balena.io/). This erases the USB drive.
 
@@ -19,19 +18,27 @@ For a larger, copy-friendly version with checkboxes saved in your browser, open 
 
 - [ ] Insert the installer USB. Start the Mac while holding **Option (⌥)** and choose the EFI USB entry.
 - [ ] Open the installer and choose **Online install**.
-- [ ] Choose **No desktop environment** if the installer offers it. This repository installs Hyprland; do not add GNOME or KDE Plasma.
-- [ ] Keep the default `linux` kernel.
+- [ ] Choose **GNOME** and leave its EndeavourOS settings enabled. This repository adds Hyprland as a separate session.
+- [ ] On the package screen, keep **Desktop-Base + Common packages** and the installer’s recommended defaults selected. Keep Firefox, Spell Checker, Firewall, and Intel microcode selected if shown.
+- [ ] Keep the regular `linux` kernel and select **LTS kernel in addition** as a fallback.
+- [ ] Select **Printing support (CUPS)** for office printers. Leave **HP printer/scanner support** off until you know the printer make.
+- [ ] Select **Encrypt System** and set a LUKS passphrase. You will enter it at startup before Linux loads.
+- [ ] Keep EndeavourOS’s default **systemd-boot**. If the Mac shows its startup picker after installation, hold **Option (⌥)** and choose **EFI Boot**.
 - [ ] Choose the internal disk. Select **Erase disk** only after checking that you selected the MacBook Air’s internal disk.
 - [ ] Create your normal user account and password. Do not use root for setup.
-- [ ] Finish installation, remove the USB, and log in at the text console.
+- [ ] Finish installation and remove the USB. Log in to GNOME if you selected it; otherwise log in at the text console.
 
-Before opening the installer, test the iPhone connection in the live desktop:
+Before starting the online installer, test the Mac’s built-in Wi-Fi in the live desktop:
 
-- [ ] Connect the iPhone by USB, unlock it, then turn on **Settings → Personal Hotspot → Allow Others to Join**. Tap **Trust** if prompted.
-- [ ] Open the live desktop’s browser and load a webpage.
-- [ ] If the iPhone connection does not appear or the page will not load, stop before choosing **Erase disk**. Linux may need iPhone-tethering packages that are not present in the live USB. Use USB Ethernet or another known-working network connection first.
+- [ ] If EndeavourOS offers to install Wi-Fi drivers, accept the prompt. On this Mac, that enabled the internal Broadcom Wi-Fi in the live session.
+- [ ] Connect to Wi-Fi and load a webpage before continuing with **Online install**.
+- [ ] If Wi-Fi still does not work, stop before choosing **Erase disk** and use USB Ethernet or another known-working network route. iPhone USB tethering may need packages that are not present in the live USB.
 
-The Mac’s internal Wi-Fi driver is installed by the setup steps below, after the initial install has internet access.
+The live-session driver may not carry into the installed system. The `./setup.sh apps` action installs the reviewed Broadcom Wi-Fi package. Keep backup internet available until setup finishes; if Wi-Fi is missing afterward, rerun that action and reboot.
+
+When setup enables SDDM, it disables GDM if present. GNOME stays installed and remains available at the login screen alongside Hyprland.
+
+Use the supplied `assets/mrdemonwolf-logo.svg` and the existing wolf wallpaper for MrDemonWolf, Inc. branding. `./setup.sh all` copies the SVG into `~/Pictures`, applies the wolf wallpaper in GNOME when setup runs from its desktop session (and in the configured Hyprland session), then installs a separate Plymouth theme for the startup splash. The theme keeps the LUKS passphrase prompt visible and leaves EndeavourOS’s packaged theme files intact. With systemd-boot selected, setup preserves the existing root and LUKS options, adds `quiet splash`, and rebuilds the boot entries and initrds for installed kernels. The systemd-boot menu stays text-only and the Mac firmware picker is unchanged. If you enable SDDM auto-login later, the LUKS passphrase is still required at startup, then SDDM skips its login screen.
 
 ## 3. Set up the laptop
 
@@ -62,16 +69,16 @@ cd linux-setup
 reboot
 ```
 
-- [ ] At the login screen, choose **Hyprland** and sign in.
+- [ ] At the SDDM login screen, choose **GNOME** for the familiar desktop or **Hyprland** for this repository’s configured Wayland desktop.
 - [ ] Run `./setup.sh verify` from `~/Developer/linux-setup`.
 
 If setup stops, fix the displayed issue and rerun `./setup.sh all`. Finished actions are safe to repeat.
 
 ## 4. First login
 
-- [ ] Connect to Wi-Fi using the network icon in the top bar. If internal Wi-Fi is missing, use USB Ethernet or phone tethering, then reboot once after setup installed the Broadcom driver.
-- [ ] Press **Super + Enter** to open Ghostty. On this Mac’s keyboard, Super is the Command (⌘) key.
-- [ ] Press **Super + Space** to open the app launcher.
+- [ ] Check Wi-Fi from the top bar after setup and reboot. If it is missing, use USB Ethernet or another working network route, rerun `./setup.sh apps`, then reboot.
+- [ ] If using GNOME, open Terminal from the app grid. If using Hyprland, press **Super + Enter** for Ghostty; on this Mac, Super is the Command (⌘) key.
+- [ ] If using Hyprland, press **Super + Space** to open its app launcher.
 - [ ] Open Chrome and sign in to Google. Docs, Sheets, Slides, Notion, Quo, and ChatGPT shortcuts appear in the launcher.
 - [ ] Open Google Drive at [drive.google.com](https://drive.google.com/). Drive stays browser-only.
 - [ ] Sign in to Discord. Open Plex Desktop and Cider as needed; Cider activation and Apple sign-in are manual.
@@ -127,10 +134,11 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh apps` | Install Hyprland, laptop apps, Wi-Fi support, Flatpaks, and LibrePods |
 | `./setup.sh tools` | Install selected command-line tools |
 | `./setup.sh desktop` | Install Hyprland starter settings, wallpaper, and app shortcuts |
+| `./setup.sh branding` | Install the MrDemonWolf Plymouth boot splash (run `apps` first) |
 | `./setup.sh dotfiles` | Run only dotfiles’ dedicated `linux-desktop.sh` profile |
 | `./setup.sh drive` | Show browser-only Google Drive steps |
 
-`all` runs base, apps, tools, desktop, dotfiles, and verification in that order. Each action can be rerun.
+`all` runs base, apps, tools, desktop, branding, dotfiles, and verification in that order. Each action can be rerun.
 
 ## What this setup does
 

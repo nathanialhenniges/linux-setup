@@ -88,6 +88,48 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: Read the current GNOME light wallpaper
+  ansible.builtin.command:
+    argv: [gsettings, get, org.gnome.desktop.background, picture-uri]
+  register: gnome_light_wallpaper
+  changed_when: false
+  when: "'GNOME' in (ansible_facts.env.XDG_CURRENT_DESKTOP | default(''))"
+
+- name: Set the supplied wallpaper in GNOME light mode
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.desktop.background
+      - picture-uri
+      - "'file://{{ workstation_home }}/Pictures/mrdemonwolf-desktop-wallpaper.png'"
+  when:
+    - "'GNOME' in (ansible_facts.env.XDG_CURRENT_DESKTOP | default(''))"
+    - >-
+      (gnome_light_wallpaper.stdout | trim | regex_replace("(^'|'$)", "")) !=
+      "file://" ~ workstation_home ~ "/Pictures/mrdemonwolf-desktop-wallpaper.png"
+
+- name: Read the current GNOME dark wallpaper
+  ansible.builtin.command:
+    argv: [gsettings, get, org.gnome.desktop.background, picture-uri-dark]
+  register: gnome_dark_wallpaper
+  changed_when: false
+  when: "'GNOME' in (ansible_facts.env.XDG_CURRENT_DESKTOP | default(''))"
+
+- name: Set the supplied wallpaper in GNOME dark mode
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.desktop.background
+      - picture-uri-dark
+      - "'file://{{ workstation_home }}/Pictures/mrdemonwolf-desktop-wallpaper.png'"
+  when:
+    - "'GNOME' in (ansible_facts.env.XDG_CURRENT_DESKTOP | default(''))"
+    - >-
+      (gnome_dark_wallpaper.stdout | trim | regex_replace("(^'|'$)", "")) !=
+      "file://" ~ workstation_home ~ "/Pictures/mrdemonwolf-desktop-wallpaper.png"
+
 - name: Inspect existing Hyprland starter configuration files
   ansible.builtin.stat:
     path: "{{ workstation_home }}/{{ item.dest }}"

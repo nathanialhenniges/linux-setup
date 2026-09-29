@@ -7,23 +7,23 @@
   <meta name="robots" content="noindex, follow">
   <link rel="canonical" href="https://nathanialhenniges.github.io/linux-setup/">
   <link rel="icon" type="image/svg+xml" href="/linux-setup/favicon.svg">
-  <meta name="description" content="A step-by-step checklist to reinstall a 2015 MacBook Air with EndeavourOS and set up a lightweight Hyprland work laptop.">
+  <meta name="description" content="MrDemonWolf, Inc. guide to installing EndeavourOS with GNOME on a 2015 MacBook Air, with Hyprland as a separate session.">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="MacBook Air Reinstall Guide">
-  <meta property="og:title" content="MacBook Air Reinstall Guide | EndeavourOS + Hyprland">
-  <meta property="og:description" content="A step-by-step checklist to reinstall a 2015 MacBook Air with EndeavourOS and set up a lightweight Hyprland work laptop.">
+  <meta property="og:site_name" content="MrDemonWolf, Inc.">
+  <meta property="og:title" content="MrDemonWolf, Inc. | MacBook Air Linux Guide">
+  <meta property="og:description" content="MrDemonWolf, Inc. guide to installing EndeavourOS with GNOME on a 2015 MacBook Air, with Hyprland as a separate session.">
   <meta property="og:url" content="https://nathanialhenniges.github.io/linux-setup/">
   <meta property="og:image" content="https://nathanialhenniges.github.io/linux-setup/og-image.png">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Dark navy and cyan card for the 2015 MacBook Air EndeavourOS and Hyprland reinstall guide.">
+  <meta property="og:image:alt" content="MrDemonWolf, Inc. branded 2015 MacBook Air EndeavourOS install guide for GNOME and Hyprland.">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="MacBook Air Reinstall Guide | EndeavourOS + Hyprland">
-  <meta name="twitter:description" content="A step-by-step checklist to reinstall a 2015 MacBook Air with EndeavourOS and set up a lightweight Hyprland work laptop.">
+  <meta name="twitter:title" content="MrDemonWolf, Inc. | MacBook Air Linux Guide">
+  <meta name="twitter:description" content="MrDemonWolf, Inc. guide to installing EndeavourOS with GNOME on a 2015 MacBook Air, with Hyprland as a separate session.">
   <meta name="twitter:image" content="https://nathanialhenniges.github.io/linux-setup/og-image.png">
-  <meta name="twitter:image:alt" content="Dark navy and cyan card for the 2015 MacBook Air EndeavourOS and Hyprland reinstall guide.">
-  <title>MacBook Air Reinstall Guide | EndeavourOS + Hyprland</title>
+  <meta name="twitter:image:alt" content="MrDemonWolf, Inc. branded 2015 MacBook Air EndeavourOS install guide for GNOME and Hyprland.">
+  <title>MrDemonWolf, Inc. | MacBook Air Linux Guide</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
     :root { color-scheme: dark; scroll-behavior: smooth; }
@@ -59,16 +59,16 @@
   <header class="bg-[#091533] text-white">
     <div class="mx-auto max-w-6xl px-5 pb-9 pt-5 sm:px-8 sm:pb-12">
       <nav class="flex items-center justify-between gap-4 text-sm">
-        <a class="font-bold tracking-wide text-sky-300" href="https://github.com/nathanialhenniges/linux-setup">MBA REBUILD</a>
+        <a class="flex items-center gap-3 font-bold tracking-wide text-sky-300" href="https://github.com/nathanialhenniges/linux-setup"><img class="h-10 w-10 rounded-full" src="/linux-setup/favicon.svg" alt=""><span><span class="block">MrDemonWolf, Inc.</span><span class="block text-xs font-medium text-white/70">MacBook Air setup</span></span></a>
         <a class="rounded-full border border-white/20 px-4 py-2 text-white/80 hover:bg-white/10 focus:ring-2 focus:ring-sky-300" href="https://github.com/nathanialhenniges/linux-setup#readme">Full README</a>
       </nav>
       <div class="mt-10 grid items-center gap-8 md:mt-12 md:grid-cols-[1.25fr_.75fr]">
         <div>
           <p class="text-sm font-bold uppercase tracking-[.18em] text-sky-300">2015 MacBook Air · MacBookAir7,2</p>
           <h1 class="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">One calm checklist.<br><span class="text-sky-300">One step at a time.</span></h1>
-          <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200">Install EndeavourOS, then set up a light Hyprland laptop for work, remote sessions, and everyday use.</p>
+          <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200">Install EndeavourOS with GNOME, then add this repository’s light Hyprland session for work and remote sessions.</p>
           <div class="mt-6 flex flex-wrap gap-2 text-sm">
-            <span class="rounded-full bg-white/10 px-3 py-1.5">No Linux experience assumed</span>
+            <span class="rounded-full bg-white/10 px-3 py-1.5">Mac-specific laptop setup</span>
             <span class="rounded-full bg-white/10 px-3 py-1.5">Progress saves in this browser</span>
             <span class="rounded-full bg-white/10 px-3 py-1.5">Fresh install erases the disk</span>
           </div>
@@ -121,7 +121,7 @@
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="erase-ok"><span class="task-text leading-6"><strong>I’m ready for a fresh install.</strong> It erases the internal disk; nothing from this broken Ubuntu install needs to be kept.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="charger"><span class="task-text leading-6">Connect the MacBook Air’s power adapter.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="usb"><span class="task-text leading-6">Have an <strong>8 GB or larger USB drive</strong>. Writing the installer erases that USB drive.</span></label>
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="iphone-cable"><span class="task-text leading-6">Have a data-capable <strong>USB-A to Lightning cable</strong> for the iPhone.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="backup-network"><span class="task-text leading-6">Keep a backup internet option available, such as USB Ethernet, in case the live Wi-Fi driver prompt fails.</span></label>
           <div class="task flex gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="iso"><div class="leading-6"><label class="task-text cursor-pointer" for="iso">Download EndeavourOS and verify its published checksum or signature.</label> <a class="font-semibold text-sky-800 underline" href="https://endeavouros.com/" target="_blank" rel="noreferrer">Official site</a></div></div>
           <div class="task flex gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="write-usb"><div class="leading-6"><label class="task-text cursor-pointer" for="write-usb">Write the ISO to the USB drive with balenaEtcher.</label> <a class="font-semibold text-sky-800 underline" href="https://etcher.balena.io/" target="_blank" rel="noreferrer">Download balenaEtcher</a></div></div>
         </div>
@@ -130,31 +130,44 @@
       <section id="internet" class="rounded-3xl border border-sky-200 bg-sky-50 p-5 shadow-sm sm:p-7">
         <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-200 font-black text-sky-950">2</span><div><h2 class="text-2xl font-black">Boot the USB and test internet</h2><p class="mt-1 text-slate-700">Do this in the live session <strong>before opening the installer</strong>.</p></div></div>
         <div class="mt-5 grid items-center gap-4 rounded-2xl border border-sky-200 bg-white p-4 sm:grid-cols-[1fr_150px] sm:p-5">
-          <div><p class="font-bold">iPhone → cable → MacBook Air → working webpage</p><p class="mt-2 text-sm leading-6 text-slate-600">Internal Broadcom Wi-Fi may need its driver after installation. Confirm the live USB has another working internet route first.</p></div>
-          <svg class="mx-auto h-28 w-40" viewBox="0 0 160 112" role="img" aria-label="iPhone connected by cable to a MacBook"><rect x="4" y="13" width="31" height="56" rx="7" fill="#e0f2fe" stroke="#0369a1" stroke-width="2"/><rect x="9" y="20" width="21" height="38" rx="2" fill="#bae6fd"/><circle cx="20" cy="63" r="2" fill="#0369a1"/><path d="M35 47h18v36c0 8 5 12 12 12h18" fill="none" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/><path d="M70 73h78l-8 25H62z" fill="#e2e8f0" stroke="#334155" stroke-width="2"/><path d="M79 78h60l-4 16H73z" fill="#bae6fd"/><path d="M58 100h94" stroke="#334155" stroke-width="4" stroke-linecap="round"/></svg>
+          <div><p class="font-bold">MacBook Air → Broadcom Wi-Fi driver → working connection</p><p class="mt-2 text-sm leading-6 text-slate-600">EndeavourOS offered to install the Wi-Fi driver in the live session. Accepting it made the internal Wi-Fi work on this Mac. Keep a backup network route in case the prompt fails.</p></div>
         </div>
         <ol class="mt-4 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-700">
           <li>Start the Mac while holding <strong>Option (⌥)</strong>. Choose the USB’s <strong>EFI</strong> entry.</li>
-          <li>Unlock the iPhone, connect it, then turn on <strong>Settings → Personal Hotspot → Allow Others to Join</strong>. Tap <strong>Trust</strong> if asked.</li>
+          <li>If EndeavourOS offers to install Wi-Fi drivers, accept the prompt.</li>
           <li>Open a browser in the live session and load a webpage.</li>
         </ol>
-        <div class="mt-4 rounded-2xl border-l-4 border-rose-500 bg-rose-50 p-4 text-sm leading-6 text-rose-950"><strong>If the page will not load, stop here.</strong> iPhone USB tethering may need packages the live USB does not have. Use USB Ethernet or another known-working connection first. Do not erase the disk yet.</div>
-        <label class="task mt-4 flex cursor-pointer gap-3 rounded-2xl border border-sky-200 bg-white p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="live-internet"><span class="task-text leading-6">The live session loaded a webpage using the iPhone or another connection.</span></label>
+        <div class="mt-4 rounded-2xl border-l-4 border-rose-500 bg-rose-50 p-4 text-sm leading-6 text-rose-950"><strong>If Wi-Fi still does not work, stop here.</strong> Use USB Ethernet or another known-working network route before continuing. iPhone USB tethering may need packages the live USB does not have. Do not erase the disk yet.</div>
+        <label class="task mt-4 flex cursor-pointer gap-3 rounded-2xl border border-sky-200 bg-white p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="live-internet"><span class="task-text leading-6">The live session loaded a webpage over internal Wi-Fi after accepting the driver prompt, or through a backup route.</span></label>
       </section>
 
       <section id="install" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">3</span><div><h2 class="text-2xl font-black">Install EndeavourOS</h2><p class="mt-1 text-slate-600">The live desktop can look different from the final Hyprland desktop.</p></div></div>
+        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">3</span><div><h2 class="text-2xl font-black">Install EndeavourOS</h2><p class="mt-1 text-slate-600">Choose GNOME for the graphical desktop. This repository adds Hyprland as a separate session.</p></div></div>
         <div class="mt-5 space-y-3">
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="online"><span class="task-text leading-6">Start the installer and choose <strong>Online install</strong>.</span></label>
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="no-desktop"><span class="task-text leading-6">Choose <strong>No desktop environment</strong> if offered. This repo installs Hyprland; don’t add GNOME or KDE Plasma to the installed system.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="gnome"><span class="task-text leading-6">Choose <strong>GNOME</strong> and leave its EndeavourOS settings enabled. This repository adds Hyprland as a separate session; you can choose GNOME or Hyprland at login.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-rose-200 bg-rose-50/70 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-rose-700" type="checkbox" data-check id="erase-disk"><span class="task-text leading-6"><strong>Check the disk name.</strong> Select the MacBook Air’s internal disk, then choose <strong>Erase disk</strong>.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="user"><span class="task-text leading-6">Create your normal user account and password. Do not use root for setup.</span></label>
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="finish-install"><span class="task-text leading-6">Finish installation, remove the USB when prompted, and log in.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="finish-install"><span class="task-text leading-6">Finish installation and remove the USB. Log in to GNOME if you selected it; otherwise log in at the text console.</span></label>
         </div>
+        <div class="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-slate-700">
+          <h3 class="font-bold text-sky-950">Installer choices for this Mac</h3>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li><strong>Packages:</strong> Keep <strong>Desktop-Base + Common packages</strong> and the recommended defaults selected. Keep Firefox, Spell Checker, Firewall, and Intel microcode selected if shown; leave GNOME’s EndeavourOS settings enabled.</li>
+            <li><strong>Kernel:</strong> Keep the regular <code>linux</code> kernel and select <strong>LTS kernel in addition</strong> as a fallback.</li>
+            <li><strong>Printing:</strong> Select general <strong>Printing support (CUPS)</strong>. Leave HP-specific printer/scanner support off until the office printer’s make is known.</li>
+            <li><strong>Encryption:</strong> Select <strong>Encrypt System</strong> and set a LUKS passphrase. You will enter it at startup before Linux loads.</li>
+            <li><strong>Bootloader:</strong> Keep EndeavourOS’s default <strong>systemd-boot</strong>. If the Mac shows its startup picker after installation, hold <strong>Option (⌥)</strong> and choose <strong>EFI Boot</strong>.</li>
+          </ul>
+          <p class="mt-3">GNOME uses Wayland. XWayland lets older X11 apps run inside that desktop; it is not another desktop choice.</p>
+          <p class="mt-3"><strong>MrDemonWolf, Inc. branding:</strong> <code>./setup.sh all</code> copies the supplied logo into <code>~/Pictures</code>, applies the existing wolf wallpaper in GNOME when setup runs from its desktop session, and installs a separate Plymouth startup theme. The logo remains visible with the LUKS passphrase prompt. systemd-boot’s menu stays text-only, and the Mac firmware picker stays unchanged. If you enable SDDM auto-login later, the LUKS passphrase is still required at startup, then SDDM skips its login screen.</p>
+        </div>
+        <p class="mt-4 rounded-2xl bg-sky-50 p-4 text-sm leading-6 text-slate-700">When setup enables SDDM, it disables GDM if present. GNOME stays installed and remains available at the login screen alongside Hyprland.</p>
       </section>
 
       <section id="setup" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">4</span><div><h2 class="text-2xl font-black">Copy, paste, and run setup</h2><p class="mt-1 text-slate-600">Use Ghostty or another terminal. Run commands as your normal account, not root.</p></div></div>
+        <p class="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-slate-700">Live-session Wi-Fi may not carry into the installed system. Keep USB Ethernet or another working route available until <code>./setup.sh apps</code> installs Broadcom support, then reboot and recheck Wi-Fi.</p>
         <div class="mt-5 space-y-4">
           <div class="rounded-2xl border border-slate-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold">If Git is missing</h3><button class="copy-btn rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold hover:bg-slate-200 focus:ring-2 focus:ring-sky-500" data-copy="cmd-git">Copy command</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm text-sky-100"><code id="cmd-git">sudo pacman -Syu --needed git</code></pre></div>
           <div class="rounded-2xl border border-slate-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold">Download the setup repo</h3><button class="copy-btn rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold hover:bg-slate-200 focus:ring-2 focus:ring-sky-500" data-copy="cmd-clone">Copy commands</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm leading-6 text-sky-100"><code id="cmd-clone">mkdir -p ~/Developer
@@ -171,11 +184,11 @@ cd linux-setup</code></pre></div>
       </section>
 
       <section id="first-login" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">5</span><div><h2 class="text-2xl font-black">First login and quick checks</h2><p class="mt-1 text-slate-600">Choose Hyprland at login. The Mac’s Command key acts as Super.</p></div></div>
+        <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">5</span><div><h2 class="text-2xl font-black">First login and quick checks</h2><p class="mt-1 text-slate-600">At SDDM, choose GNOME if you installed it, or Hyprland. The Mac’s Command key acts as Super in Hyprland.</p></div></div>
         <div class="mt-5 space-y-3">
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="hyprland"><span class="task-text leading-6">Choose <strong>Hyprland</strong> at the login screen and sign in.</span></label>
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="wifi"><span class="task-text leading-6">Connect to Wi-Fi from the top bar. If internal Wi-Fi is missing, use phone tethering or USB Ethernet; after setup installs the Broadcom driver, reboot once.</span></label>
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="verify"><span class="task-text leading-6">Open Ghostty with <strong>Super + Enter</strong>, then run the verify command.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="hyprland"><span class="task-text leading-6">Choose an installed session at the login screen and sign in.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="wifi"><span class="task-text leading-6">The live-session driver may not carry over. Check Wi-Fi after setup and reboot. If missing, use USB Ethernet or another working network route, rerun <code>./setup.sh apps</code>, then reboot.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="verify"><span class="task-text leading-6">Open Terminal from GNOME’s app grid, or press <strong>Super + Enter</strong> in Hyprland, then run the verify command.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="hardware"><span class="task-text leading-6">Check camera, audio, brightness keys, trackpad, suspend, and wake. Keep <strong>Power Saver</strong> selected for normal battery use.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="accounts"><span class="task-text leading-6">Sign in to Chrome, Workspace, and Discord as needed. Google Drive stays in the browser; Cider activation and AirPods pairing are manual.</span></label>
         </div>

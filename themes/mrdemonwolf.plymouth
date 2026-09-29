@@ -1,0 +1,24 @@
+[Plymouth Theme]
+Name=MrDemonWolf, Inc.
+Description=MrDemonWolf, Inc. startup splash
+ModuleName=two-step
+
+[two-step]
+Font=Sans 12
+TitleFont=Sans 24
+ImageDir=/usr/share/plymouth/themes/mrdemonwolf
+DialogHorizontalAlignment=.5
+DialogVerticalAlignment=.382
+TitleHorizontalAlignment=.5
+TitleVerticalAlignment=.382
+HorizontalAlignment=.5
+VerticalAlignment=.7
+WatermarkHorizontalAlignment=.5
+WatermarkVerticalAlignment=.45
+Transition=none
+TransitionDuration=0.0
+BackgroundStartColor=0x091533
+BackgroundEndColor=0x091533
+ProgressBarBackgroundColor=0x344060
+ProgressBarForegroundColor=0x00aced
+MessageBelowAnimation=true

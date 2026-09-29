@@ -18,7 +18,7 @@ Usage: ./setup.sh [--dry-run] <action>
 
 Actions:
   bootstrap   Upgrade the system and install local Ansible
-  all         Run base, apps, tools, desktop, dotfiles, then verify
+  all         Run base, apps, tools, desktop, branding, dotfiles, then verify
   status      Show a short readiness summary
   state       Show missing packages, Flatpak origins, and service state
   verify      Fail unless the reviewed workstation state is present
@@ -26,6 +26,7 @@ Actions:
   apps        Install Hyprland, laptop apps, Wi-Fi support, Flatpaks, and LibrePods
   tools       Install the selected command-line tools
   desktop     Configure Hyprland, wallpaper, and Workspace/ChatGPT shortcuts
+  branding    Install the branded Plymouth startup splash
   dotfiles    Run only the dedicated dotfiles linux-desktop.sh profile
   drive       Show the browser-only Google Drive steps
   terminal    Show the Ghostty keyboard shortcut
@@ -182,7 +183,7 @@ dry_run() {
       ;;
     all)
       printf '  sudo pacman -Syu --needed ansible-core\n'
-      printf '  Ansible actions: base → apps → tools → desktop\n'
+      printf '  Ansible actions: base → apps → tools → desktop → branding\n'
       printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
       printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
       printf '  Final: strict status verification\n'
@@ -194,7 +195,11 @@ dry_run() {
       ;;
     desktop)
       printf '  Local Ansible action: desktop\n'
-      printf '  Install Hyprland and Waybar configs, wallpaper, and reviewed Chrome shortcuts\n'
+      printf '  Install Hyprland and Waybar configs, logo and wallpaper, and reviewed Chrome shortcuts\n'
+      ;;
+    branding)
+      printf '  Local Ansible action: branding\n'
+      printf '  Set the custom Plymouth theme and quiet splash, then rebuild systemd-boot entries and initrds\n'
       ;;
     dotfiles)
       printf '  Clone or fast-forward the clean expected dotfiles checkout\n'
@@ -267,6 +272,7 @@ main() {
       install_aur_apps
       run_site_action tools
       run_site_action desktop
+      run_site_action branding
       run_dotfiles
       run_verification verify
       ;;
@@ -286,6 +292,10 @@ main() {
     desktop)
       assert_target
       run_site_action desktop
+      ;;
+    branding)
+      assert_target
+      run_site_action branding
       ;;
     dotfiles)
       run_dotfiles

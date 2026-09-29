@@ -19,7 +19,19 @@
     enabled: true
     state: started
 
-- name: Enable the Hyprland login screen for the next boot
+- name: Check whether GNOME Display Manager is installed
+  ansible.builtin.stat:
+    path: /usr/lib/systemd/system/gdm.service
+  register: gdm_unit
+
+- name: Disable GDM before switching the login screen to SDDM
+  become: true
+  ansible.builtin.systemd_service:
+    name: gdm.service
+    enabled: false
+  when: gdm_unit.stat.exists
+
+- name: Enable SDDM for Hyprland and other installed sessions
   become: true
   ansible.builtin.systemd_service:
     name: sddm.service

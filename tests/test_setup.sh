@@ -19,7 +19,10 @@ grep -Fq 'ansible_connection=local' inventory.ini || fail 'inventory must stay l
 grep -Fq 'setup_action in supported_actions' site.yml || fail 'Ansible must require an explicit reviewed action'
 grep -Fq 'MacBookAir7,2' site.yml || fail 'Ansible must lock the target model'
 grep -Fq 'hyprland' vars.yml || fail 'the reviewed desktop package set must include Hyprland'
+grep -Fq 'plymouth' vars.yml || fail 'the reviewed apps package set must include Plymouth'
 grep -Fq 'sddm.service' tasks/apps.yml || fail 'the Hyprland login manager must be enabled'
+grep -Fq "when: setup_action == 'branding'" site.yml || fail 'branding must remain an explicit setup action'
+grep -Fq '/usr/bin/reinstall-kernels' tasks/branding.yml || fail 'branding must rebuild systemd-boot kernel images'
 grep -Fq 'bind = $mainMod, R, submap, remote_mac' templates/hyprland.conf.j2 || fail 'Hyprland must provide Remote Mac key passthrough'
 grep -Fq 'bind = , Escape, submap, reset' templates/hyprland.conf.j2 || fail 'Remote Mac mode must have a local escape key'
 grep -Fq '"hyprland/submap"' templates/waybar-config.jsonc.j2 || fail 'Waybar must show active Hyprland submaps'
@@ -45,6 +48,7 @@ grep -Fq 'not ansible_check_mode' tasks/flatpak_apps.yml || fail 'Flatpak mutati
 grep -Fq 'checksum: "sha256:{{ librepods.sha256 }}"' tasks/librepods.yml || fail 'LibrePods download needs checksum validation'
 grep -Fq '0569ba9a15aa58e660ec3ccb7d2d39ffd8800d6a5da3741802aefd86fd4b55a6' THIRD-PARTY-NOTICES.md || fail 'LibrePods pin needs notice coverage'
 grep -Fq '1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840' THIRD-PARTY-NOTICES.md || fail 'wallpaper pin needs notice coverage'
+grep -Fq '22903bf7891d144cf729cef04f3838567f1f9bc994e7c35dd65aeccbbeaac7f0' THIRD-PARTY-NOTICES.md || fail 'Plymouth logo pin needs notice coverage'
 grep -Fq '1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673' THIRD-PARTY-NOTICES.md || fail 'profile image pin needs notice coverage'
 
 git diff --check

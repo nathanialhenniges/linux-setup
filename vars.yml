@@ -3,6 +3,7 @@ supported_actions:
   - apps
   - tools
   - desktop
+  - branding
 
 expected_product_name: MacBookAir7,2
 workstation_home: "{{ ansible_facts.env.HOME }}"
@@ -50,6 +51,7 @@ core_pacman_app_packages:
   - mesa
   - network-manager-applet
   - networkmanager
+  - plymouth
   - pipewire
   - pipewire-alsa
   - pipewire-pulse
@@ -102,8 +104,14 @@ librepods:
 desktop_assets:
   - name: mrdemonwolf-desktop-wallpaper.png
     sha256: 1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840
+  - name: mrdemonwolf-logo.svg
+    sha256: 073aa24eea5a1385f42d4156e0328e8261a696ab3faeb1ec3544d7db30b586bf
   - name: nathanial-henniges-profile-picture.jpg
     sha256: 1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673
+
+plymouth_theme_sha256: b580642ff16800847051de2e3e57e83e7f7b876fe027f7f4520f07d20b45eefa
+plymouth_logo_sha256: 22903bf7891d144cf729cef04f3838567f1f9bc994e7c35dd65aeccbbeaac7f0
+dracut_plymouth_config_sha256: 4a7d9ad48c35e41043e81024bf32d36c6001ee9ba1dfb154d072e6386e172f60
 
 chrome_web_app_launchers:
   - { name: Google Docs, desktop_id: linux-setup-google-docs.desktop, wm_class: linux-setup-google-docs, url: "https://docs.google.com/document/", icon_file: linux-setup-google-docs.ico, icon_url: "https://docs.google.com/favicon.ico", icon_sha256: 16640c06f6249fdafd7828fd8425753abc360864dfd88f66704a32c38943c805, categories: "Office;" }

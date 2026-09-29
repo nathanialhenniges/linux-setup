@@ -1,0 +1,203 @@
+---
+- name: Verify the checked-in Plymouth theme and supplied logo
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/{{ item.path }}"
+    checksum_algorithm: sha256
+    follow: false
+  loop:
+    - { path: themes/mrdemonwolf.plymouth, sha256: "{{ plymouth_theme_sha256 }}" }
+    - { path: assets/mrdemonwolf-plymouth-logo.png, sha256: "{{ plymouth_logo_sha256 }}" }
+  register: plymouth_source_assets
+
+- name: Refuse changed or unsafe Plymouth source assets
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+      - item.stat.checksum == item.item.sha256
+    fail_msg: "The reviewed Plymouth theme asset is missing or has changed: {{ item.item.path }}"
+    quiet: true
+  loop: "{{ plymouth_source_assets.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+
+- name: Inspect Plymouth and systemd-boot prerequisites
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    follow: false
+  loop:
+    - { path: /usr/share/plymouth/themes/spinner }
+    - { path: /etc/kernel/cmdline }
+    - { path: /usr/bin/reinstall-kernels }
+    - { path: /etc/plymouth/plymouthd.conf }
+  register: branding_prerequisites
+
+- name: Require the EndeavourOS systemd-boot and Plymouth layout
+  ansible.builtin.assert:
+    that:
+      - branding_prerequisites.results[0].stat.isdir | default(false)
+      - not (branding_prerequisites.results[0].stat.islnk | default(false))
+      - branding_prerequisites.results[1].stat.isreg | default(false)
+      - not (branding_prerequisites.results[1].stat.islnk | default(false))
+      - branding_prerequisites.results[2].stat.executable | default(false)
+      - branding_prerequisites.results[3].stat.isreg | default(false)
+      - not (branding_prerequisites.results[3].stat.islnk | default(false))
+    fail_msg: "Plymouth branding expects the installer’s systemd-boot setup. Run ./setup.sh apps first and keep systemd-boot selected in the installer."
+    quiet: true
+
+- name: Read the current systemd-boot kernel command line
+  ansible.builtin.slurp:
+    src: /etc/kernel/cmdline
+  register: systemd_boot_cmdline
+
+- name: Preserve the installed root and encryption boot options
+  ansible.builtin.assert:
+    that:
+      - "'root=' in (systemd_boot_cmdline.content | b64decode | trim)"
+      - "'\n' not in (systemd_boot_cmdline.content | b64decode | trim)"
+    fail_msg: "Refusing to edit an unexpected /etc/kernel/cmdline; keep its existing root and LUKS options intact."
+    quiet: true
+
+- name: Inspect the custom Plymouth theme destination
+  ansible.builtin.stat:
+    path: /usr/share/plymouth/themes/mrdemonwolf
+    follow: false
+  register: mrdemonwolf_theme_dir
+
+- name: Refuse an unsafe custom Plymouth theme destination
+  ansible.builtin.assert:
+    that:
+      - not (mrdemonwolf_theme_dir.stat.islnk | default(false))
+      - not (mrdemonwolf_theme_dir.stat.exists | default(false)) or mrdemonwolf_theme_dir.stat.isdir | default(false)
+    fail_msg: "Refusing an unsafe Plymouth theme path: /usr/share/plymouth/themes/mrdemonwolf"
+    quiet: true
+
+- name: Inspect existing files owned by the MrDemonWolf Plymouth theme
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    checksum_algorithm: sha256
+    follow: false
+  loop:
+    - { path: /usr/share/plymouth/themes/mrdemonwolf/mrdemonwolf.plymouth, sha256: "{{ plymouth_theme_sha256 }}" }
+    - { path: /usr/share/plymouth/themes/mrdemonwolf/watermark.png, sha256: "{{ plymouth_logo_sha256 }}" }
+  register: mrdemonwolf_theme_files
+
+- name: Refuse unknown or unsafe existing MrDemonWolf theme files
+  ansible.builtin.assert:
+    that:
+      - not (item.stat.islnk | default(false))
+      - >-
+        not (item.stat.exists | default(false)) or
+        (item.stat.isreg | default(false) and item.stat.checksum == item.item.sha256)
+    fail_msg: "Refusing unknown or modified MrDemonWolf Plymouth theme file: {{ item.item.path }}"
+    quiet: true
+  loop: "{{ mrdemonwolf_theme_files.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+
+- name: Refuse an existing unmarked MrDemonWolf theme directory
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (mrdemonwolf_theme_dir.stat.exists | default(false)) or
+        (mrdemonwolf_theme_files.results[0].stat.isreg | default(false) and
+         mrdemonwolf_theme_files.results[0].stat.checksum == plymouth_theme_sha256 and
+         mrdemonwolf_theme_files.results[1].stat.isreg | default(false) and
+         mrdemonwolf_theme_files.results[1].stat.checksum == plymouth_logo_sha256)
+    fail_msg: "The existing Plymouth theme directory has no matching MrDemonWolf theme markers."
+    quiet: true
+
+- name: Ensure the separate MrDemonWolf Plymouth theme directory exists
+  become: true
+  ansible.builtin.file:
+    path: /usr/share/plymouth/themes/mrdemonwolf
+    state: directory
+    mode: "0755"
+
+- name: Copy the packaged spinner assets into the separate local theme
+  become: true
+  ansible.builtin.copy:
+    src: /usr/share/plymouth/themes/spinner/
+    dest: /usr/share/plymouth/themes/mrdemonwolf/
+    remote_src: true
+    mode: preserve
+  register: copied_spinner_assets
+
+- name: Install the MrDemonWolf two-step theme descriptor
+  become: true
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/themes/mrdemonwolf.plymouth"
+    dest: /usr/share/plymouth/themes/mrdemonwolf/mrdemonwolf.plymouth
+    mode: "0644"
+  register: copied_brand_theme
+
+- name: Install the supplied logo as the theme watermark
+  become: true
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/assets/mrdemonwolf-plymouth-logo.png"
+    dest: /usr/share/plymouth/themes/mrdemonwolf/watermark.png
+    mode: "0644"
+  register: copied_brand_logo
+
+- name: Inspect the custom dracut configuration path
+  become: true
+  ansible.builtin.stat:
+    path: /etc/dracut.conf.d/99-mrdemonwolf-plymouth.conf
+    checksum_algorithm: sha256
+    follow: false
+  register: dracut_brand_config
+
+- name: Refuse an unsafe or conflicting dracut branding configuration
+  ansible.builtin.assert:
+    that:
+      - not (dracut_brand_config.stat.islnk | default(false))
+      - >-
+        not (dracut_brand_config.stat.exists | default(false)) or
+        (dracut_brand_config.stat.isreg | default(false) and
+         dracut_brand_config.stat.checksum == dracut_plymouth_config_sha256)
+    fail_msg: "Refusing an unknown /etc/dracut.conf.d/99-mrdemonwolf-plymouth.conf file."
+    quiet: true
+
+- name: Ensure the dracut configuration directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/dracut.conf.d
+    state: directory
+    mode: "0755"
+
+- name: Add Plymouth to generated dracut initramfs images
+  become: true
+  ansible.builtin.copy:
+    content: |
+      add_dracutmodules+=" plymouth "
+    dest: /etc/dracut.conf.d/99-mrdemonwolf-plymouth.conf
+    mode: "0644"
+  register: configured_dracut_plymouth
+
+- name: Select the MrDemonWolf Plymouth theme
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/plymouth/plymouthd.conf
+    regexp: '^Theme\s*='
+    line: 'Theme=mrdemonwolf'
+    insertafter: '^\[Daemon\]'
+  register: selected_plymouth_theme
+
+- name: Add quiet branded splash parameters without replacing existing boot options
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/kernel/cmdline
+    regexp: '^(?!.*(?:^|\s){{ item }}(?:\s|$))(.*)$'
+    line: '\1 {{ item }}'
+    backrefs: true
+  loop: [quiet, splash]
+  register: systemd_boot_splash_options
+
+- name: Rebuild systemd-boot entries and initramfs images for both installed kernels
+  become: true
+  ansible.builtin.command:
+    argv: [/usr/bin/reinstall-kernels]
+  when: >-
+    copied_spinner_assets.changed or copied_brand_theme.changed or copied_brand_logo.changed or
+    configured_dracut_plymouth.changed or selected_plymouth_theme.changed or
+    (systemd_boot_splash_options.results | selectattr('changed', 'equalto', true) | list | length > 0)
+  changed_when: true
