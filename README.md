@@ -4,7 +4,7 @@ This guide walks through reinstalling a **2015 MacBook Air (`MacBookAir7,2`)** w
 
 Follow the checkboxes from top to bottom. Stop when a step fails; fix that issue, then continue.
 
-For a larger, copy-friendly version with checkboxes saved in your browser, open the [interactive install guide](https://linux-setup.mrdemonwolf.dev/).
+For a larger, copy-friendly version with checkboxes saved in your browser, open the [interactive install guide](https://nathanialhenniges.github.io/linux-setup/).
 
 ## 1. Get ready
 
@@ -24,7 +24,7 @@ For a larger, copy-friendly version with checkboxes saved in your browser, open 
 - [ ] Select **Printing support (CUPS)** for office printers. Leave **HP printer/scanner support** off until you know the printer make.
 - [ ] Select the internal **Apple SSD · about 465.92 GiB · /dev/sda**, choose **Erase disk**, and turn on **Encrypt System**. Set and safely save the encryption passphrase; you will need it each time the Mac starts.
 - [ ] Keep EndeavourOS’s default **systemd-boot**. Use the automatic disk setup; do not create partitions or a volume group manually. If the Mac shows its startup picker after installation, hold **Option (⌥)** and choose **EFI Boot**.
-- [ ] Do not create a separate swap partition. After installation, add an encrypted swapfile and configure and test hibernation. See the [simple install guide](https://linux-setup.mrdemonwolf.dev/#install).
+- [ ] Do not create a separate swap partition. After installation, add an encrypted swapfile and configure and test hibernation. See the [simple install guide](https://nathanialhenniges.github.io/linux-setup/#install).
 - [ ] Create your normal user account and password. Do not use root for setup.
 - [ ] Finish installation and remove the USB. Log in to GNOME if you selected it; otherwise log in at the text console.
 
@@ -63,7 +63,7 @@ cd linux-setup
 ./setup.sh status
 ./setup.sh --dry-run chrome
 ./setup.sh chrome
-google-chrome-stable 'https://linux-setup.mrdemonwolf.dev/' >/dev/null 2>&1 &
+google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' >/dev/null 2>&1 &
 ./setup.sh --dry-run all
 ./setup.sh all
 ```
