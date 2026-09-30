@@ -1,5 +1,5 @@
 ---
-- name: Install reviewed desktop apps and Mac Wi-Fi support
+- name: Install reviewed apps, systemd-boot support, and Mac Wi-Fi support
   become: true
   community.general.pacman:
     name: "{{ core_pacman_app_packages }}"

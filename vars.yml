@@ -52,6 +52,7 @@ core_pacman_app_packages:
   - linux-lts-headers
   - mesa
   - networkmanager
+  - kernel-install-for-dracut
   - plymouth
   - pipewire
   - pipewire-alsa
