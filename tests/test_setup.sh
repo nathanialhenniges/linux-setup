@@ -15,6 +15,7 @@ grep -Fq 'ansible-doc -t module -F' setup.sh || fail 'collection detection must 
 grep -Fq '  - fuse2' vars.yml || fail 'Arch AppImage support must use the fuse2 package name'
 ! grep -Fq '  - libfuse2' vars.yml || fail 'use Arch package fuse2 instead of libfuse2'
 grep -Fq '  - broadcom-wl-dkms' vars.yml || fail 'Arch Wi-Fi support must use broadcom-wl-dkms'
+grep -Fq '  - ttf-cascadia-code-nerd' vars.yml || fail 'Ghostty needs the CaskaydiaCove Nerd Font used by its configured profile'
 ! grep -Eq '  - broadcom-wl$' vars.yml || fail 'use Arch package broadcom-wl-dkms instead of broadcom-wl'
 grep -Fq '  - v4l-utils' vars.yml || fail 'camera diagnostics need v4l-utils'
 grep -Fq '  - linux-lts-headers' vars.yml || fail 'FaceTime and Broadcom DKMS need LTS headers for the fallback kernel'
@@ -34,6 +35,8 @@ grep -Fq 'org.gnome.shell, favorite-apps' tasks/gnome_dock.yml || fail 'GNOME do
 grep -Fq "value: \"'BOTTOM'\"" tasks/gnome_dock.yml || fail 'GNOME dock must use the bottom edge'
 grep -Fq "background-color, value: \"'#3a2515'\"" tasks/gnome_dock.yml || fail 'GNOME dock must use the reviewed warm tint'
 grep -Fq 'gnome_personalization_preferences' tasks/gnome_dock.yml || fail 'GNOME dock action must apply the reviewed appearance and shortcut preferences'
+grep -Fq 'gsettings, range' tasks/gnome_dock.yml || fail 'GNOME dock must skip settings unavailable in this GNOME version'
+grep -Fq 'Skipping unavailable GSettings key' tasks/gnome_dock.yml || fail 'GNOME dock must name settings skipped for version compatibility'
 grep -Fq "replace('@as ', '')" tasks/gnome_dock.yml || fail 'empty GNOME shortcut arrays must be parsed and compared without their GSettings type marker'
 grep -Fq "key: color-scheme, value: \"'prefer-dark'\"" vars.yml || fail 'GNOME should use its built-in dark appearance'
 grep -Fq "key: button-layout, value: \"'close,minimize,maximize:'\"" vars.yml || fail 'GNOME window controls should sit on the left'
@@ -46,9 +49,19 @@ grep -Fq "key: switch-to-workspace-4, value: \"['<Super>4']\"" vars.yml || fail 
 grep -Fq "key: move-to-workspace-4, value: \"['<Shift><Super>4']\"" vars.yml || fail 'moving windows to the fourth workspace must have the reviewed shortcut'
 grep -Fq "key: switch-to-application-9, value: \"[]\"" vars.yml || fail 'GNOME app switching shortcuts must not conflict with workspace shortcuts'
 grep -Fq '{ key: hot-keys, value: "false" }' tasks/gnome_dock.yml || fail 'Dash to Dock number shortcuts must not conflict with workspace shortcuts'
-for app_id in org.gnome.Nautilus.desktop google-chrome.desktop org.telegram.desktop.desktop discord.desktop linux-setup-notion.desktop linux-setup-chatgpt.desktop sh.cider.Cider.desktop code.desktop com.mitchellh.ghostty.desktop tv.plex.PlexDesktop.desktop org.upscayl.Upscayl.desktop librepods.desktop; do
+for app_id in org.gnome.Nautilus.desktop google-chrome.desktop org.telegram.desktop.desktop discord.desktop linux-setup-notion.desktop chatgpt.desktop sh.cider.Cider.desktop code.desktop com.mitchellh.ghostty.desktop tv.plex.PlexDesktop.desktop org.upscayl.Upscayl.desktop librepods.desktop; do
   grep -Fq "$app_id" vars.yml || fail "missing curated GNOME dock favorite: $app_id"
 done
+grep -Fq 'OPENAI_CHATGPT_INSTALLER_URL=https://persistent.oaistatic.com/codex-app-prod/linux/install-arch.sh' setup.sh || fail 'ChatGPT must use OpenAI’s official Arch installer'
+grep -Fq 'sudo bash "$installer_file"' setup.sh || fail 'the downloaded official ChatGPT installer must run through sudo after a syntax check'
+grep -Fq 'chatgpt-bin' vars.yml || fail 'verification must require the official ChatGPT package'
+grep -Fq "when: setup_action == 'cleanup-legacy'" site.yml || fail 'legacy cleanup must remain a standalone action'
+grep -Fq "reject('equalto', legacy_chatgpt_launcher.desktop_id)" tasks/retired_chatgpt_launcher.yml || fail 'legacy cleanup must remove only the retired ChatGPT dock pin'
+grep -Fq 'legacy_chatgpt.desktop.j2' tasks/retired_chatgpt_launcher.yml || fail 'legacy cleanup must identify its known launcher template'
+grep -Fq 'require_gnome_session' setup.sh || fail 'legacy dock cleanup must run inside GNOME'
+grep -Fq 'OpenAI’s signed Arch repository' README.md || fail 'README must explain the official ChatGPT install source'
+grep -Fq 'id="cmd-chatgpt-app"' docs/index.html || fail 'the guide must include the standalone ChatGPT install action'
+grep -Fq 'id="cmd-cleanup-legacy"' docs/index.html || fail 'the guide must include the standalone legacy cleanup action'
 grep -Fq '⌘ + Return' docs/index.html || fail 'the public guide must list the terminal shortcut'
 grep -Fq '⌘ + Shift + 1–4' docs/index.html || fail 'the public guide must list the move-workspace shortcut'
 grep -Fq '⌘ + Shift + S' docs/index.html || fail 'the public guide must list the screenshot shortcut'
@@ -66,14 +79,15 @@ grep -Fq 'status --porcelain' setup.sh || fail 'dotfiles must fail closed on dir
 grep -Fq 'sshd.service' setup.sh || fail 'setup must preflight sshd before package changes'
 grep -Fq 'sshd.service' site.yml || fail 'Ansible must check that sshd remains inactive and disabled'
 
-for package in google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock; do
+for package in google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin; do
   grep -Fq "$package" setup.sh || fail "missing reviewed AUR package: $package"
   grep -Fq "$package" THIRD-PARTY-NOTICES.md || fail "missing AUR notice: $package"
 done
+grep -Fq 'ttf-cascadia-code-nerd' THIRD-PARTY-NOTICES.md || fail 'the configured Ghostty Nerd Font needs third-party notice coverage'
 grep -Fq 'linux-headers' vars.yml || fail 'camera DKMS needs matching kernel headers'
 grep -Fq 'camera_diagnostics' setup.sh || fail 'setup must provide the post-reboot camera check'
 grep -Fq 'id="cmd-camera"' docs/index.html || fail 'the public guide must include the camera check command'
-for action in display-manager branding profile-picture gnome-dock remove-hyprland; do
+for action in display-manager branding profile-picture gnome-dock remove-hyprland chatgpt-app cleanup-legacy; do
   grep -Fq "id=\"cmd-$action\"" docs/index.html || fail "the public guide must include the $action repair command"
 done
 

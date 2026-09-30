@@ -4,6 +4,7 @@ supported_actions:
   - tools
   - desktop
   - gnome-dock
+  - cleanup-legacy
   - branding
   - display-manager
   - profile-picture
@@ -59,6 +60,7 @@ core_pacman_app_packages:
   - gdm
   - qt5-wayland
   - qt6-wayland
+  - ttf-cascadia-code-nerd
   - udisks2
   - vulkan-tools
   - v4l-utils
@@ -74,6 +76,9 @@ core_tool_packages:
   - fastfetch
   - github-cli
   - smartmontools
+
+core_external_packages:
+  - chatgpt-bin
 
 core_flatpak_remote:
   name: flathub
@@ -119,7 +124,7 @@ chrome_web_app_launchers:
 chrome_web_app_retired_launchers:
   - { desktop_id: linux-setup-google-drive.desktop, wm_class: linux-setup-google-drive, url: "https://drive.google.com/", name: Google Drive, categories: "Office;" }
 
-chatgpt_launcher:
+legacy_chatgpt_launcher:
   name: ChatGPT
   desktop_id: linux-setup-chatgpt.desktop
   wm_class: linux-setup-chatgpt
@@ -131,7 +136,7 @@ gnome_dock_favorites:
   - { desktop_id: org.telegram.desktop.desktop, path: /var/lib/flatpak/exports/share/applications/org.telegram.desktop.desktop }
   - { desktop_id: discord.desktop, path: /usr/share/applications/discord.desktop }
   - { desktop_id: linux-setup-notion.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-notion.desktop" }
-  - { desktop_id: linux-setup-chatgpt.desktop, path: "{{ workstation_home }}/.local/share/applications/linux-setup-chatgpt.desktop" }
+  - { desktop_id: chatgpt.desktop, path: /usr/share/applications/chatgpt.desktop }
   - { desktop_id: sh.cider.Cider.desktop, path: /var/lib/flatpak/exports/share/applications/sh.cider.Cider.desktop }
   - { desktop_id: code.desktop, path: /usr/share/applications/code.desktop }
   - { desktop_id: com.mitchellh.ghostty.desktop, path: /usr/share/applications/com.mitchellh.ghostty.desktop }

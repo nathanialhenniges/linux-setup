@@ -1,6 +1,6 @@
 # Nathanial’s MacBook Air
 
-Reinstall and setup guide for the **2015 MacBook Air (`MacBookAir7,2`)**. Install EndeavourOS with GNOME, then use this repository to add the laptop apps, a Mac-inspired dock, and MrDemonWolf branding. GNOME is the desktop this setup configures.
+This guide walks through reinstalling a **2015 MacBook Air (`MacBookAir7,2`)** with EndeavourOS and GNOME. The setup adds the laptop apps, OpenAI’s official ChatGPT app, a Mac-like dock, and MrDemonWolf branding.
 
 Follow the checkboxes from top to bottom. Stop when a step fails; fix that issue, then continue.
 
@@ -38,7 +38,7 @@ Wi-Fi works from the live USB, but the installed system needs its own driver. `.
 
 The setup installs headers for both the regular and LTS kernels so DKMS can build the Wi-Fi and FaceTime camera drivers for either boot option.
 
-Setup keeps GDM enabled and gives GNOME a bottom dock with the apps installed for this Mac. If an earlier setup added Hyprland, open a terminal in the desktop you are using and run `./setup.sh remove-hyprland`. Save open work first. The action turns on GDM, shows pacman’s removal list, and waits for your approval. It leaves personal configuration files in place. Reboot afterward and choose GNOME at sign-in.
+Setup keeps GNOME as the normal desktop and adds a dock with the apps installed for this Mac. During `all`, it removes the old ChatGPT shortcut made by Chrome and looks for the known Hyprland packages. If any are installed, you can choose to remove them; pacman will show the packages and unused dependencies before asking you to approve. Your personal Hyprland settings are left alone. Reboot after removal and select GNOME at sign-in.
 
 Use the supplied `assets/mrdemonwolf-logo.svg` and the existing wolf wallpaper for MrDemonWolf, Inc. branding. `./setup.sh all` copies the logo into `~/Pictures`, applies the wallpaper when its desktop session is active, sets the supplied profile photo as your account/login picture, and installs the separate Plymouth startup theme. You can rerun only `./setup.sh profile-picture` to set the photo, `./setup.sh display-manager` to restore GDM as the login manager, or `./setup.sh branding` to rebuild the branded splash. The splash keeps the LUKS passphrase prompt visible and leaves EndeavourOS’s packaged theme files intact. With systemd-boot selected, setup preserves the existing root and LUKS options, adds `quiet splash`, and rebuilds the boot entries and initrds for installed kernels. The systemd-boot menu stays text-only and the Mac firmware picker is unchanged.
 
@@ -70,7 +70,8 @@ google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' >/dev/nu
 
 - [ ] Chrome is installed and the guide is open in Chrome on the Mac. The later `all` action safely skips Chrome if it is already installed.
 - [ ] Read the full setup dry-run before continuing. It makes no changes and does not use sudo or the network.
-- [ ] Review the AUR build prompts from `yay`. Setup does not auto-approve them. Chrome, VS Code, Dash to Dock, and the FaceTime HD camera support use AUR packages.
+- [ ] Read each `yay` build prompt and approve it yourself; setup never approves AUR builds automatically. Chrome, VS Code, Dash to Dock, the FaceTime HD camera support, and Oh My Posh come from the AUR. The official Arch repositories provide the matching CaskaydiaCove Nerd Font. Together, those packages let the configured Zsh theme render in Ghostty.
+- [ ] The full setup installs ChatGPT from OpenAI’s signed Arch repository. Its installer asks before starting a complete system upgrade. Setup also removes the old Chrome shortcut and offers to uninstall known Hyprland packages. From GNOME, run `./setup.sh cleanup-legacy` later to repeat that cleanup.
 - [ ] At the end of `./setup.sh all`, choose whether to uninstall Firefox and erase its local data. Chrome installs before this prompt. Confirming removes Firefox bookmarks, saved logins, cookies, extensions, settings, and cache; Google Chrome and its profile data are left alone. Close Firefox first. If you skip it, you can later review `./setup.sh --dry-run purge-firefox` and run `./setup.sh purge-firefox`.
 - [ ] When setup finishes, reboot:
 
@@ -87,8 +88,8 @@ If a step needs repair, rerun that action only. For example, `./setup.sh gnome-d
 
 - [ ] Check Wi-Fi from the top bar after setup and reboot. If it is missing, use USB Ethernet or another working network route, rerun `./setup.sh apps`, then reboot.
 - [ ] Open Terminal from GNOME’s app grid. Ghostty is pinned in the dock.
-- [ ] Check the bottom dock for Files, Chrome, Telegram, Discord, Notion, ChatGPT, Cider, VS Code, Ghostty, Plex, Upscayl, and LibrePods. The script pins apps that are installed; Apple Messages and Reminders do not have native Linux apps in this setup.
-- [ ] Open Chrome and sign in to Google. Docs, Sheets, Slides, Notion, Quo, and ChatGPT shortcuts appear in the launcher.
+- [ ] Check the bottom dock for Files, Chrome, Telegram, Discord, Notion, the official ChatGPT app, Cider, VS Code, Ghostty, Plex, Upscayl, and LibrePods. The script pins apps that are installed; Apple Messages and Reminders do not have native Linux apps in this setup.
+- [ ] Open Chrome and sign in to Google. Docs, Sheets, Slides, Notion, and Quo shortcuts appear in the launcher. ChatGPT opens in its official Linux app.
 - [ ] Open Google Drive at [drive.google.com](https://drive.google.com/). Drive stays browser-only.
 - [ ] Sign in to Discord. Open Plex Desktop and Cider as needed; Cider activation and Apple sign-in are manual.
 - [ ] Pair AirPods manually in Bluetooth settings, then open LibrePods if wanted.
@@ -121,19 +122,21 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh camera` | Check the FaceTime HD camera driver and detected video device |
 | `./setup.sh --dry-run all` | Preview the full plan without sudo or network access |
 | `./setup.sh base` | Install base packages and power profiles |
-| `./setup.sh apps` | Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and keep GDM enabled for GNOME |
+| `./setup.sh apps` | Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and the official ChatGPT app |
 | `./setup.sh tools` | Install selected command-line tools |
 | `./setup.sh desktop` | Set the wallpaper, app shortcuts, and account photo |
 | `./setup.sh gnome-dock` | Set up the GNOME dock, app favorites, familiar shortcuts, and light Mac-style details |
+| `./setup.sh chatgpt-app` | Install or update ChatGPT from OpenAI’s signed Arch package repository |
+| `./setup.sh cleanup-legacy` | Remove the old ChatGPT Chrome shortcut and optionally remove known Hyprland packages |
 | `./setup.sh remove-hyprland` | Enable GDM, then review and remove the old Hyprland session packages |
 | `./setup.sh branding` | Select the MrDemonWolf Plymouth boot splash and rebuild boot images (run `apps` first) |
 | `./setup.sh display-manager` | Enable GDM and disable SDDM at startup; reboot to use the GNOME login screen |
 | `./setup.sh profile-picture` | Set the supplied profile photo without rerunning the full setup |
 | `./setup.sh purge-firefox` | Uninstall Firefox and erase its local data; leave Chrome and its profile untouched |
-| `./setup.sh dotfiles` | Run only dotfiles’ dedicated `linux-desktop.sh` profile |
+| `./setup.sh dotfiles` | Install the terminal theme font and prompt engine, then run dotfiles’ dedicated desktop profile |
 | `./setup.sh drive` | Show browser-only Google Drive steps |
 
-`all` runs base, apps, tools, desktop, GNOME dock, branding, dotfiles, and verification in that order. Start it from GNOME. If an earlier run installed Hyprland, use the separate `remove-hyprland` action from your current desktop first. Pacman lists the packages and unused dependencies, then waits for your confirmation. Your personal config files stay in place. Reboot after removal. You can rerun any action on its own.
+From GNOME, `all` runs the base, apps, tools, desktop, old-item cleanup, dock, branding, dotfiles, and final checks. The apps step installs ChatGPT from OpenAI’s signed repository; its installer asks before a full system upgrade. Cleanup clears the retired Chrome shortcut and offers to remove known Hyprland packages. Pacman shows its removal list before you approve. Personal settings stay put. Reboot after removing Hyprland. Run `chatgpt-app` or `cleanup-legacy` separately whenever needed.
 
 On this Mac, Linux calls the Command key **Super**. Press `⌘+Space` for the app grid (`⌘+A` still works), `⌘+Return` for Ghostty, `⌘+E` for Files, `⌘+Q` to close a window, `⌘+F` for fullscreen, or `⌘+L` to lock. `⌘+1` through `⌘+4` choose one of four workspaces; add Shift to move the active window there. Press `⌘+Shift+S` for screenshot options. GNOME's dark appearance and left-side window buttons keep the look familiar, without downloading a theme pack. To switch keyboard layouts, use `Ctrl+⌘+Space`.
 

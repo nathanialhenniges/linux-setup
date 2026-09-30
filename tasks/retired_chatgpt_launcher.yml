@@ -1,0 +1,44 @@
+---
+- name: Inspect the retired ChatGPT Chrome app-window launcher
+  ansible.builtin.stat:
+    path: "{{ workstation_home }}/.local/share/applications/{{ legacy_chatgpt_launcher.desktop_id }}"
+    follow: false
+    checksum_algorithm: sha256
+  register: chatgpt_launcher_state
+
+- name: Refuse to remove an unknown ChatGPT launcher
+  ansible.builtin.assert:
+    that:
+      - not (chatgpt_launcher_state.stat.islnk | default(false))
+      - >-
+        not (chatgpt_launcher_state.stat.exists | default(false)) or
+        (chatgpt_launcher_state.stat.isreg | default(false) and
+         chatgpt_launcher_state.stat.checksum == (lookup('ansible.builtin.template', 'legacy_chatgpt.desktop.j2') | hash('sha256')))
+    fail_msg: "Refusing to remove unknown or unsafe ChatGPT launcher content."
+    quiet: true
+
+- name: Read GNOME favorites before removing the retired ChatGPT pin
+  ansible.builtin.command:
+    argv: [gsettings, get, org.gnome.shell, favorite-apps]
+  register: current_gnome_favorite_ids_raw
+  changed_when: false
+
+- name: Keep every GNOME favorite except the retired ChatGPT launcher
+  ansible.builtin.set_fact:
+    current_gnome_favorite_ids: "{{ current_gnome_favorite_ids_raw.stdout | replace('@as ', '') | from_yaml }}"
+    gnome_favorites_without_legacy_chatgpt: "{{ (current_gnome_favorite_ids_raw.stdout | replace('@as ', '') | from_yaml) | reject('equalto', legacy_chatgpt_launcher.desktop_id) | list }}"
+
+- name: Remove the retired ChatGPT pin from GNOME favorites
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.shell
+      - favorite-apps
+      - "[{% for desktop_id in gnome_favorites_without_legacy_chatgpt %}'{{ desktop_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+  when: legacy_chatgpt_launcher.desktop_id in current_gnome_favorite_ids
+
+- name: Remove the retired ChatGPT Chrome app-window launcher
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.local/share/applications/{{ legacy_chatgpt_launcher.desktop_id }}"
+    state: absent

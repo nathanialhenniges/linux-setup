@@ -100,6 +100,11 @@
       when: setup_action == 'gnome-dock'
       tags: [gnome-dock]
 
+    - name: Remove the known retired ChatGPT launcher
+      ansible.builtin.import_tasks: tasks/retired_chatgpt_launcher.yml
+      when: setup_action == 'cleanup-legacy'
+      tags: [cleanup-legacy]
+
     - name: Set the profile photo without rerunning the full setup
       ansible.builtin.import_tasks: tasks/profile_picture.yml
       when: setup_action == 'profile-picture'

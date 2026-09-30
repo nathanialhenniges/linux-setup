@@ -53,10 +53,33 @@
          | unique
          | list }}
 
+- name: Check which configured GNOME settings this version supports
+  ansible.builtin.command:
+    argv: [gsettings, range, "{{ item.schema }}", "{{ item.key }}"]
+  loop: "{{ gnome_personalization_preferences }}"
+  register: gnome_preference_ranges
+  changed_when: false
+  failed_when: false
+
+- name: Report GNOME settings unavailable in this version
+  ansible.builtin.debug:
+    msg: "Skipping unavailable GSettings key {{ item.item.schema }} {{ item.item.key }}."
+  loop: "{{ gnome_preference_ranges.results | rejectattr('rc', 'equalto', 0) | list }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+
+- name: Keep only GNOME settings available in this version
+  ansible.builtin.set_fact:
+    gnome_supported_preferences: >-
+      {{ gnome_preference_ranges.results
+         | selectattr('rc', 'equalto', 0)
+         | map(attribute='item')
+         | list }}
+
 - name: Read current GNOME appearance and shortcut preferences
   ansible.builtin.command:
     argv: [gsettings, get, "{{ item.schema }}", "{{ item.key }}"]
-  loop: "{{ gnome_personalization_preferences }}"
+  loop: "{{ gnome_supported_preferences }}"
   register: current_gnome_personalization
   changed_when: false
 

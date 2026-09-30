@@ -21,7 +21,7 @@ Configure an EndeavourOS or Arch Linux GNOME workstation on x86-64, specifically
 - Keep the default `linux` kernel headers installed before interactively building the reviewed `facetimehd-dkms` driver. The paired AUR firmware package uses Apple's camera firmware; disclose its `LicenseRef-Apple` terms. If the selected kernel changes, install matching headers before rebuilding DKMS.
 - Keep Google Drive browser-only at `https://drive.google.com/`; sign in manually. Do not add a sync client, file-manager plugin, or store OAuth data in this repository.
 - Keep LibrePods on the reviewed immutable x86-64 AppImage with its SHA-256 and user-local launcher. Do not add autostart, Bluetooth VendorID spoofing, Bluetooth configuration edits, or audio-service restarts.
-- Keep ChatGPT as a Chrome app-window shortcut to `https://chatgpt.com/`; do not install unofficial packages.
+- Install ChatGPT from OpenAI’s signed Arch repository. Remove the retired Chrome launcher only if it matches the template maintained here.
 - Keep the reviewed wallpaper and profile photo checksum-pinned in `assets/`, copied only into the workstation user's `~/Pictures`. Apply the wallpaper through GNOME's user settings. Do not change distribution branding or firmware artwork.
 - Keep GDM enabled and configure GNOME as the normal session. Use the reviewed Dash to Dock extension and pin only app launchers that exist. The optional `remove-hyprland` action may uninstall only the explicit legacy package list, must let pacman show and confirm dependency removals, and must leave personal configuration files untouched.
 - Do not add TLP alongside `power-profiles-daemon`.

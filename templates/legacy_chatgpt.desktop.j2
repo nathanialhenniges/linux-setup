@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name={{ legacy_chatgpt_launcher.name }}
+Exec=/usr/bin/google-chrome-stable --class={{ legacy_chatgpt_launcher.wm_class }} --app={{ legacy_chatgpt_launcher.url }}
+TryExec=/usr/bin/google-chrome-stable
+Icon=google-chrome
+Terminal=false
+Categories=Network;
+StartupNotify=true
+StartupWMClass={{ legacy_chatgpt_launcher.wm_class }}

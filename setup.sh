@@ -5,8 +5,9 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$ROOT_DIR"
 export ANSIBLE_CONFIG="$ROOT_DIR/ansible.cfg"
 
-AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock)
+AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin)
 HYPRLAND_PACKAGES=(hyprland hypridle hyprlock hyprpaper hyprpolkitagent waybar wofi mako xdg-desktop-portal-hyprland network-manager-applet thunar thunar-volman tumbler grim slurp)
+OPENAI_CHATGPT_INSTALLER_URL=https://persistent.oaistatic.com/codex-app-prod/linux/install-arch.sh
 DOTFILES_URL=https://github.com/nathanialhenniges/dotfiles.git
 DOTFILES_PATH="${HOME:?HOME is not set}/.local/share/dotfiles"
 
@@ -23,16 +24,18 @@ Usage: ./setup.sh [--dry-run] [--accept-target-warning] <action>
 Actions:
   bootstrap   Upgrade the system and install local Ansible
   chrome      Install Google Chrome early so this guide can stay open on the Mac
-  all         Run base, apps, tools, desktop, GNOME dock, branding, dotfiles, verify, then ask about Firefox cleanup
+  all         Run setup, install the official ChatGPT app, clean up old desktop items, then ask about Firefox cleanup
   status      Show a short readiness summary
   state       Show missing packages, Flatpak origins, and service state
   verify      Fail unless the reviewed workstation state is present
   camera      Check FaceTime HD camera packages, DKMS build, and video device
   base        Install base packages and laptop power profiles
-  apps        Install laptop apps, Wi-Fi support, Flatpaks, and LibrePods
+  apps        Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and official ChatGPT
+  chatgpt-app Install ChatGPT from OpenAI's signed Arch package repository
   tools       Install the selected command-line tools
   desktop     Configure wallpaper, app shortcuts, and the account photo
   gnome-dock  Set up the Mac-inspired dock, familiar shortcuts, and light GNOME styling
+  cleanup-legacy Remove the old ChatGPT Chrome shortcut and offer to remove old Hyprland packages
   remove-hyprland Set GDM as the login screen and uninstall the Hyprland session packages
   branding    Install the branded Plymouth startup splash
   display-manager Set GNOME's GDM login screen as the default
@@ -204,6 +207,67 @@ install_aur_apps() {
   yay -S --needed "${AUR_PACKAGES[@]}"
   [[ -x /usr/bin/google-chrome-stable ]] || fail 'Google Chrome did not install its expected executable'
   [[ -x /usr/bin/code ]] || fail 'Visual Studio Code did not install its expected executable'
+  command -v oh-my-posh >/dev/null 2>&1 || fail 'Oh My Posh did not install; the configured Zsh theme needs it'
+}
+
+install_zsh_theme_dependencies() {
+  assert_target
+  command -v yay >/dev/null 2>&1 || fail 'yay is required for Oh My Posh; EndeavourOS includes it, plain Arch must install it separately'
+  command -v sudo >/dev/null 2>&1 || fail 'sudo is required to install the terminal font'
+  sudo pacman -Syu --needed ttf-cascadia-code-nerd
+  yay -S --needed oh-my-posh-bin
+  command -v oh-my-posh >/dev/null 2>&1 || fail 'Oh My Posh did not install; the configured Zsh theme needs it'
+}
+
+install_chatgpt_app() (
+  assert_target
+  command -v curl >/dev/null 2>&1 || fail 'curl is required to download the official OpenAI Linux installer'
+  command -v sudo >/dev/null 2>&1 || fail 'sudo is required by the official OpenAI Linux installer'
+
+  local installer_file
+  installer_file="$(mktemp "${TMPDIR:-/tmp}/linux-setup-chatgpt-installer.XXXXXX")"
+  trap 'rm -f -- "$installer_file"' EXIT
+  chmod 0600 "$installer_file"
+  curl --proto '=https' --tlsv1.2 -fL --retry 3 -o "$installer_file" "$OPENAI_CHATGPT_INSTALLER_URL"
+  bash -n "$installer_file" || fail 'the downloaded official OpenAI installer did not pass the shell syntax check'
+  printf 'Starting OpenAI’s official Arch installer. It verifies the signed package and asks pacman to confirm a full system upgrade.\n'
+  sudo bash "$installer_file"
+  pacman -Qq chatgpt-bin >/dev/null 2>&1 || fail 'the official OpenAI installer finished without installing chatgpt-bin'
+  [[ -x /usr/bin/chatgpt ]] || fail 'the official ChatGPT command was not found at /usr/bin/chatgpt'
+  [[ -f /usr/share/applications/chatgpt.desktop ]] || fail 'the official ChatGPT desktop launcher was not installed'
+)
+
+installed_hyprland_packages() {
+  local package
+  for package in "${HYPRLAND_PACKAGES[@]}"; do
+    if pacman -Qq "$package" >/dev/null 2>&1; then
+      printf '%s\n' "$package"
+    fi
+  done
+}
+
+cleanup_legacy() {
+  assert_target
+  require_gnome_session
+  run_site_action cleanup-legacy
+
+  local answer
+  local -a installed_packages=()
+  mapfile -t installed_packages < <(installed_hyprland_packages)
+  if ((${#installed_packages[@]} == 0)); then
+    printf 'No old Hyprland session packages were found. The retired ChatGPT Chrome shortcut has been checked.\n'
+    return 0
+  fi
+
+  printf 'Found old Hyprland packages: %s\n' "${installed_packages[*]}"
+  if [[ ! -t 0 ]] || ! read -r -p 'Remove these old session packages now? Pacman will show its own confirmation list. [y/N] ' answer; then
+    printf 'Left the old Hyprland packages installed. You can run ./setup.sh remove-hyprland later.\n'
+    return 0
+  fi
+  case "$answer" in
+    y|Y|yes|YES|Yes) remove_hyprland ;;
+    *) printf 'Left the old Hyprland packages installed.\n' ;;
+  esac
 }
 
 install_gnome_dock_extension() {
@@ -301,26 +365,41 @@ dry_run() {
       printf '  Require an active GNOME session before any changes\n'
       printf '  sudo pacman -Syu --needed ansible-core\n'
       printf '  Ensure the pinned community.general.pacman collection is installed\n'
-      printf '  Ansible actions: base → apps → tools → desktop → GNOME dock → branding, then optional Firefox cleanup\n'
+      printf '  Ansible actions: base → apps → tools → desktop → legacy cleanup → GNOME dock → branding\n'
       printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
+      printf '  Install ChatGPT from OpenAI’s signed Arch repository; pacman will ask before its full system upgrade\n'
+      printf '  Install the CaskaydiaCove Nerd Font from the official Arch repositories as part of the apps step\n'
       printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
-      printf '  Chrome installs with the AUR apps before the final Firefox cleanup prompt\n'
+      printf '  Offer to remove detected legacy Hyprland packages; pacman shows the exact removal list\n'
       printf '  Final: strict status verification, then ask whether to uninstall Firefox and erase its data\n'
       ;;
     base|apps|tools)
       printf '  sudo pacman -Syu --needed ansible-core\n'
       printf '  Ensure the pinned community.general.pacman collection is installed\n'
       printf '  Local Ansible action: %s\n' "$ACTION"
-      [[ "$ACTION" != apps ]] || printf '  Then install reviewed AUR packages: %s\n' "${AUR_PACKAGES[*]}"
+      if [[ "$ACTION" == apps ]]; then
+        printf '  Then install reviewed AUR packages: %s\n' "${AUR_PACKAGES[*]}"
+        printf '  Install ChatGPT from OpenAI’s signed Arch repository; pacman will ask before its full system upgrade\n'
+      fi
+      ;;
+    chatgpt-app)
+      printf '  Download OpenAI’s official Arch installer over HTTPS and check its shell syntax\n'
+      printf '  The installer verifies OpenAI’s signed repository and package, then asks pacman to confirm a full system upgrade\n'
       ;;
     desktop)
       printf '  Local Ansible action: desktop\n'
-      printf '  Copy the logo and wallpaper, set the account photo, and create reviewed Chrome app shortcuts\n'
+      printf '  Copy the logo and wallpaper, set the account photo, and create reviewed Google Workspace, Notion, and Quo Chrome shortcuts\n'
       ;;
     gnome-dock)
       printf '  Require an active GNOME session\n'
       printf '  Install Dash to Dock from the AUR after reviewing yay’s prompt\n'
       printf '  Set a warm translucent bottom dock, pinned MBA apps, familiar Super-key shortcuts, and GNOME’s built-in dark style\n'
+      ;;
+    cleanup-legacy)
+      printf '  Require an active GNOME session before changing its dock favorites\n'
+      printf '  Remove the old ChatGPT Chrome shortcut only if its content matches the version this repo created\n'
+      printf '  Detect the explicit old Hyprland package list; if found, ask before offering Pacman’s removal prompt\n'
+      printf '  Leave personal Hyprland configuration files untouched\n'
       ;;
     remove-hyprland)
       printf '  Enable GDM for GNOME, then offer to remove these installed packages: %s\n' "${HYPRLAND_PACKAGES[*]}"
@@ -348,6 +427,9 @@ dry_run() {
       printf '  Leave Google Chrome and its profile data untouched\n'
       ;;
     dotfiles)
+      printf '  sudo pacman -Syu --needed ttf-cascadia-code-nerd\n'
+      printf '  Install the CaskaydiaCove Nerd Font from the official Arch repository\n'
+      printf '  Install the reviewed Oh My Posh AUR package so the configured Zsh theme can load\n'
       printf '  Clone or fast-forward the clean expected dotfiles checkout\n'
       printf "  Run only linux-desktop.sh; set the current user's shell to /usr/bin/zsh after success\n"
       ;;
@@ -468,8 +550,10 @@ main() {
       run_site_action base
       run_site_action apps
       install_aur_apps
+      install_chatgpt_app
       run_site_action tools
       run_site_action desktop
+      cleanup_legacy
       run_site_action gnome-dock
       run_site_action branding
       run_dotfiles
@@ -486,6 +570,10 @@ main() {
       sync_system
       run_site_action apps
       install_aur_apps
+      install_chatgpt_app
+      ;;
+    chatgpt-app)
+      install_chatgpt_app
       ;;
     tools)
       sync_system
@@ -500,6 +588,9 @@ main() {
       require_gnome_session
       install_gnome_dock_extension
       run_site_action_local gnome-dock
+      ;;
+    cleanup-legacy)
+      cleanup_legacy
       ;;
     remove-hyprland)
       remove_hyprland
@@ -523,6 +614,7 @@ main() {
       fi
       ;;
     dotfiles)
+      install_zsh_theme_dependencies
       run_dotfiles
       ;;
     status)

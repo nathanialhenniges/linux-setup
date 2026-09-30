@@ -140,7 +140,7 @@
     - name: Report missing pacman packages
       ansible.builtin.set_fact:
         missing_pacman_packages: >-
-          {{ (core_base_packages + core_pacman_app_packages + core_tool_packages + (aur_package_names | default([])))
+          {{ (core_base_packages + core_pacman_app_packages + core_tool_packages + core_external_packages + (aur_package_names | default([])))
              | unique | reject('in', ansible_facts.packages.keys() | list) | list }}
 
     - name: Report missing system Flatpaks
@@ -178,6 +178,7 @@
           - "gnome_favorite_apps.stdout is search('org.gnome.Nautilus.desktop')"
           - "gnome_favorite_apps.stdout is search('google-chrome.desktop')"
           - "gnome_favorite_apps.stdout is search('discord.desktop')"
+          - "gnome_favorite_apps.stdout is search('chatgpt.desktop')"
           - plymouth_branding_ready
           - sshd_state.results[0].stdout != 'active'
           - sshd_state.results[1].stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime']
@@ -199,6 +200,7 @@
           - "MrDemonWolf Plymouth branding ready: {{ plymouth_branding_ready }}"
           - "sshd service state: {{ sshd_state.results | map(attribute='stdout') | list }}"
           - "AUR apps: {{ aur_package_names | default([]) }}"
+          - "OpenAI packages: {{ core_external_packages }}"
       when: verification_mode in ['state', 'verify']
 
     - name: Show concise workstation status

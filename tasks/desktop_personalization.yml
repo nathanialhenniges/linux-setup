@@ -131,6 +131,3 @@
 
 - name: Install checksum-pinned Chrome web-app icons and launchers
   ansible.builtin.import_tasks: chrome_web_apps.yml
-
-- name: Install the ChatGPT Chrome app-window shortcut
-  ansible.builtin.import_tasks: chatgpt_launcher.yml
