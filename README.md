@@ -71,7 +71,7 @@ google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' >/dev/nu
 - [ ] Chrome is installed and the guide is open in Chrome on the Mac. The later `all` action safely skips Chrome if it is already installed.
 - [ ] Read the full setup dry-run before continuing. It makes no changes and does not use sudo or the network.
 - [ ] Read each `yay` build prompt and approve it yourself; setup never approves AUR builds automatically. Chrome, VS Code, Dash to Dock, the FaceTime HD camera support, and Oh My Posh come from the AUR. The official Arch repositories provide the matching CaskaydiaCove Nerd Font. Together, those packages let the configured Zsh theme render in Ghostty.
-- [ ] The full setup installs ChatGPT from OpenAI’s signed Arch repository. Its installer asks before starting a complete system upgrade. Setup also removes the old Chrome shortcut and offers to uninstall known Hyprland packages. From GNOME, run `./setup.sh cleanup-legacy` later to repeat that cleanup.
+- [ ] The full setup installs ChatGPT from OpenAI’s signed Arch repository. Its installer asks before starting a complete system upgrade. Setup clears the old ChatGPT Chrome shortcut, offers to uninstall known Hyprland packages, and asks before removing extra terminal apps. Ghostty stays as the one terminal; command-line tools stay installed. Run `./setup.sh cleanup-terminals` later to repeat that cleanup.
 - [ ] At the end of `./setup.sh all`, choose whether to uninstall Firefox and erase its local data. Chrome installs before this prompt. Confirming removes Firefox bookmarks, saved logins, cookies, extensions, settings, and cache; Google Chrome and its profile data are left alone. Close Firefox first. If you skip it, you can later review `./setup.sh --dry-run purge-firefox` and run `./setup.sh purge-firefox`.
 - [ ] When setup finishes, reboot:
 
@@ -88,11 +88,11 @@ If a step needs repair, rerun that action only. For example, `./setup.sh gnome-d
 
 - [ ] Check Wi-Fi from the top bar after setup and reboot. If it is missing, use USB Ethernet or another working network route, rerun `./setup.sh apps`, then reboot.
 - [ ] Open Terminal from GNOME’s app grid. Ghostty is pinned in the dock.
-- [ ] Check the bottom dock for Files, Chrome, Telegram, Discord, Notion, the official ChatGPT app, Cider, VS Code, Ghostty, Plex, Upscayl, and LibrePods. The script pins apps that are installed; Apple Messages and Reminders do not have native Linux apps in this setup.
+- [ ] Check the bottom dock for Files, Chrome, Telegram, Discord, Notion, the official ChatGPT app, Cider, VS Code, and Ghostty. Plex, Upscayl, and LibrePods stay available from the app grid but are not dock pins. Apple Messages and Reminders do not have native Linux apps in this setup.
 - [ ] Open Chrome and sign in to Google. Docs, Sheets, Slides, Notion, and Quo shortcuts appear in the launcher. ChatGPT opens in its official Linux app.
 - [ ] Open Google Drive at [drive.google.com](https://drive.google.com/). Drive stays browser-only.
 - [ ] Sign in to Discord. Open Plex Desktop and Cider as needed; Cider activation and Apple sign-in are manual.
-- [ ] Pair AirPods manually in Bluetooth settings, then open LibrePods if wanted.
+- [ ] LibrePods starts minimized after GNOME login, and the setup enables GNOME tray support. Pair AirPods manually in Bluetooth settings; LibrePods stays available from its tray icon and app launcher. [The pinned version has a reported GNOME/Wayland connection issue](https://github.com/librepods-org/librepods/issues/544); if it exits while connecting, reopen it from the app grid after login.
 - [ ] After reboot, run `./setup.sh camera` to check the FaceTime HD packages, DKMS build, and camera device.
 - [ ] Open Google Meet in Chrome and confirm the camera preview shows video. Also check audio, brightness keys, trackpad, suspend, and wake.
 - [ ] Leave **Power Saver** selected for normal battery use. Click the **Power** item in the top bar to change profiles when plugged in or when you need more performance.
@@ -126,6 +126,7 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh tools` | Install selected command-line tools |
 | `./setup.sh desktop` | Set the wallpaper, app shortcuts, and account photo |
 | `./setup.sh gnome-dock` | Set up the GNOME dock, app favorites, familiar shortcuts, and light Mac-style details |
+| `./setup.sh cleanup-terminals` | Review extra terminal apps and optionally remove them while keeping Ghostty and command-line tools |
 | `./setup.sh chatgpt-app` | Install or update ChatGPT from OpenAI’s signed Arch package repository |
 | `./setup.sh cleanup-legacy` | Remove the old ChatGPT Chrome shortcut and optionally remove known Hyprland packages |
 | `./setup.sh remove-hyprland` | Enable GDM, then review and remove the old Hyprland session packages |
@@ -136,7 +137,7 @@ Run these inside `~/Developer/linux-setup` as your normal user, never as root:
 | `./setup.sh dotfiles` | Install the terminal theme font and prompt engine, then run dotfiles’ dedicated desktop profile |
 | `./setup.sh drive` | Show browser-only Google Drive steps |
 
-From GNOME, `all` runs the base, apps, tools, desktop, old-item cleanup, dock, branding, dotfiles, and final checks. The apps step installs ChatGPT from OpenAI’s signed repository; its installer asks before a full system upgrade. Cleanup clears the retired Chrome shortcut and offers to remove known Hyprland packages. Pacman shows its removal list before you approve. Personal settings stay put. Reboot after removing Hyprland. Run `chatgpt-app` or `cleanup-legacy` separately whenever needed.
+From GNOME, `all` runs the base, apps, tools, desktop, old-item cleanup, terminal cleanup, dock, branding, dotfiles, and final checks. The apps step installs ChatGPT from OpenAI’s signed repository; its installer asks before a full system upgrade. Cleanup clears the retired Chrome shortcut, offers to remove known Hyprland packages, and asks before removing extra terminal apps. Pacman shows each removal list for your approval. Ghostty and command-line tools stay installed. Reboot after removing Hyprland. Run `chatgpt-app`, `cleanup-legacy`, or `cleanup-terminals` separately whenever needed.
 
 On this Mac, Linux calls the Command key **Super**. Press `⌘+Space` for the app grid (`⌘+A` still works), `⌘+Return` for Ghostty, `⌘+E` for Files, `⌘+Q` to close a window, `⌘+F` for fullscreen, or `⌘+L` to lock. `⌘+1` through `⌘+4` choose one of four workspaces; add Shift to move the active window there. Press `⌘+Shift+S` for screenshot options. GNOME's dark appearance and left-side window buttons keep the look familiar, without downloading a theme pack. To switch keyboard layouts, use `Ctrl+⌘+Space`.
 

@@ -7,6 +7,7 @@ export ANSIBLE_CONFIG="$ROOT_DIR/ansible.cfg"
 
 AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin)
 HYPRLAND_PACKAGES=(hyprland hypridle hyprlock hyprpaper hyprpolkitagent waybar wofi mako xdg-desktop-portal-hyprland network-manager-applet thunar thunar-volman tumbler grim slurp)
+EXTRA_TERMINAL_PACKAGES=(gnome-console gnome-terminal konsole xfce4-terminal xterm kitty alacritty foot tilix terminator mate-terminal qterminal lxterminal rxvt-unicode yakuake wezterm)
 OPENAI_CHATGPT_INSTALLER_URL=https://persistent.oaistatic.com/codex-app-prod/linux/install-arch.sh
 DOTFILES_URL=https://github.com/nathanialhenniges/dotfiles.git
 DOTFILES_PATH="${HOME:?HOME is not set}/.local/share/dotfiles"
@@ -35,6 +36,7 @@ Actions:
   tools       Install the selected command-line tools
   desktop     Configure wallpaper, app shortcuts, and the account photo
   gnome-dock  Set up the Mac-inspired dock, familiar shortcuts, and light GNOME styling
+  cleanup-terminals  Ask before removing extra terminal apps; keep Ghostty and command-line tools
   cleanup-legacy Remove the old ChatGPT Chrome shortcut and offer to remove old Hyprland packages
   remove-hyprland Set GDM as the login screen and uninstall the Hyprland session packages
   branding    Install the branded Plymouth startup splash
@@ -246,6 +248,41 @@ installed_hyprland_packages() {
   done
 }
 
+installed_extra_terminals() {
+  local package
+  for package in "${EXTRA_TERMINAL_PACKAGES[@]}"; do
+    if pacman -Qq "$package" >/dev/null 2>&1; then
+      printf '%s\n' "$package"
+    fi
+  done
+}
+
+cleanup_terminals() {
+  assert_target
+
+  local answer
+  local -a installed_packages=()
+  mapfile -t installed_packages < <(installed_extra_terminals)
+  if ((${#installed_packages[@]} == 0)); then
+    printf 'No extra terminal apps from the reviewed list were found. Ghostty stays installed.\n'
+    return 0
+  fi
+
+  printf 'Found extra terminal apps: %s\n' "${installed_packages[*]}"
+  printf 'This keeps Ghostty and command-line tools such as btop, fastfetch, and Git.\n'
+  if [[ ! -t 0 ]] || ! read -r -p 'Offer these packages to pacman for removal? [y/N] ' answer; then
+    printf 'Left the extra terminal apps installed.\n'
+    return 0
+  fi
+  case "$answer" in
+    y|Y|yes|YES|Yes)
+      command -v sudo >/dev/null 2>&1 || fail 'sudo is required to remove terminal packages'
+      sudo pacman -Rns -- "${installed_packages[@]}"
+      ;;
+    *) printf 'Left the extra terminal apps installed.\n' ;;
+  esac
+}
+
 cleanup_legacy() {
   assert_target
   require_gnome_session
@@ -369,8 +406,10 @@ dry_run() {
       printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
       printf '  Install ChatGPT from OpenAI’s signed Arch repository; pacman will ask before its full system upgrade\n'
       printf '  Install the CaskaydiaCove Nerd Font from the official Arch repositories as part of the apps step\n'
+      printf '  Install and enable GNOME tray support for the LibrePods login icon\n'
       printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
       printf '  Offer to remove detected legacy Hyprland packages; pacman shows the exact removal list\n'
+      printf '  Offer to remove detected extra terminal apps; keep Ghostty and command-line tools\n'
       printf '  Final: strict status verification, then ask whether to uninstall Firefox and erase its data\n'
       ;;
     base|apps|tools)
@@ -393,6 +432,7 @@ dry_run() {
     gnome-dock)
       printf '  Require an active GNOME session\n'
       printf '  Install Dash to Dock from the AUR after reviewing yay’s prompt\n'
+      printf '  Enable GNOME AppIndicator tray support for LibrePods\n'
       printf '  Set a warm translucent bottom dock, pinned MBA apps, familiar Super-key shortcuts, and GNOME’s built-in dark style\n'
       ;;
     cleanup-legacy)
@@ -400,6 +440,11 @@ dry_run() {
       printf '  Remove the old ChatGPT Chrome shortcut only if its content matches the version this repo created\n'
       printf '  Detect the explicit old Hyprland package list; if found, ask before offering Pacman’s removal prompt\n'
       printf '  Leave personal Hyprland configuration files untouched\n'
+      ;;
+    cleanup-terminals)
+      printf '  Check only the reviewed list of extra terminal app packages\n'
+      printf '  Ask before offering found packages to pacman; Ghostty and command-line tools stay\n'
+      printf '  Pacman will show the full package and dependency removal list for approval\n'
       ;;
     remove-hyprland)
       printf '  Enable GDM for GNOME, then offer to remove these installed packages: %s\n' "${HYPRLAND_PACKAGES[*]}"
@@ -554,6 +599,7 @@ main() {
       run_site_action tools
       run_site_action desktop
       cleanup_legacy
+      cleanup_terminals
       run_site_action gnome-dock
       run_site_action branding
       run_dotfiles
@@ -591,6 +637,9 @@ main() {
       ;;
     cleanup-legacy)
       cleanup_legacy
+      ;;
+    cleanup-terminals)
+      cleanup_terminals
       ;;
     remove-hyprland)
       remove_hyprland

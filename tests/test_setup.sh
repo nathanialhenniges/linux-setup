@@ -16,6 +16,7 @@ grep -Fq '  - fuse2' vars.yml || fail 'Arch AppImage support must use the fuse2 
 ! grep -Fq '  - libfuse2' vars.yml || fail 'use Arch package fuse2 instead of libfuse2'
 grep -Fq '  - broadcom-wl-dkms' vars.yml || fail 'Arch Wi-Fi support must use broadcom-wl-dkms'
 grep -Fq '  - ttf-cascadia-code-nerd' vars.yml || fail 'Ghostty needs the CaskaydiaCove Nerd Font used by its configured profile'
+grep -Fq '  - gnome-shell-extension-appindicator' vars.yml || fail 'GNOME needs AppIndicator support to show the LibrePods tray icon'
 ! grep -Eq '  - broadcom-wl$' vars.yml || fail 'use Arch package broadcom-wl-dkms instead of broadcom-wl'
 grep -Fq '  - v4l-utils' vars.yml || fail 'camera diagnostics need v4l-utils'
 grep -Fq '  - linux-lts-headers' vars.yml || fail 'FaceTime and Broadcom DKMS need LTS headers for the fallback kernel'
@@ -31,6 +32,9 @@ grep -Fq 'HYPRLAND_PACKAGES=(hyprland' setup.sh || fail 'legacy Hyprland removal
 grep -Fq 'sudo pacman -Rns --' setup.sh || fail 'legacy package removal must remain interactive and let pacman review dependencies'
 grep -Fq "when: setup_action == 'gnome-dock'" site.yml || fail 'GNOME dock setup must be a standalone action'
 grep -Fq 'dash-to-dock@micxgx.gmail.com' tasks/gnome_dock.yml || fail 'GNOME dock setup must enable the reviewed Dash to Dock extension'
+grep -Fq 'appindicatorsupport@rgcjonas.gmail.com' tasks/gnome_dock.yml || fail 'GNOME dock setup must enable AppIndicator support for the LibrePods tray icon'
+grep -Fq 'appindicatorsupport@rgcjonas.gmail.com' verify.yml || fail 'verification must require GNOME AppIndicator tray support'
+grep -Fq 'librepods_autostart_ready' verify.yml || fail 'verification must confirm LibrePods minimized login start'
 grep -Fq 'org.gnome.shell, favorite-apps' tasks/gnome_dock.yml || fail 'GNOME dock setup must pin the curated app favorites'
 grep -Fq "value: \"'BOTTOM'\"" tasks/gnome_dock.yml || fail 'GNOME dock must use the bottom edge'
 grep -Fq "background-color, value: \"'#3a2515'\"" tasks/gnome_dock.yml || fail 'GNOME dock must use the reviewed warm tint'
@@ -49,9 +53,20 @@ grep -Fq "key: switch-to-workspace-4, value: \"['<Super>4']\"" vars.yml || fail 
 grep -Fq "key: move-to-workspace-4, value: \"['<Shift><Super>4']\"" vars.yml || fail 'moving windows to the fourth workspace must have the reviewed shortcut'
 grep -Fq "key: switch-to-application-9, value: \"[]\"" vars.yml || fail 'GNOME app switching shortcuts must not conflict with workspace shortcuts'
 grep -Fq '{ key: hot-keys, value: "false" }' tasks/gnome_dock.yml || fail 'Dash to Dock number shortcuts must not conflict with workspace shortcuts'
-for app_id in org.gnome.Nautilus.desktop google-chrome.desktop org.telegram.desktop.desktop discord.desktop linux-setup-notion.desktop chatgpt.desktop sh.cider.Cider.desktop code.desktop com.mitchellh.ghostty.desktop tv.plex.PlexDesktop.desktop org.upscayl.Upscayl.desktop librepods.desktop; do
-  grep -Fq "$app_id" vars.yml || fail "missing curated GNOME dock favorite: $app_id"
+favorite_block="$(awk '/^gnome_dock_favorites:/{inside=1; next} inside && /^[^ ]/{exit} inside{print}' vars.yml)"
+for app_id in org.gnome.Nautilus.desktop google-chrome.desktop org.telegram.desktop.desktop discord.desktop linux-setup-notion.desktop chatgpt.desktop sh.cider.Cider.desktop code.desktop com.mitchellh.ghostty.desktop; do
+  printf '%s\n' "$favorite_block" | grep -Fq "$app_id" || fail "missing curated GNOME dock favorite: $app_id"
 done
+for app_id in tv.plex.PlexDesktop.desktop org.upscayl.Upscayl.desktop librepods.desktop; do
+  if printf '%s\n' "$favorite_block" | grep -Fq "$app_id"; then
+    fail "removed app must not stay pinned in the GNOME dock: $app_id"
+  fi
+done
+grep -Fq 'cleanup_terminals' setup.sh || fail 'the script must offer standalone extra-terminal cleanup'
+grep -Fq 'cleanup_terminals' <(sed -n '/    all)/,/    base)/p' setup.sh) || fail 'the all action must offer extra-terminal cleanup'
+grep -Fq 'EXTRA_TERMINAL_PACKAGES=' setup.sh || fail 'terminal cleanup must use an explicit package list'
+grep -Fq 'sudo pacman -Rns -- "${installed_packages[@]}"' setup.sh || fail 'terminal removal must let pacman review packages and dependencies'
+grep -Fq 'Ghostty and command-line tools' setup.sh || fail 'terminal cleanup must preserve Ghostty and command-line tools'
 grep -Fq 'OPENAI_CHATGPT_INSTALLER_URL=https://persistent.oaistatic.com/codex-app-prod/linux/install-arch.sh' setup.sh || fail 'ChatGPT must use OpenAI’s official Arch installer'
 grep -Fq 'sudo bash "$installer_file"' setup.sh || fail 'the downloaded official ChatGPT installer must run through sudo after a syntax check'
 grep -Fq 'chatgpt-bin' vars.yml || fail 'verification must require the official ChatGPT package'
@@ -87,7 +102,7 @@ grep -Fq 'ttf-cascadia-code-nerd' THIRD-PARTY-NOTICES.md || fail 'the configured
 grep -Fq 'linux-headers' vars.yml || fail 'camera DKMS needs matching kernel headers'
 grep -Fq 'camera_diagnostics' setup.sh || fail 'setup must provide the post-reboot camera check'
 grep -Fq 'id="cmd-camera"' docs/index.html || fail 'the public guide must include the camera check command'
-for action in display-manager branding profile-picture gnome-dock remove-hyprland chatgpt-app cleanup-legacy; do
+for action in display-manager branding profile-picture gnome-dock remove-hyprland chatgpt-app cleanup-legacy cleanup-terminals; do
   grep -Fq "id=\"cmd-$action\"" docs/index.html || fail "the public guide must include the $action repair command"
 done
 
@@ -100,6 +115,10 @@ grep -Fq 'not ansible_check_mode' tasks/flatpak_apps.yml || fail 'Flatpak mutati
 grep -Fq 'argv: [flatpak, remotes, --system, "--columns=name,url"]' tasks/flatpak_apps.yml || fail 'Flatpak remote columns must remain one command argument'
 grep -Fq 'argv: [flatpak, remotes, --system, "--columns=name,url"]' verify.yml || fail 'Flatpak verification remote columns must remain one command argument'
 grep -Fq 'checksum: "sha256:{{ librepods.sha256 }}"' tasks/librepods.yml || fail 'LibrePods download needs checksum validation'
+[[ -f templates/librepods-autostart.desktop.j2 ]] || fail 'LibrePods needs a user-local GNOME autostart entry'
+grep -Fq -- '--start-minimized' templates/librepods-autostart.desktop.j2 || fail 'LibrePods must autostart minimized'
+grep -Fq 'X-GNOME-Autostart-Delay=30' templates/librepods-autostart.desktop.j2 || fail 'LibrePods must wait for GNOME to settle before autostart'
+grep -Fq 'Refuse unknown LibrePods autostart content' tasks/librepods.yml || fail 'LibrePods autostart must refuse unknown existing content'
 grep -Fq '0569ba9a15aa58e660ec3ccb4d2d39ffd8800d6a5da3741802aefd86fd4b55a6' vars.yml || fail 'LibrePods version pin must match the reviewed AppImage checksum'
 grep -Fq '0569ba9a15aa58e660ec3ccb4d2d39ffd8800d6a5da3741802aefd86fd4b55a6' THIRD-PARTY-NOTICES.md || fail 'LibrePods pin needs notice coverage'
 grep -Fq '1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840' THIRD-PARTY-NOTICES.md || fail 'wallpaper pin needs notice coverage'

@@ -5,7 +5,7 @@
     follow: false
   register: librepods_bin_directory
 
-- name: Inspect LibrePods local data parent directories
+- name: Inspect LibrePods application and autostart directories
   ansible.builtin.stat:
     path: "{{ item }}"
     follow: false
@@ -13,6 +13,8 @@
     - "{{ workstation_home }}/.local"
     - "{{ workstation_home }}/.local/share"
     - "{{ workstation_home }}/.local/share/applications"
+    - "{{ workstation_home }}/.config"
+    - "{{ workstation_home }}/.config/autostart"
   register: librepods_data_directories
 
 - name: Require a safe LibrePods local binary directory
@@ -25,12 +27,12 @@
     fail_msg: "Refusing an unsafe ~/.local/bin directory."
     quiet: true
 
-- name: Refuse linked or non-directory LibrePods data parents
+- name: Refuse linked or non-directory LibrePods user directories
   ansible.builtin.assert:
     that:
       - not (item.stat.islnk | default(false))
       - not (item.stat.exists | default(false)) or item.stat.isdir | default(false)
-    fail_msg: "Refusing an unsafe LibrePods application directory: {{ item.item }}"
+    fail_msg: "Refusing an unsafe LibrePods user directory: {{ item.item }}"
     quiet: true
   loop: "{{ librepods_data_directories.results }}"
   loop_control:
@@ -86,6 +88,25 @@
     fail_msg: "Refusing unknown or unsafe LibrePods launcher content."
     quiet: true
 
+- name: Inspect the LibrePods autostart entry
+  ansible.builtin.stat:
+    path: "{{ librepods.autostart_path }}"
+    follow: false
+    checksum_algorithm: sha256
+  register: librepods_autostart_state
+
+- name: Refuse unknown LibrePods autostart content
+  ansible.builtin.assert:
+    that:
+      - not (librepods_autostart_state.stat.islnk | default(false))
+      - >-
+        not (librepods_autostart_state.stat.exists | default(false)) or
+        (librepods_autostart_state.stat.isreg | default(false) and
+         librepods_autostart_state.stat.checksum ==
+         (lookup('ansible.builtin.template', 'librepods-autostart.desktop.j2') | hash('sha256')))
+    fail_msg: "Refusing unknown or unsafe LibrePods autostart content."
+    quiet: true
+
 - name: Ensure the user-local application directory exists
   ansible.builtin.file:
     path: "{{ workstation_home }}/.local/share/applications"
@@ -95,4 +116,15 @@
   ansible.builtin.template:
     src: librepods.desktop.j2
     dest: "{{ librepods.launcher_path }}"
+    mode: "0644"
+
+- name: Ensure the user-local autostart directory exists
+  ansible.builtin.file:
+    path: "{{ workstation_home }}/.config/autostart"
+    state: directory
+
+- name: Start LibrePods minimized after GNOME login
+  ansible.builtin.template:
+    src: librepods-autostart.desktop.j2
+    dest: "{{ librepods.autostart_path }}"
     mode: "0644"

@@ -114,6 +114,13 @@
       changed_when: false
       failed_when: false
 
+    - name: Inspect the LibrePods login entry
+      ansible.builtin.stat:
+        path: "{{ librepods.autostart_path }}"
+        follow: false
+        checksum_algorithm: sha256
+      register: librepods_autostart_file
+
     - name: Read GNOME favorite applications
       ansible.builtin.command:
         argv: [gsettings, get, org.gnome.shell, favorite-apps]
@@ -158,6 +165,14 @@
              'quiet' in plymouth_branding_settings.results[1].stdout.split() and
              'splash' in plymouth_branding_settings.results[1].stdout.split() }}
 
+    - name: Report whether LibrePods will start minimized at login
+      ansible.builtin.set_fact:
+        librepods_autostart_ready: >-
+          {{ librepods_autostart_file.stat.isreg | default(false) and
+             not (librepods_autostart_file.stat.islnk | default(false)) and
+             librepods_autostart_file.stat.checksum | default('') ==
+             (lookup('ansible.builtin.template', 'librepods-autostart.desktop.j2') | hash('sha256')) }}
+
     - name: Select the configured Flathub system remote
       ansible.builtin.set_fact:
         flathub_system_lines: "{{ flatpak_remotes.stdout_lines | default([]) | select('match', '^flathub\\s') | list }}"
@@ -175,6 +190,8 @@
           - gdm_state.stdout == 'enabled'
           - sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime']
           - "'dash-to-dock@micxgx.gmail.com' in enabled_gnome_extensions.stdout_lines"
+          - "'appindicatorsupport@rgcjonas.gmail.com' in enabled_gnome_extensions.stdout_lines"
+          - librepods_autostart_ready
           - "gnome_favorite_apps.stdout is search('org.gnome.Nautilus.desktop')"
           - "gnome_favorite_apps.stdout is search('google-chrome.desktop')"
           - "gnome_favorite_apps.stdout is search('discord.desktop')"
@@ -182,7 +199,7 @@
           - plymouth_branding_ready
           - sshd_state.results[0].stdout != 'active'
           - sshd_state.results[1].stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime']
-        fail_msg: "Workstation verification found missing packages, untrusted Flatpaks, missing GNOME dock or boot branding, or inactive laptop services. See the state report."
+        fail_msg: "Workstation verification found missing packages, untrusted Flatpaks, missing GNOME dock/tray/autostart or boot branding, or inactive laptop services. See the state report."
         quiet: true
       when: verification_mode == 'verify'
 
@@ -196,6 +213,7 @@
           - "GDM enablement: {{ gdm_state.stdout }}"
           - "SDDM enablement: {{ sddm_state.stdout }}"
           - "Enabled GNOME extensions: {{ enabled_gnome_extensions.stdout_lines }}"
+          - "LibrePods minimized login start: {{ 'ready' if librepods_autostart_ready else 'missing' }}"
           - "GNOME favorites: {{ gnome_favorite_apps.stdout }}"
           - "MrDemonWolf Plymouth branding ready: {{ plymouth_branding_ready }}"
           - "sshd service state: {{ sshd_state.results | map(attribute='stdout') | list }}"
@@ -206,7 +224,7 @@
     - name: Show concise workstation status
       ansible.builtin.debug:
         msg: >-
-          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and 'dash-to-dock@micxgx.gmail.com' in enabled_gnome_extensions.stdout_lines and gnome_favorite_apps.stdout is search('google-chrome.desktop') and plymouth_branding_ready and gdm_state.stdout == 'enabled' and sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'])
+          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and 'dash-to-dock@micxgx.gmail.com' in enabled_gnome_extensions.stdout_lines and 'appindicatorsupport@rgcjonas.gmail.com' in enabled_gnome_extensions.stdout_lines and librepods_autostart_ready and gnome_favorite_apps.stdout is search('google-chrome.desktop') and plymouth_branding_ready and gdm_state.stdout == 'enabled' and sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'])
              else 'Needs setup' }} — {{ missing_pacman_packages | length }} pacman packages and
           {{ missing_flatpak_packages | length }} system Flatpaks, GNOME dock {{ 'ready' if 'dash-to-dock@micxgx.gmail.com' in enabled_gnome_extensions.stdout_lines else 'missing' }}, Plymouth branding {{ 'ready' if plymouth_branding_ready else 'missing' }}.
       when: verification_mode == 'status'

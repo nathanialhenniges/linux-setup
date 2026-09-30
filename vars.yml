@@ -47,6 +47,7 @@ core_pacman_app_packages:
   - gvfs-mtp
   - krdc
   - fuse2
+  - gnome-shell-extension-appindicator
   - linux-headers
   - linux-lts-headers
   - mesa
@@ -97,6 +98,7 @@ librepods:
   sha256: 0569ba9a15aa58e660ec3ccb4d2d39ffd8800d6a5da3741802aefd86fd4b55a6
   path: "{{ workstation_home }}/.local/bin/librepods.AppImage"
   launcher_path: "{{ workstation_home }}/.local/share/applications/librepods.desktop"
+  autostart_path: "{{ workstation_home }}/.config/autostart/librepods.desktop"
 
 desktop_assets:
   - name: mrdemonwolf-desktop-wallpaper.png
@@ -140,9 +142,6 @@ gnome_dock_favorites:
   - { desktop_id: sh.cider.Cider.desktop, path: /var/lib/flatpak/exports/share/applications/sh.cider.Cider.desktop }
   - { desktop_id: code.desktop, path: /usr/share/applications/code.desktop }
   - { desktop_id: com.mitchellh.ghostty.desktop, path: /usr/share/applications/com.mitchellh.ghostty.desktop }
-  - { desktop_id: tv.plex.PlexDesktop.desktop, path: /var/lib/flatpak/exports/share/applications/tv.plex.PlexDesktop.desktop }
-  - { desktop_id: org.upscayl.Upscayl.desktop, path: /var/lib/flatpak/exports/share/applications/org.upscayl.Upscayl.desktop }
-  - { desktop_id: librepods.desktop, path: "{{ workstation_home }}/.local/share/applications/librepods.desktop" }
 
 gnome_personalization_preferences:
   - { schema: org.gnome.desktop.interface, key: color-scheme, value: "'prefer-dark'" }

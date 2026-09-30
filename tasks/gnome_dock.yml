@@ -116,11 +116,29 @@
   loop_control:
     label: "{{ item.item.key }}"
 
-- name: Check whether Dash to Dock is enabled
+- name: Read enabled GNOME extensions
   ansible.builtin.command:
     argv: [gnome-extensions, list, --enabled]
   register: enabled_gnome_extensions
   changed_when: false
+
+- name: Require the installed AppIndicator extension for LibrePods tray support
+  ansible.builtin.stat:
+    path: /usr/share/gnome-shell/extensions/appindicatorsupport@rgcjonas.gmail.com/metadata.json
+    follow: false
+  register: appindicator_extension_file
+
+- name: Require the AppIndicator extension package
+  ansible.builtin.assert:
+    that:
+      - appindicator_extension_file.stat.isreg | default(false)
+    fail_msg: "Install the reviewed AppIndicator support package with ./setup.sh apps, then rerun ./setup.sh gnome-dock."
+    quiet: true
+
+- name: Enable GNOME AppIndicator support for LibrePods tray icon
+  ansible.builtin.command:
+    argv: [gnome-extensions, enable, appindicatorsupport@rgcjonas.gmail.com]
+  when: "'appindicatorsupport@rgcjonas.gmail.com' not in enabled_gnome_extensions.stdout_lines"
 
 - name: Enable Dash to Dock
   ansible.builtin.command:
