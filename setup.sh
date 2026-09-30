@@ -406,7 +406,7 @@ dry_run() {
       printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
       printf '  Install ChatGPT from OpenAI’s signed Arch repository; pacman will ask before its full system upgrade\n'
       printf '  Install the CaskaydiaCove Nerd Font from the official Arch repositories as part of the apps step\n'
-      printf '  Install and enable GNOME tray support for the LibrePods login icon\n'
+      printf '  Configure AppIndicator and Dash to Dock to load at the next GNOME login\n'
       printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
       printf '  Offer to remove detected legacy Hyprland packages; pacman shows the exact removal list\n'
       printf '  Offer to remove detected extra terminal apps; keep Ghostty and command-line tools\n'
@@ -432,7 +432,7 @@ dry_run() {
     gnome-dock)
       printf '  Require an active GNOME session\n'
       printf '  Install Dash to Dock from the AUR after reviewing yay’s prompt\n'
-      printf '  Enable GNOME AppIndicator tray support for LibrePods\n'
+      printf '  Configure AppIndicator and Dash to Dock for the next GNOME login\n'
       printf '  Set a warm translucent bottom dock, pinned MBA apps, familiar Super-key shortcuts, and GNOME’s built-in dark style\n'
       ;;
     cleanup-legacy)
@@ -601,6 +601,7 @@ main() {
       cleanup_legacy
       cleanup_terminals
       run_site_action gnome-dock
+      printf 'GNOME tray and dock extensions are configured; the planned reboot loads them.\n'
       run_site_action branding
       run_dotfiles
       run_verification verify
@@ -634,6 +635,7 @@ main() {
       require_gnome_session
       install_gnome_dock_extension
       run_site_action_local gnome-dock
+      printf 'GNOME tray and dock extensions are configured. Log out and back in, or reboot, to load them.\n'
       ;;
     cleanup-legacy)
       cleanup_legacy

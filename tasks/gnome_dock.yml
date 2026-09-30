@@ -116,10 +116,10 @@
   loop_control:
     label: "{{ item.item.key }}"
 
-- name: Read enabled GNOME extensions
+- name: Read GNOME extensions configured for this user
   ansible.builtin.command:
-    argv: [gnome-extensions, list, --enabled]
-  register: enabled_gnome_extensions
+    argv: [gsettings, get, org.gnome.shell, enabled-extensions]
+  register: configured_gnome_extensions
   changed_when: false
 
 - name: Require the installed AppIndicator extension for LibrePods tray support
@@ -135,15 +135,31 @@
     fail_msg: "Install the reviewed AppIndicator support package with ./setup.sh apps, then rerun ./setup.sh gnome-dock."
     quiet: true
 
-- name: Enable GNOME AppIndicator support for LibrePods tray icon
-  ansible.builtin.command:
-    argv: [gnome-extensions, enable, appindicatorsupport@rgcjonas.gmail.com]
-  when: "'appindicatorsupport@rgcjonas.gmail.com' not in enabled_gnome_extensions.stdout_lines"
+- name: Preserve current extensions and queue the tray and dock extensions
+  ansible.builtin.set_fact:
+    gnome_configured_extension_ids: >-
+      {{ configured_gnome_extensions.stdout
+         | replace('@as ', '')
+         | from_yaml }}
+    gnome_desired_extension_ids: >-
+      {{ ((configured_gnome_extensions.stdout
+           | replace('@as ', '')
+           | from_yaml)
+          + gnome_required_extensions)
+         | unique
+         | list }}
 
-- name: Enable Dash to Dock
+- name: Save GNOME extensions for the next login
   ansible.builtin.command:
-    argv: [gnome-extensions, enable, dash-to-dock@micxgx.gmail.com]
-  when: "'dash-to-dock@micxgx.gmail.com' not in enabled_gnome_extensions.stdout_lines"
+    argv:
+      - gsettings
+      - set
+      - org.gnome.shell
+      - enabled-extensions
+      - "[{% for extension_id in gnome_desired_extension_ids %}'{{ extension_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+  when: gnome_required_extensions | difference(gnome_configured_extension_ids) | length > 0
+  register: configured_gnome_extension_update
+  changed_when: configured_gnome_extension_update.rc == 0
 
 - name: Read current Dash to Dock preferences
   ansible.builtin.command:
