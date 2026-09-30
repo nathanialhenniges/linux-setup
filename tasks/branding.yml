@@ -31,17 +31,29 @@
     - { path: /etc/plymouth/plymouthd.conf }
   register: branding_prerequisites
 
-- name: Require the EndeavourOS systemd-boot and Plymouth layout
+- name: Require the installed Plymouth theme and configuration
   ansible.builtin.assert:
     that:
       - branding_prerequisites.results[0].stat.isdir | default(false)
       - not (branding_prerequisites.results[0].stat.islnk | default(false))
-      - branding_prerequisites.results[1].stat.isreg | default(false)
-      - not (branding_prerequisites.results[1].stat.islnk | default(false))
-      - branding_prerequisites.results[2].stat.executable | default(false)
       - branding_prerequisites.results[3].stat.isreg | default(false)
       - not (branding_prerequisites.results[3].stat.islnk | default(false))
-    fail_msg: "Plymouth branding expects the installer’s systemd-boot setup. Run ./setup.sh apps first and keep systemd-boot selected in the installer."
+    fail_msg: "Plymouth files are missing. Run ./setup.sh apps to install Plymouth, then retry ./setup.sh branding."
+    quiet: true
+
+- name: Require the systemd-boot kernel command line
+  ansible.builtin.assert:
+    that:
+      - branding_prerequisites.results[1].stat.isreg | default(false)
+      - not (branding_prerequisites.results[1].stat.islnk | default(false))
+    fail_msg: "The installer’s systemd-boot command line is missing at /etc/kernel/cmdline. Keep systemd-boot selected and use EndeavourOS automatic disk setup; the setup will not guess your root or LUKS options."
+    quiet: true
+
+- name: Require EndeavourOS systemd-boot kernel rebuild support
+  ansible.builtin.assert:
+    that:
+      - branding_prerequisites.results[2].stat.executable | default(false)
+    fail_msg: "The systemd-boot kernel helper is missing. Run ./setup.sh apps to install kernel-install-for-dracut, then retry ./setup.sh branding."
     quiet: true
 
 - name: Read the current systemd-boot kernel command line

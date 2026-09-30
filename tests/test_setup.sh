@@ -87,6 +87,7 @@ grep -Fq '⌘ + Return' docs/index.html || fail 'the public guide must list the 
 grep -Fq '⌘ + Shift + 1–4' docs/index.html || fail 'the public guide must list the move-workspace shortcut'
 grep -Fq '⌘ + Shift + S' docs/index.html || fail 'the public guide must list the screenshot shortcut'
 grep -Fq 'plymouth' vars.yml || fail 'the reviewed apps package set must include Plymouth'
+grep -Fq 'kernel-install-for-dracut' vars.yml || fail 'the apps package set must include the EndeavourOS systemd-boot rebuild helper'
 grep -Fq 'gdm.service' tasks/login_manager.yml || fail 'GDM must remain the default login manager'
 grep -Fq 'sddm.service' tasks/login_manager.yml || fail 'SDDM must be disabled when restoring GNOME'
 grep -Fq 'profile-picture' setup.sh || fail 'profile picture must have a standalone setup action'
