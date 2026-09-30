@@ -47,7 +47,7 @@
   ansible.builtin.set_fact:
     gnome_registered_custom_keybinding_paths: >-
       {{ ((current_gnome_custom_keybindings.stdout
-           | regex_replace('^@as\\s*', '')
+           | replace('@as ', '')
            | from_yaml)
           + gnome_custom_keybinding_paths)
          | unique
@@ -89,7 +89,7 @@
       - "{{ item.item.key }}"
       - "{{ item.item.value }}"
   loop: "{{ current_gnome_personalization.results }}"
-  when: (item.stdout | trim | regex_replace('^@as\\s*', '')) != item.item.value
+  when: (item.stdout | trim | replace('@as ', '')) != item.item.value
   loop_control:
     label: "{{ item.item.key }}"
 
@@ -134,6 +134,6 @@
       - "{{ item.item.key }}"
       - "{{ item.item.value }}"
   loop: "{{ current_dock_preferences.results }}"
-  when: (item.stdout | trim | regex_replace('^@as\\s*', '')) != item.item.value
+  when: (item.stdout | trim | replace('@as ', '')) != item.item.value
   loop_control:
     label: "{{ item.item.key }}"

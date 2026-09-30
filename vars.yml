@@ -142,6 +142,7 @@ gnome_dock_favorites:
 gnome_personalization_preferences:
   - { schema: org.gnome.desktop.interface, key: color-scheme, value: "'prefer-dark'" }
   - { schema: org.gnome.desktop.wm.preferences, key: button-layout, value: "'close,minimize,maximize:'" }
+  - { schema: org.gnome.shell, key: always-show-log-out, value: "true" }
   - { schema: org.gnome.desktop.wm.preferences, key: num-workspaces, value: "4" }
   - { schema: org.gnome.mutter, key: dynamic-workspaces, value: "false" }
   - { schema: org.gnome.shell.keybindings, key: toggle-application-view, value: "['<Super>a', '<Super>space']" }
