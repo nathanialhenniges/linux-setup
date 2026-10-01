@@ -95,6 +95,7 @@ grep -Fq 'sddm.service' tasks/login_manager.yml || fail 'SDDM must be disabled w
 grep -Fq 'profile-picture' setup.sh || fail 'profile picture must have a standalone setup action'
 grep -Fq 'SetIconFile' tasks/profile_picture.yml || fail 'the profile picture action must update AccountsService'
 grep -Fq 'mrdemonwolf' tasks/branding.yml || fail 'branding must select the MrDemonWolf Plymouth theme'
+grep -Fq 'WatermarkVerticalAlignment=.18' themes/mrdemonwolf.plymouth || fail 'the Plymouth logo must sit above the encrypted-disk prompt'
 grep -Fq "when: setup_action == 'branding'" site.yml || fail 'branding must remain an explicit setup action'
 grep -Fq '/usr/bin/reinstall-kernels' tasks/branding.yml || fail 'branding must rebuild systemd-boot kernel images'
 grep -Fq 'yay -S --needed' setup.sh || fail 'AUR package installation must stay interactive'
