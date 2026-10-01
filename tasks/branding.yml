@@ -185,14 +185,19 @@
     mode: "0644"
   register: configured_dracut_plymouth
 
-- name: Select the MrDemonWolf Plymouth theme
+- name: Read the currently selected Plymouth theme
   become: true
-  ansible.builtin.lineinfile:
-    path: /etc/plymouth/plymouthd.conf
-    regexp: '^Theme\s*='
-    line: 'Theme=mrdemonwolf'
-    insertafter: '^\[Daemon\]'
-  register: selected_plymouth_theme
+  ansible.builtin.command:
+    argv: [/usr/bin/plymouth-set-default-theme]
+  register: current_plymouth_theme
+  changed_when: false
+
+- name: Select the MrDemonWolf theme through Plymouth
+  become: true
+  ansible.builtin.command:
+    argv: [/usr/bin/plymouth-set-default-theme, mrdemonwolf]
+  when: current_plymouth_theme.stdout | trim != 'mrdemonwolf'
+  changed_when: true
 
 - name: Confirm Plymouth resolves the custom theme
   become: true
