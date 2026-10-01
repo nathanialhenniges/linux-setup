@@ -96,6 +96,8 @@ grep -Fq 'profile-picture' setup.sh || fail 'profile picture must have a standal
 grep -Fq 'SetIconFile' tasks/profile_picture.yml || fail 'the profile picture action must update AccountsService'
 grep -Fq 'mrdemonwolf' tasks/branding.yml || fail 'branding must select the MrDemonWolf Plymouth theme'
 grep -Fq 'WatermarkVerticalAlignment=.18' themes/mrdemonwolf.plymouth || fail 'the Plymouth logo must sit above the encrypted-disk prompt'
+grep -Fq 'plymouth_previous_theme_sha256: b580642ff16800847051de2e3e57e83e7f7b876fe027f7f4520f07d20b45eefa' vars.yml || fail 'branding must allow upgrading the previously installed Plymouth theme'
+grep -Fq 'mrdemonwolf_theme_files.results[0].stat.checksum in [plymouth_theme_sha256, plymouth_previous_theme_sha256]' tasks/branding.yml || fail 'Plymouth theme marker checks must accept only the current or previous pinned version'
 grep -Fq "when: setup_action == 'branding'" site.yml || fail 'branding must remain an explicit setup action'
 grep -Fq '/usr/bin/reinstall-kernels' tasks/branding.yml || fail 'branding must rebuild systemd-boot kernel images'
 grep -Fq 'yay -S --needed' setup.sh || fail 'AUR package installation must stay interactive'
