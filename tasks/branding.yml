@@ -89,7 +89,7 @@
     checksum_algorithm: sha256
     follow: false
   loop:
-    - { path: /usr/share/plymouth/themes/mrdemonwolf/mrdemonwolf.plymouth, sha256: "{{ plymouth_theme_sha256 }}" }
+    - { path: /usr/share/plymouth/themes/mrdemonwolf/mrdemonwolf.plymouth, sha256: "{{ plymouth_theme_sha256 }}", previous_sha256: "{{ plymouth_previous_theme_sha256 }}" }
     - { path: /usr/share/plymouth/themes/mrdemonwolf/watermark.png, sha256: "{{ plymouth_logo_sha256 }}" }
   register: mrdemonwolf_theme_files
 
@@ -99,7 +99,9 @@
       - not (item.stat.islnk | default(false))
       - >-
         not (item.stat.exists | default(false)) or
-        (item.stat.isreg | default(false) and item.stat.checksum == item.item.sha256)
+        (item.stat.isreg | default(false) and
+         (item.stat.checksum == item.item.sha256 or
+          item.stat.checksum == (item.item.previous_sha256 | default(''))))
     fail_msg: "Refusing unknown or modified MrDemonWolf Plymouth theme file: {{ item.item.path }}"
     quiet: true
   loop: "{{ mrdemonwolf_theme_files.results }}"
@@ -112,7 +114,7 @@
       - >-
         not (mrdemonwolf_theme_dir.stat.exists | default(false)) or
         (mrdemonwolf_theme_files.results[0].stat.isreg | default(false) and
-         mrdemonwolf_theme_files.results[0].stat.checksum == plymouth_theme_sha256 and
+         mrdemonwolf_theme_files.results[0].stat.checksum in [plymouth_theme_sha256, plymouth_previous_theme_sha256] and
          mrdemonwolf_theme_files.results[1].stat.isreg | default(false) and
          mrdemonwolf_theme_files.results[1].stat.checksum == plymouth_logo_sha256)
     fail_msg: "The existing Plymouth theme directory has no matching MrDemonWolf theme markers."
