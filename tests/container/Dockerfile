@@ -14,6 +14,9 @@ RUN pacman -Syu --noconfirm --disable-sandbox --needed \
       systemd \
     && pacman -Scc --noconfirm \
     && useradd --create-home --uid 1000 --shell /bin/bash setup-test \
+    && printf 'setup-test:container-test-only\n' | chpasswd \
+    && printf 'setup-test ALL=(ALL) ALL\nDefaults:setup-test timestamp_type=tty\n' > /etc/sudoers.d/setup-test \
+    && chmod 0440 /etc/sudoers.d/setup-test \
     && install -d -o setup-test -g setup-test /workspace \
     && install -d /usr/share/ansible/collections \
     && install -d /usr/share/gnome-shell/extensions/appindicatorsupport@rgcjonas.gmail.com \

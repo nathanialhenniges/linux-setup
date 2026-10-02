@@ -87,4 +87,6 @@ XDG_CURRENT_DESKTOP=GNOME \
 GSETTINGS_SCHEMA_DIR=/opt/linux-setup-test/schemas \
 dbus-run-session -- bash tests/container/run-gnome-smoke.sh
 
+python3 tests/container/test-sudo.py
+
 printf '%s\n' 'Arch container checks passed.'
