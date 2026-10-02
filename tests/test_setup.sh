@@ -17,6 +17,9 @@ grep -Fq '  - fuse2' vars.yml || fail 'Arch AppImage support must use the fuse2 
 grep -Fq '  - broadcom-wl-dkms' vars.yml || fail 'Arch Wi-Fi support must use broadcom-wl-dkms'
 grep -Fq '  - ttf-cascadia-code-nerd' vars.yml || fail 'Ghostty needs the CaskaydiaCove Nerd Font used by its configured profile'
 grep -Fq '  - gnome-shell-extension-appindicator' vars.yml || fail 'GNOME needs AppIndicator support to show the LibrePods tray icon'
+grep -Fq '1password' setup.sh || fail 'the reviewed AUR package list must install 1Password'
+grep -Fq 'ONEPASSWORD_SIGNING_KEY_FINGERPRINT=3FEF9748469ADBE15DA7CA80AC2D62742012EA22' setup.sh || fail '1Password must use the reviewed vendor signing-key fingerprint'
+grep -Fq 'gpg --show-keys --with-colons "$key_file"' setup.sh || fail '1Password vendor key must be fingerprint-checked before import'
 ! grep -Eq '  - broadcom-wl$' vars.yml || fail 'use Arch package broadcom-wl-dkms instead of broadcom-wl'
 grep -Fq '  - v4l-utils' vars.yml || fail 'camera diagnostics need v4l-utils'
 grep -Fq '  - linux-lts-headers' vars.yml || fail 'FaceTime and Broadcom DKMS need LTS headers for the fallback kernel'
@@ -25,18 +28,29 @@ ansible-playbook -i inventory.ini --syntax-check verify.yml
 
 grep -Fq -- '--limit workstation' setup.sh || fail 'setup must limit Ansible to workstation'
 grep -Fq 'ansible_connection=local' inventory.ini || fail 'inventory must stay local'
-grep -Fq 'setup_action in supported_actions' site.yml || fail 'Ansible must require an explicit reviewed action'
+grep -Fq 'selected_setup_actions | difference(supported_actions) | length == 0' site.yml || fail 'Ansible must require only explicit reviewed actions'
+grep -Fq "selected_setup_actions: \"{{ setup_actions | default([setup_action | default('')]) }}\"" site.yml || fail 'Ansible must support grouped reviewed actions and standalone actions'
 grep -Fq 'MacBookAir7,2' site.yml || fail 'Ansible must lock the target model'
+grep -Fq 'become_ask_pass = false' ansible.cfg || fail 'Ansible must reuse the one sudo authentication instead of prompting for BECOME'
+grep -Fq 'sudo -v || fail' setup.sh || fail 'setup must request sudo authentication once'
+grep -Fq 'sudo -n -v </dev/tty' setup.sh || fail 'setup must refresh the sudo ticket without asking again'
+grep -Fq 'trap stop_sudo_keepalive EXIT' setup.sh || fail 'setup must stop its temporary sudo keepalive when it exits'
+grep -Fq 'run_site_actions base apps' setup.sh || fail 'all must group the base and apps Ansible phases'
+grep -Fq 'run_site_actions tools desktop' setup.sh || fail 'all must group the tools and desktop Ansible phases'
+grep -Fq 'run_site_actions gnome-dock branding' setup.sh || fail 'all must group the GNOME dock and branding Ansible phases'
+grep -Fq 'chatgpt-bin' setup.sh || fail 'all must skip the official ChatGPT installer when its package is already installed'
+grep -Fq 'pacman -Qq gnome-shell-extension-dash-to-dock' setup.sh || fail 'all must not perform a redundant second yay pass for the dock extension'
 ! grep -Fq '  - hyprland' vars.yml || fail 'the regular desktop package set must stay GNOME-only'
 grep -Fq 'HYPRLAND_PACKAGES=(hyprland' setup.sh || fail 'legacy Hyprland removal must use an explicit package list'
 grep -Fq 'sudo pacman -Rns --' setup.sh || fail 'legacy package removal must remain interactive and let pacman review dependencies'
-grep -Fq "when: setup_action == 'gnome-dock'" site.yml || fail 'GNOME dock setup must be a standalone action'
+grep -Fq "when: \"'gnome-dock' in selected_setup_actions\"" site.yml || fail 'GNOME dock setup must remain a selectable action'
 grep -Fq 'dash-to-dock@micxgx.gmail.com' vars.yml || fail 'GNOME dock setup must configure the reviewed Dash to Dock extension'
 grep -Fq 'appindicatorsupport@rgcjonas.gmail.com' vars.yml || fail 'GNOME dock setup must configure AppIndicator support for the LibrePods tray icon'
 grep -Fq 'enabled-extensions' tasks/gnome_dock.yml || fail 'new system extensions must be configured for the next GNOME login'
 ! grep -Fq 'gnome-extensions, enable' tasks/gnome_dock.yml || fail 'do not try to enable newly installed system extensions in the current GNOME session'
 grep -Fq 'gnome_extensions_configured' verify.yml || fail 'verification must confirm GNOME extensions are configured to load'
 grep -Fq 'gnome_extensions_active' verify.yml || fail 'status must distinguish active GNOME extensions from those queued for next login'
+grep -Fq "gnome_favorite_apps.stdout is search('com.onepassword.OnePassword.desktop')" verify.yml || fail 'verification must confirm 1Password is pinned in the GNOME dock'
 grep -Fiq 'log out and back in, or reboot' setup.sh || fail 'the GNOME dock action must explain how to load newly installed extensions'
 grep -Fq 'next GNOME login' README.md || fail 'the setup guide must explain delayed GNOME extension activation'
 grep -Fq 'next GNOME login' docs/index.html || fail 'the web guide must explain delayed GNOME extension activation'
@@ -55,12 +69,13 @@ grep -Fq "key: toggle-application-view, value: \"['<Super>a', '<Super>space']\""
 grep -Fq 'Preserve existing custom shortcuts and add the setup terminal shortcut' tasks/gnome_dock.yml || fail 'registering the Terminal shortcut must preserve existing custom shortcuts'
 grep -Fq 'custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/linux-setup-terminal/' vars.yml || fail 'the terminal shortcut must use a namespaced GNOME custom keybinding'
 grep -Fq "key: switch-input-source, value: \"['<Control><Super>space']\"" vars.yml || fail 'keyboard layout switching must remain available after using Super+Space for the app grid'
-grep -Fq "key: switch-to-workspace-4, value: \"['<Super>4']\"" vars.yml || fail 'the fourth workspace must have the reviewed shortcut'
-grep -Fq "key: move-to-workspace-4, value: \"['<Shift><Super>4']\"" vars.yml || fail 'moving windows to the fourth workspace must have the reviewed shortcut'
-grep -Fq "key: switch-to-application-9, value: \"[]\"" vars.yml || fail 'GNOME app switching shortcuts must not conflict with workspace shortcuts'
-grep -Fq '{ key: hot-keys, value: "false" }' tasks/gnome_dock.yml || fail 'Dash to Dock number shortcuts must not conflict with workspace shortcuts'
+grep -Fq 'key: dynamic-workspaces, value: "true"' vars.yml || fail 'GNOME should use its default dynamic workspaces'
+grep -Fq 'key: num-workspaces, value: "1"' vars.yml || fail 'GNOME should start with one dynamic workspace'
+grep -Fq 'Restore those GNOME shortcuts to this version' tasks/gnome_dock.yml || fail 'the dock action must remove this setup’s old fixed-workspace shortcuts'
+grep -Fq 'gnome_previous_workspace_preferences' tasks/gnome_dock.yml || fail 'workspace shortcut cleanup must be scoped to the previous values set here'
+grep -Fq 'key: hot-keys, value: "false"' tasks/gnome_dock.yml || fail 'Dash to Dock number shortcuts must not compete with GNOME defaults'
 favorite_block="$(awk '/^gnome_dock_favorites:/{inside=1; next} inside && /^[^ ]/{exit} inside{print}' vars.yml)"
-for app_id in org.gnome.Nautilus.desktop google-chrome.desktop org.telegram.desktop.desktop discord.desktop linux-setup-notion.desktop chatgpt.desktop sh.cider.Cider.desktop code.desktop com.mitchellh.ghostty.desktop; do
+for app_id in org.gnome.Nautilus.desktop google-chrome.desktop com.onepassword.OnePassword.desktop org.telegram.desktop.desktop discord.desktop linux-setup-notion.desktop chatgpt.desktop sh.cider.Cider.desktop code.desktop com.mitchellh.ghostty.desktop; do
   printf '%s\n' "$favorite_block" | grep -Fq "$app_id" || fail "missing curated GNOME dock favorite: $app_id"
 done
 for app_id in tv.plex.PlexDesktop.desktop org.upscayl.Upscayl.desktop librepods.desktop; do
@@ -76,7 +91,7 @@ grep -Fq 'Ghostty and command-line tools' setup.sh || fail 'terminal cleanup mus
 grep -Fq 'OPENAI_CHATGPT_INSTALLER_URL=https://persistent.oaistatic.com/codex-app-prod/linux/install-arch.sh' setup.sh || fail 'ChatGPT must use OpenAI’s official Arch installer'
 grep -Fq 'sudo bash "$installer_file"' setup.sh || fail 'the downloaded official ChatGPT installer must run through sudo after a syntax check'
 grep -Fq 'chatgpt-bin' vars.yml || fail 'verification must require the official ChatGPT package'
-grep -Fq "when: setup_action == 'cleanup-legacy'" site.yml || fail 'legacy cleanup must remain a standalone action'
+grep -Fq "when: \"'cleanup-legacy' in selected_setup_actions\"" site.yml || fail 'legacy cleanup must remain a selectable standalone action'
 grep -Fq "reject('equalto', legacy_chatgpt_launcher.desktop_id)" tasks/retired_chatgpt_launcher.yml || fail 'legacy cleanup must remove only the retired ChatGPT dock pin'
 grep -Fq 'legacy_chatgpt.desktop.j2' tasks/retired_chatgpt_launcher.yml || fail 'legacy cleanup must identify its known launcher template'
 grep -Fq 'require_gnome_session' setup.sh || fail 'legacy dock cleanup must run inside GNOME'
@@ -84,7 +99,9 @@ grep -Fq 'OpenAI’s signed Arch repository' README.md || fail 'README must expl
 grep -Fq 'id="cmd-chatgpt-app"' docs/index.html || fail 'the guide must include the standalone ChatGPT install action'
 grep -Fq 'id="cmd-cleanup-legacy"' docs/index.html || fail 'the guide must include the standalone legacy cleanup action'
 grep -Fq '⌘ + Return' docs/index.html || fail 'the public guide must list the terminal shortcut'
-grep -Fq '⌘ + Shift + 1–4' docs/index.html || fail 'the public guide must list the move-workspace shortcut'
+grep -Fq 'Super + Page Up/Down' docs/index.html || fail 'the public guide must list GNOME’s dynamic-workspace shortcut'
+grep -Fq '1Password' docs/index.html || fail 'the public guide must list 1Password'
+grep -Fq 'dynamic workspaces' README.md || fail 'the setup guide must explain dynamic workspaces'
 grep -Fq '⌘ + Shift + S' docs/index.html || fail 'the public guide must list the screenshot shortcut'
 grep -Fq 'plymouth' vars.yml || fail 'the reviewed apps package set must include Plymouth'
 grep -Fq 'kernel-install-for-dracut' vars.yml || fail 'the apps package set must include the EndeavourOS systemd-boot rebuild helper'
@@ -110,7 +127,7 @@ grep -Fq '93b025f20c1745717ca3750d38b68f37c107dafdc8c589cdfd5c0203e66b4899' vars
 grep -Fq 'b580642ff16800847051de2e3e57e83e7f7b876fe027f7f4520f07d20b45eefa' vars.yml || fail 'branding must allow upgrading the original centered-logo theme'
 grep -Fq 'item.stat.checksum in plymouth_previous_theme_sha256s' tasks/branding.yml || fail 'Plymouth theme file checks must allow only explicitly pinned prior versions'
 grep -Fq 'checksum in ([plymouth_theme_sha256] + plymouth_previous_theme_sha256s)' tasks/branding.yml || fail 'Plymouth directory markers must accept the current or pinned previous themes'
-grep -Fq "when: setup_action == 'branding'" site.yml || fail 'branding must remain an explicit setup action'
+grep -Fq "when: \"'branding' in selected_setup_actions\"" site.yml || fail 'branding must remain an explicit setup action'
 grep -Fq '/usr/bin/reinstall-kernels' tasks/branding.yml || fail 'branding must rebuild systemd-boot kernel images'
 grep -Fq 'yay -S --needed' setup.sh || fail 'AUR package installation must stay interactive'
 grep -Fq 'linux-desktop.sh' setup.sh || fail 'dotfiles must use the dedicated desktop entry point'
@@ -118,7 +135,7 @@ grep -Fq 'status --porcelain' setup.sh || fail 'dotfiles must fail closed on dir
 grep -Fq 'sshd.service' setup.sh || fail 'setup must preflight sshd before package changes'
 grep -Fq 'sshd.service' site.yml || fail 'Ansible must check that sshd remains inactive and disabled'
 
-for package in google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin; do
+for package in google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin 1password; do
   grep -Fq "$package" setup.sh || fail "missing reviewed AUR package: $package"
   grep -Fq "$package" THIRD-PARTY-NOTICES.md || fail "missing AUR notice: $package"
 done

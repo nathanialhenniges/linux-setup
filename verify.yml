@@ -209,6 +209,7 @@
           - librepods_autostart_ready
           - "gnome_favorite_apps.stdout is search('org.gnome.Nautilus.desktop')"
           - "gnome_favorite_apps.stdout is search('google-chrome.desktop')"
+          - "gnome_favorite_apps.stdout is search('com.onepassword.OnePassword.desktop')"
           - "gnome_favorite_apps.stdout is search('discord.desktop')"
           - "gnome_favorite_apps.stdout is search('chatgpt.desktop')"
           - plymouth_branding_ready
@@ -241,7 +242,7 @@
     - name: Show concise workstation status
       ansible.builtin.debug:
         msg: >-
-          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and gnome_extensions_configured and librepods_autostart_ready and gnome_favorite_apps.stdout is search('google-chrome.desktop') and plymouth_branding_ready and gdm_state.stdout == 'enabled' and sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'])
+          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and gnome_extensions_configured and librepods_autostart_ready and gnome_favorite_apps.stdout is search('google-chrome.desktop') and gnome_favorite_apps.stdout is search('com.onepassword.OnePassword.desktop') and plymouth_branding_ready and gdm_state.stdout == 'enabled' and sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'])
              else 'Needs setup' }} — {{ missing_pacman_packages | length }} pacman packages and
           {{ missing_flatpak_packages | length }} system Flatpaks, GNOME dock {{ 'active' if gnome_extensions_active else ('configured for next login' if gnome_extensions_configured else 'missing') }}, Plymouth branding {{ 'ready' if plymouth_branding_ready else 'missing' }}.
       when: verification_mode == 'status'

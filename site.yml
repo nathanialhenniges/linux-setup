@@ -6,12 +6,14 @@
   become: false
   vars_files:
     - vars.yml
+  vars:
+    selected_setup_actions: "{{ setup_actions | default([setup_action | default('')]) }}"
   pre_tasks:
     - name: Require an explicit reviewed action
       ansible.builtin.assert:
         that:
-          - setup_action is defined
-          - setup_action in supported_actions
+          - selected_setup_actions | length > 0
+          - selected_setup_actions | difference(supported_actions) | length == 0
           - ansible_facts.user_id != 'root'
           - ansible_facts.pkg_mgr == 'pacman'
           - ansible_facts.architecture == 'x86_64'
@@ -77,50 +79,50 @@
   tasks:
     - name: Install base packages
       ansible.builtin.import_tasks: tasks/base.yml
-      when: setup_action == 'base'
+      when: "'base' in selected_setup_actions"
       tags: [base]
 
     - name: Install workstation apps
       ansible.builtin.import_tasks: tasks/apps.yml
-      when: setup_action == 'apps'
+      when: "'apps' in selected_setup_actions"
       tags: [apps]
 
     - name: Install selected tools
       ansible.builtin.import_tasks: tasks/cli_tools.yml
-      when: setup_action == 'tools'
+      when: "'tools' in selected_setup_actions"
       tags: [tools]
 
     - name: Configure desktop artwork and Chrome app shortcuts
       ansible.builtin.import_tasks: tasks/desktop_personalization.yml
-      when: setup_action == 'desktop'
+      when: "'desktop' in selected_setup_actions"
       tags: [desktop]
 
     - name: Configure the GNOME dock, shortcuts, and light styling
       ansible.builtin.import_tasks: tasks/gnome_dock.yml
-      when: setup_action == 'gnome-dock'
+      when: "'gnome-dock' in selected_setup_actions"
       tags: [gnome-dock]
 
     - name: Remove the known retired ChatGPT launcher
       ansible.builtin.import_tasks: tasks/retired_chatgpt_launcher.yml
-      when: setup_action == 'cleanup-legacy'
+      when: "'cleanup-legacy' in selected_setup_actions"
       tags: [cleanup-legacy]
 
     - name: Set the profile photo without rerunning the full setup
       ansible.builtin.import_tasks: tasks/profile_picture.yml
-      when: setup_action == 'profile-picture'
+      when: "'profile-picture' in selected_setup_actions"
       tags: [profile-picture]
 
     - name: Restore GDM as the default login manager
       ansible.builtin.import_tasks: tasks/login_manager.yml
-      when: setup_action == 'display-manager'
+      when: "'display-manager' in selected_setup_actions"
       tags: [display-manager]
 
     - name: Apply MrDemonWolf startup branding
       ansible.builtin.import_tasks: tasks/branding.yml
-      when: setup_action == 'branding'
+      when: "'branding' in selected_setup_actions"
       tags: [branding]
 
     - name: Uninstall Firefox and remove its local browser data
       ansible.builtin.import_tasks: tasks/purge_firefox.yml
-      when: setup_action == 'purge-firefox'
+      when: "'purge-firefox' in selected_setup_actions"
       tags: [purge-firefox]

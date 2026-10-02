@@ -116,6 +116,24 @@
   loop_control:
     label: "{{ item.item.key }}"
 
+- name: Read workspace and app-number shortcuts previously changed by this setup
+  ansible.builtin.command:
+    argv: [gsettings, get, "{{ item.schema }}", "{{ item.key }}"]
+  loop: "{{ gnome_previous_workspace_preferences }}"
+  register: previous_gnome_workspace_preferences
+  changed_when: false
+  failed_when: false
+
+- name: Restore those GNOME shortcuts to this version's defaults
+  ansible.builtin.command:
+    argv: [gsettings, reset, "{{ item.item.schema }}", "{{ item.item.key }}"]
+  loop: "{{ previous_gnome_workspace_preferences.results }}"
+  when:
+    - item.rc == 0
+    - (item.stdout | trim | replace('@as ', '')) == item.item.previous_value
+  loop_control:
+    label: "{{ item.item.key }}"
+
 - name: Read GNOME extensions configured for this user
   ansible.builtin.command:
     argv: [gsettings, get, org.gnome.shell, enabled-extensions]
