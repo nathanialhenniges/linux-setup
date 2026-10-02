@@ -4,8 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$ROOT_DIR"
 export ANSIBLE_CONFIG="$ROOT_DIR/ansible.cfg"
-export ANSIBLE_BECOME_EXE="$ROOT_DIR/scripts/ansible-sudo.sh"
-export ANSIBLE_PIPELINING=false
+source "$ROOT_DIR/scripts/sudo-session.sh"
 
 AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin 1password)
 HYPRLAND_PACKAGES=(hyprland hypridle hyprlock hyprpaper hyprpolkitagent waybar wofi mako xdg-desktop-portal-hyprland network-manager-applet thunar thunar-volman tumbler grim slurp)
@@ -68,6 +67,7 @@ stop_sudo_keepalive() {
   kill -TERM "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
   wait "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
   SUDO_KEEPALIVE_PID=
+  SETUP_BECOME_PASSWORD=
 }
 
 start_sudo_keepalive() {
@@ -75,8 +75,9 @@ start_sudo_keepalive() {
   command -v sudo >/dev/null 2>&1 || fail 'sudo is required for this action'
   [[ -t 0 && -t 1 ]] || fail 'run this action from an interactive terminal so sudo can authenticate once'
 
-  sudo -v || fail 'sudo authentication failed'
+  authenticate_setup_sudo || fail 'sudo authentication failed'
   (
+    SETUP_BECOME_PASSWORD=
     sleep_pid=
     trap 'if [[ -n "$sleep_pid" ]]; then kill "$sleep_pid" 2>/dev/null || true; fi; exit 0' TERM INT
     while true; do
@@ -220,7 +221,7 @@ sync_system() {
 run_site_action_local() {
   local action="$1"
   require_ansible
-  ansible-playbook -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
+  run_setup_ansible -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
     --limit workstation --tags "$action" --extra-vars "$(extra_vars "$action")"
 }
 
@@ -239,14 +240,14 @@ extra_vars_for_actions() {
 run_site_actions() {
   require_ansible
   ensure_ansible_collections
-  ansible-playbook -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
+  run_setup_ansible -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
     --limit workstation --extra-vars "$(extra_vars_for_actions "$@")"
 }
 
 run_verification() {
   local mode="$1"
   require_ansible
-  ansible-playbook -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/verify.yml" \
+  run_setup_ansible -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/verify.yml" \
     --limit workstation --extra-vars "$(extra_vars '' "$mode")"
 }
 

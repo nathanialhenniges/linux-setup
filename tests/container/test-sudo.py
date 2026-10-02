@@ -18,15 +18,15 @@ with tempfile.TemporaryDirectory() as directory:
         that: uid.stdout == '0'
 ''')
     command = f'''set -e
-printf '%s\\n' container-test-only | sudo -S -v
-export ANSIBLE_BECOME_EXE="$PWD/scripts/ansible-sudo.sh"
-export ANSIBLE_PIPELINING=false
-ansible-playbook -i inventory.ini {play}
-ansible-playbook -i inventory.ini {play}
+source scripts/sudo-session.sh
+authenticate_setup_sudo
+run_setup_ansible -i inventory.ini {play}
+run_setup_ansible -i inventory.ini {play}
 '''
     child, fd = pty.fork()
     if child == 0:
         os.execvp('bash', ['bash', '-c', command])
+    os.write(fd, b'container-test-only\n')
     output = bytearray()
     while True:
         try:

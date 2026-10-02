@@ -32,7 +32,7 @@ grep -Fq 'selected_setup_actions | difference(supported_actions) | length == 0' 
 grep -Fq "selected_setup_actions: \"{{ setup_actions | default([setup_action | default('')]) }}\"" site.yml || fail 'Ansible must support grouped reviewed actions and standalone actions'
 grep -Fq 'MacBookAir7,2' site.yml || fail 'Ansible must lock the target model'
 grep -Fq 'become_ask_pass = false' ansible.cfg || fail 'Ansible must reuse the one sudo authentication instead of prompting for BECOME'
-grep -Fq 'sudo -v || fail' setup.sh || fail 'setup must request sudo authentication once'
+grep -Fq 'authenticate_setup_sudo || fail' setup.sh || fail 'setup must request sudo authentication once'
 grep -Fq 'sudo -n -v </dev/tty' setup.sh || fail 'setup must refresh the sudo ticket without asking again'
 grep -Fq 'trap stop_sudo_keepalive EXIT' setup.sh || fail 'setup must stop its temporary sudo keepalive when it exits'
 grep -Fq 'run_site_actions base apps' setup.sh || fail 'all must group the base and apps Ansible phases'
@@ -170,7 +170,5 @@ grep -Fq 'cc3daf6176c3c7797b436fd446daacbd14640984cc4d7517fb99a1ec037134d3' THIR
 git diff --check
 printf 'Setup checks passed.\n'
 
-[[ -x scripts/ansible-sudo.sh ]] || fail "Ansible sudo wrapper must be executable"
-grep -Fq 'export ANSIBLE_BECOME_EXE="$ROOT_DIR/scripts/ansible-sudo.sh"' setup.sh || fail "Ansible must reuse the controlling terminal sudo ticket"
-grep -Fq 'export ANSIBLE_PIPELINING=false' setup.sh || fail "TTY sudo requires pipelining disabled"
-bash -n scripts/ansible-sudo.sh
+bash -n scripts/sudo-session.sh
+grep -Fq -- '--become-password-file -' scripts/sudo-session.sh || fail "Ansible must receive authentication through stdin"
