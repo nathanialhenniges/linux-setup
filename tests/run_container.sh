@@ -7,7 +7,7 @@ IMAGE_TAG="linux-setup-arch-ci:${RUN_ID}"
 CONTAINER_NAME="linux-setup-arch-ci-${RUN_ID}"
 BASE_IMAGE=archlinux:base-devel
 BASE_IMAGE_WAS_PRESENT=false
-STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/linux-setup-ci.XXXXXX")"
+STAGING_DIR="$(mktemp -d "$ROOT_DIR/.linux-setup-ci.XXXXXX")"
 CONTEXT_DIR="$STAGING_DIR/context"
 mkdir -p "$CONTEXT_DIR"
 
@@ -29,7 +29,7 @@ trap cleanup EXIT HUP INT TERM
 
 git -C "$ROOT_DIR" diff --check
 git -C "$ROOT_DIR" diff --cached --check
-python3 - "$ROOT_DIR" "$STAGING_DIR/source.tar" "$CONTEXT_DIR" <<'PY'
+python3 - "$ROOT_DIR" "$STAGING_DIR/source.tar" "$CONTEXT_DIR" "$STAGING_DIR" "$RUN_ID" <<'PY'
 import pathlib
 import shutil
 import subprocess
@@ -39,10 +39,12 @@ import tarfile
 root = pathlib.Path(sys.argv[1])
 archive_path = pathlib.Path(sys.argv[2])
 context = pathlib.Path(sys.argv[3])
+staging_dir_name = pathlib.Path(sys.argv[4]).name
+run_id = sys.argv[5]
 listed = subprocess.check_output(
     ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"]
 ).split(b"\0")
-excluded_components = {".git", ".ansible", "node_modules"}
+excluded_components = {".git", ".ansible", "node_modules", staging_dir_name}
 
 with tarfile.open(archive_path, "w") as archive:
     for raw_path in listed:
@@ -68,7 +70,12 @@ for relative in (
     source = root / relative
     destination = context / relative
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
+    if relative == "tests/container/Dockerfile":
+        content = source.read_text(encoding="utf-8")
+        content = content.replace("__LINUX_SETUP_TEST_RUN_ID__", run_id)
+        destination.write_text(content, encoding="utf-8")
+    else:
+        shutil.copy2(source, destination)
 PY
 
 docker info >/dev/null
@@ -76,8 +83,12 @@ if docker image inspect "$BASE_IMAGE" >/dev/null 2>&1; then
   BASE_IMAGE_WAS_PRESENT=true
 fi
 docker image build --platform linux/amd64 --pull \
-  --build-arg "LINUX_SETUP_TEST_RUN_ID=$RUN_ID" \
   --file "$CONTEXT_DIR/tests/container/Dockerfile" --tag "$IMAGE_TAG" "$CONTEXT_DIR"
-docker run --platform linux/amd64 --rm --name "$CONTAINER_NAME" \
-  --mount "type=bind,source=$STAGING_DIR/source.tar,target=/input/source.tar,readonly" \
-  "$IMAGE_TAG"
+docker create --platform linux/amd64 --name "$CONTAINER_NAME" "$IMAGE_TAG" >/dev/null
+docker cp "$STAGING_DIR/source.tar" "$CONTAINER_NAME:/tmp/source.tar"
+docker start --attach "$CONTAINER_NAME"
+container_exit="$(docker inspect --format '{{.State.ExitCode}}' "$CONTAINER_NAME")"
+if [[ "$container_exit" != 0 ]]; then
+  printf 'Arch test container exited with status %s.\n' "$container_exit" >&2
+  exit "$container_exit"
+fi

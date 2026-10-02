@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-tar -xf /input/source.tar -C /workspace
+tar -xf /tmp/source.tar -C /workspace
 cd /workspace
 git init --quiet
 git add --all

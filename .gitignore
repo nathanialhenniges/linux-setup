@@ -6,3 +6,4 @@
 .ansible/
 
 node_modules/
+.linux-setup-ci.*/

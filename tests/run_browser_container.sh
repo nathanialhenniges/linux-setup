@@ -25,9 +25,13 @@ fi
 # Only guide sources and locked test dependencies enter the container.
 tar -cf "$STAGING_DIR/source.tar" -C "$ROOT_DIR" docs package.json package-lock.json tests/test_guide.cjs
 result=0
-docker run --name "$CONTAINER_NAME" --user pwuser \
-  --mount "type=bind,source=$STAGING_DIR/source.tar,target=/input/source.tar,readonly" \
-  "$IMAGE" bash -c 'set -euo pipefail; mkdir -p /tmp/guide; cd /tmp/guide; tar -xf /input/source.tar; npm ci; npm run build:guide; GUIDE_SCREENSHOT_DIR=/tmp/guide-screenshots npm run test:guide' || result=$?
+docker create --name "$CONTAINER_NAME" --user pwuser \
+  "$IMAGE" bash -c 'set -euo pipefail; mkdir -p /tmp/guide; cd /tmp/guide; tar -xf /tmp/source.tar; npm ci; npm run build:guide; GUIDE_SCREENSHOT_DIR=/tmp/guide-screenshots npm run test:guide' >/dev/null
+docker cp "$STAGING_DIR/source.tar" "$CONTAINER_NAME:/tmp/source.tar"
+docker start --attach "$CONTAINER_NAME" || result=$?
+if [[ "$result" == 0 ]]; then
+  result="$(docker inspect --format '{{.State.ExitCode}}' "$CONTAINER_NAME")"
+fi
 if [[ -n "${GUIDE_SCREENSHOT_DIR:-}" ]]; then
   mkdir -p "$GUIDE_SCREENSHOT_DIR"
   docker cp "$CONTAINER_NAME:/tmp/guide-screenshots/." "$GUIDE_SCREENSHOT_DIR/" || result=1

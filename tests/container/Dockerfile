@@ -1,7 +1,5 @@
 FROM archlinux:base-devel
-
-ARG LINUX_SETUP_TEST_RUN_ID=unknown
-LABEL org.mrdemonwolf.linux-setup-test.run="$LINUX_SETUP_TEST_RUN_ID"
+LABEL org.mrdemonwolf.linux-setup-test.run="__LINUX_SETUP_TEST_RUN_ID__"
 
 ENV ANSIBLE_COLLECTIONS_PATH=/usr/share/ansible/collections \
     LANG=C.UTF-8 \
