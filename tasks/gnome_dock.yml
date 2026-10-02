@@ -91,7 +91,7 @@
       - org.gnome.settings-daemon.plugins.media-keys
       - custom-keybindings
       - "[{% for path in gnome_registered_custom_keybinding_paths %}'{{ path }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
-  when: current_gnome_custom_keybindings.stdout | trim != "[{% for path in gnome_registered_custom_keybinding_paths %}'{{ path }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+  when: (current_gnome_custom_keybindings.stdout | trim | replace('@as ', '') | from_yaml) != gnome_registered_custom_keybinding_paths
 
 - name: Set the Mac-inspired GNOME app order
   ansible.builtin.command:
@@ -101,7 +101,7 @@
       - org.gnome.shell
       - favorite-apps
       - "[{% for desktop_id in gnome_dock_available_ids %}'{{ desktop_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
-  when: current_gnome_favorites.stdout | trim != "[{% for desktop_id in gnome_dock_available_ids %}'{{ desktop_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+  when: (current_gnome_favorites.stdout | trim | replace('@as ', '') | from_yaml) != gnome_dock_available_ids
 
 - name: Apply the lightweight GNOME appearance and familiar shortcuts
   ansible.builtin.command:
@@ -209,6 +209,12 @@
       - "{{ item.item.key }}"
       - "{{ item.item.value }}"
   loop: "{{ current_dock_preferences.results }}"
-  when: (item.stdout | trim | replace('@as ', '')) != item.item.value
+  # GSettings serializes doubles with extra precision (for example 0.71999999999999997).
+  # Compare opacity numerically so repeating this action does not rewrite it.
+  when: >-
+    (item.item.key == 'background-opacity' and
+     (((item.stdout | float) - (item.item.value | float)) | abs) > 0.000001) or
+    (item.item.key != 'background-opacity' and
+     (item.stdout | trim | replace('@as ', '')) != item.item.value)
   loop_control:
     label: "{{ item.item.key }}"

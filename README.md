@@ -1,58 +1,46 @@
-# Nathanial’s MacBook Air
+# EndeavourOS on Nathanial’s MacBook Air
 
-This guide walks through reinstalling a **2015 MacBook Air (`MacBookAir7,2`)** with EndeavourOS and GNOME. The setup adds the laptop apps, OpenAI’s official ChatGPT app, a Mac-like dock, and MrDemonWolf branding.
+A small, auditable setup for **EndeavourOS or Arch Linux with GNOME** on the 2015 MacBook Air (`MacBookAir7,2`). It installs the selected laptop apps, configures a Mac-inspired GNOME dock, and applies MrDemonWolf branding.
 
-Follow the checkboxes from top to bottom. Stop when a step fails; fix that issue, then continue.
+> **Fresh install warning:** the installer erases the Mac’s internal SSD. Back up anything you need before proceeding.
 
-For a larger, copy-friendly version with checkboxes saved in your browser, open the [interactive install guide](https://nathanialhenniges.github.io/linux-setup/).
+For the full visual, copy-friendly reinstall checklist, use the [interactive install guide](https://nathanialhenniges.github.io/linux-setup/).
 
-## 1. Get ready
+## Contents
 
-- [ ] Confirm you want a fresh install. The installer erases the Mac’s internal disk.
-- [ ] Have the Mac’s power adapter connected.
-- [ ] Prepare an EndeavourOS installer USB drive (8 GB or larger) and a known-working backup internet route in case live-session Wi-Fi fails.
-- [ ] Download EndeavourOS from the [official EndeavourOS site](https://endeavouros.com/) and verify its published checksum or signature.
-- [ ] Write the ISO to a USB drive with [balenaEtcher](https://etcher.balena.io/). This erases the USB drive.
+- [Install EndeavourOS](#install-endeavouros)
+- [Run setup](#run-setup)
+- [Apps included](#apps-included)
+- [Focused repair actions](#focused-repair-actions)
+- [GNOME shortcuts](#gnome-shortcuts)
+- [Validation and safety](#validation-and-safety)
 
-## 2. Install EndeavourOS
+## Install EndeavourOS
 
-- [ ] Insert the installer USB. Start the Mac while holding **Option (⌥)** and choose the EFI USB entry.
-- [ ] Open the installer and choose **Online install**.
-- [ ] Choose **GNOME** and leave its EndeavourOS settings enabled. This repository keeps GNOME as the only configured desktop session.
-- [ ] On the package screen, keep **Desktop-Base + Common packages** and the installer’s recommended defaults selected. Keep **Firefox** selected temporarily so the guide is available on first boot. The setup installs Google Chrome early, then asks whether to remove Firefox at the end. Keep Spell Checker, Firewall, and Intel microcode selected if shown.
-- [ ] Keep the regular `linux` kernel and select **LTS kernel in addition** as a fallback.
-- [ ] Select **Printing support (CUPS)** for office printers. Leave **HP printer/scanner support** off until you know the printer make.
-- [ ] Select the internal **Apple SSD · about 465.92 GiB · /dev/sda**, choose **Erase disk**, and turn on **Encrypt System**. Set and safely save the encryption passphrase; you will need it each time the Mac starts.
-- [ ] Keep EndeavourOS’s default **systemd-boot**. Use the automatic disk setup; do not create partitions or a volume group manually. If the Mac shows its startup picker after installation, hold **Option (⌥)** and choose **EFI Boot**.
-- [ ] Do not create a separate swap partition. After installation, add an encrypted swapfile and configure and test hibernation. See the [simple install guide](https://nathanialhenniges.github.io/linux-setup/#install).
-- [ ] Create your normal user account and password. Do not use root for setup.
-- [ ] Finish installation and remove the USB. Log in to GNOME if you selected it; otherwise log in at the text console.
+Use the online installer and select **GNOME**. Before erasing the disk, confirm that the selected drive is the internal Apple SSD (about 466 GiB on this Mac).
 
-Before starting the online installer, test the Mac’s built-in Wi-Fi in the live desktop:
+Recommended choices:
 
-- [ ] If EndeavourOS offers to install Wi-Fi drivers, accept the prompt. On this Mac, that enabled the internal Broadcom Wi-Fi in the live session.
-- [ ] Connect to Wi-Fi and load a webpage before continuing with **Online install**.
-- [ ] If Wi-Fi still does not work, stop before partitioning and use USB Ethernet or another known-working network route. iPhone USB tethering may need packages that are not present in the live USB.
+- Keep EndeavourOS’s **Desktop-Base + Common packages** and recommended defaults. Keep Firefox for the initial setup; `./setup.sh all` offers to remove Firefox and its local data at the end.
+- Keep the regular `linux` kernel and add the **LTS kernel** as a fallback.
+- Select **Printing support (CUPS)**. Wait to select vendor-specific printer support until you know the office printer model.
+- Choose **Erase disk** and **Encrypt System**. Save the disk passphrase; you will enter it at startup.
+- Keep the automatic **systemd-boot** setup. Do not create partitions or a volume group manually. Skip a separate swap partition; hibernation needs a later encrypted swapfile setup.
+- Create a normal user account. Run this repository as that user, never as root.
 
-Wi-Fi works from the live USB, but the installed system needs its own driver. `./setup.sh apps` installs Arch's `broadcom-wl-dkms` package for this Mac's Broadcom card. Keep another way to get online available until setup finishes. If Wi-Fi is missing after reboot, run `./setup.sh apps` again, then reboot once more.
+In the live desktop, accept EndeavourOS’s Broadcom Wi-Fi driver offer if it appears, then load a webpage before starting the online install. If Wi-Fi fails, stop and use another working network connection. The installed system also needs its own Wi-Fi driver, which the `apps` action installs.
 
-The setup installs headers for both the regular and LTS kernels so DKMS can build the Wi-Fi and FaceTime camera drivers for either boot option.
+If the Mac shows its startup picker after installation, hold **Option (⌥)** and choose **EFI Boot**. At the GDM login screen, choose **GNOME**.
 
-Setup keeps GNOME as the normal desktop and adds a dock with the apps installed for this Mac. During `all`, it removes the old ChatGPT shortcut made by Chrome and looks for the known Hyprland packages. If any are installed, you can choose to remove them; pacman will show the packages and unused dependencies before asking you to approve. Your personal Hyprland settings are left alone. Reboot after removal and select GNOME at sign-in.
+## Run setup
 
-Use the supplied `assets/mrdemonwolf-logo.svg` and the existing wolf wallpaper for MrDemonWolf, Inc. branding. `./setup.sh all` copies the logo into `~/Pictures`, applies the wallpaper when its desktop session is active, sets the supplied profile photo as your account/login picture, and installs the separate Plymouth startup theme. The apps step also installs EndeavourOS's `kernel-install-for-dracut` helper so systemd-boot images can be rebuilt. You can rerun only `./setup.sh profile-picture` to set the photo, `./setup.sh display-manager` to restore GDM as the login manager, or `./setup.sh branding` to rebuild the branded splash. The splash uses a black background, a static wolf logo near the bottom, and a visible LUKS passphrase prompt without the spinner animation; it leaves EndeavourOS’s packaged theme files intact. With systemd-boot selected, setup preserves the existing root and LUKS options, adds `quiet splash`, and rebuilds the boot entries and initrds for installed kernels. The systemd-boot menu stays text-only and the Mac firmware picker is unchanged.
-
-## 3. Set up the laptop
-
-If `git` is missing, install it first:
+Open Ghostty or another terminal in GNOME. If Git is missing, install it first:
 
 ```bash
 sudo pacman -Syu --needed git
 ```
 
-Clone this repository and run setup from a GNOME terminal. Before it starts, setup checks which Linux system and Mac model it can identify. If either is missing or differs from EndeavourOS/Arch on a MacBookAir7,2, it shows the detected values and pauses. Type `CONTINUE` only if you recognize the mismatch. If no one can answer the prompt, pass `--accept-target-warning` to acknowledge it. That option does not skip the non-root, x86-64, pacman, or SSH safety checks.
-
-The bootstrap step installs the pinned `community.general` collection that Ansible needs for pacman package actions.
+Clone the repository and install its local Ansible prerequisites:
 
 ```bash
 mkdir -p ~/Developer
@@ -61,93 +49,125 @@ git clone https://github.com/nathanialhenniges/linux-setup.git
 cd linux-setup
 ./setup.sh bootstrap
 ./setup.sh status
-./setup.sh --dry-run chrome
+```
+
+Chrome can open the guide on the Mac before the rest of setup:
+
+```bash
 ./setup.sh chrome
 google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' >/dev/null 2>&1 &
+```
+
+Review the no-change plan, then run the full setup:
+
+```bash
 ./setup.sh --dry-run all
 ./setup.sh all
 ```
 
-- [ ] Chrome is installed and the guide is open in Chrome on the Mac. The later `all` action safely skips Chrome if it is already installed.
-- [ ] Read the full setup dry-run before continuing. It makes no changes and does not use sudo or the network.
-- [ ] Read each `yay` build prompt and approve it yourself; setup never approves AUR builds automatically. Chrome, 1Password, VS Code, Dash to Dock, the FaceTime HD camera support, and Oh My Posh come from the AUR. 1Password’s downloaded app is signed by its vendor, and setup checks the vendor key fingerprint before importing it. The official Arch repositories provide the matching CaskaydiaCove Nerd Font. Together, those packages let the configured Zsh theme render in Ghostty.
-- [ ] Setup saves Dash to Dock and AppIndicator for the next GNOME login. The planned reboot below loads these extensions.
-- [ ] Setup installs ChatGPT from OpenAI’s signed Arch repository if it is missing. Its installer asks before starting a complete system upgrade. Setup clears the old ChatGPT Chrome shortcut, offers to uninstall known Hyprland packages, and asks before removing extra terminal apps. Ghostty stays as the one terminal; command-line tools stay installed. Run `./setup.sh cleanup-terminals` later to repeat that cleanup.
-- [ ] At the end of `./setup.sh all`, choose whether to uninstall Firefox and erase its local data. Chrome installs before this prompt. Confirming removes Firefox bookmarks, saved logins, cookies, extensions, settings, and cache; Google Chrome and its profile data are left alone. Close Firefox first. If you skip it, you can later review `./setup.sh --dry-run purge-firefox` and run `./setup.sh purge-firefox`.
-- [ ] When setup finishes, reboot:
+`all` asks for your sudo password once and refreshes the temporary sudo ticket while it runs. Ansible does not ask for a second BECOME password. Separate approval prompts may still appear for AUR builds, package changes, detected cleanup items, or ChatGPT’s full-system upgrade if ChatGPT needs installation. At the end, choose whether to remove Firefox and its local data. Reboot after setup:
 
 ```bash
 reboot
 ```
 
-- [ ] At the GDM login screen, choose **GNOME**.
-- [ ] Run `./setup.sh verify` from `~/Developer/linux-setup`.
+After logging back in to GNOME, verify:
 
-If a step needs repair, rerun that action only. For example, `./setup.sh gnome-dock`, `./setup.sh profile-picture`, `./setup.sh display-manager`, and `./setup.sh branding` do not rerun the full setup. Finished actions are safe to repeat.
+```bash
+cd ~/Developer/linux-setup
+./setup.sh verify
+```
 
-## 4. First login
+Setup checks the OS and Mac model before changing the system. If it displays a mismatch, review the detected values and type `CONTINUE` only if you accept the warning. `--accept-target-warning` is the explicit option for non-interactive runs; it does not bypass the architecture, package-manager, non-root, or SSH safety checks.
 
-- [ ] Check Wi-Fi from the top bar after setup and reboot. If it is missing, use USB Ethernet or another working network route, rerun `./setup.sh apps`, then reboot.
-- [ ] Open Terminal from GNOME’s app grid. Ghostty is pinned in the dock.
-- [ ] App list: **dock** — Files, Chrome, 1Password, Telegram, Discord, Notion, ChatGPT, Cider, VS Code, Ghostty; **app grid** — Plex, Upscayl, LibrePods; **Chrome shortcuts** — Docs, Sheets, Slides, Notion, Quo. Press `⌘+A` to see the app grid. Apple Messages and Reminders do not have native Linux apps in this setup.
-- [ ] Open Chrome and sign in to Google. Docs, Sheets, Slides, Notion, and Quo shortcuts appear in the launcher. ChatGPT opens in its official Linux app.
-- [ ] Open Google Drive at [drive.google.com](https://drive.google.com/). Drive stays browser-only.
-- [ ] Sign in to Discord. Open Plex Desktop and Cider as needed; Cider activation and Apple sign-in are manual.
-- [ ] LibrePods starts minimized after GNOME login, and AppIndicator provides its tray icon after the reboot loads the GNOME extensions. Pair AirPods manually in Bluetooth settings; LibrePods stays available from its tray icon and app launcher. [The pinned version has a reported GNOME/Wayland connection issue](https://github.com/librepods-org/librepods/issues/544); if it exits while connecting, reopen it from the app grid after login.
-- [ ] After reboot, run `./setup.sh camera` to check the FaceTime HD packages, DKMS build, and camera device.
-- [ ] Open Google Meet in Chrome and confirm the camera preview shows video. Also check audio, brightness keys, trackpad, suspend, and wake.
-- [ ] Leave **Power Saver** selected for normal battery use. Click the **Power** item in the top bar to change profiles when plugged in or when you need more performance.
+## Apps included
 
-## 5. Connect to a Mac with Chrome Remote Desktop
+| App | Where it appears | Install source |
+| --- | --- | --- |
+| Files | Dock | GNOME |
+| Google Chrome | Dock | AUR |
+| 1Password | Dock | AUR; setup checks the vendor signing-key fingerprint before import |
+| Telegram | Dock | Flathub |
+| Discord | Dock | Arch repositories |
+| Notion | Dock and app grid | Chrome web-app shortcut |
+| ChatGPT | Dock | OpenAI’s signed Arch repository |
+| Cider | Dock | Flathub |
+| Visual Studio Code | Dock | AUR |
+| Ghostty | Dock | Arch repositories |
+| Plex Desktop, Upscayl | App grid | Flathub |
+| LibrePods | App grid and tray | Checksum-pinned AppImage; starts minimized after login |
 
-This MacBook uses Chrome Remote Desktop as a **client** in Chrome. The setup does not install or configure the Chrome Remote Desktop host here. Google supports accessing another computer, including a Mac, from the web client at [remotedesktop.google.com/access](https://remotedesktop.google.com/access).
+Chrome also gets web-app shortcuts for Google Docs, Sheets, Slides, Notion, and Quo. Sign-ins and account setup stay manual. Trash is shown in the dock. Apple Messages and Reminders do not have native Linux apps in this setup.
 
-- [ ] Open Chrome and go to [remotedesktop.google.com/access](https://remotedesktop.google.com/access).
-- [ ] Connect to the Mac and use Chrome Remote Desktop’s full-screen control so Chrome is less likely to capture remote shortcuts.
-- [ ] Test the Mac’s **Command + C** and **Command + V** in a safe text field. Test any other shortcuts you rely on before doing real work.
-- [ ] If a shortcut arrives incorrectly, adjust Chrome Remote Desktop’s key-mapping controls and test again.
+## Focused repair actions
 
-Google’s [Chrome Remote Desktop help](https://support.google.com/chrome/answer/1649523?hl=en) covers connecting to another computer.
+Run only the step you need. Preview mutating actions with `--dry-run` first.
 
-## 6. Useful setup commands
-
-Run these inside `~/Developer/linux-setup` as your normal user, never as root:
-
-| Command | What it does |
+| Command | Purpose |
 | --- | --- |
-| `./setup.sh status` | Show a short readiness summary |
-| `./setup.sh --accept-target-warning <action>` | Explicitly accept a displayed Mac model or OS identity warning for that action |
-| `./setup.sh chrome` | Install Chrome early so the guide can stay open on the Mac |
-| `./setup.sh state` | Show missing packages, Flatpak origins, and service state |
-| `./setup.sh verify` | Check that reviewed workstation setup is present |
-| `./setup.sh camera` | Check the FaceTime HD camera driver and detected video device |
-| `./setup.sh --dry-run all` | Preview the full plan without sudo or network access |
-| `./setup.sh base` | Install base packages and power profiles |
-| `./setup.sh apps` | Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and the official ChatGPT app |
-| `./setup.sh tools` | Install selected command-line tools |
-| `./setup.sh desktop` | Set the wallpaper, app shortcuts, and account photo |
-| `./setup.sh gnome-dock` | Set up the GNOME dock, app favorites, familiar shortcuts, and light Mac-style details |
-| `./setup.sh cleanup-terminals` | Review extra terminal apps and optionally remove them while keeping Ghostty and command-line tools |
-| `./setup.sh chatgpt-app` | Install or update ChatGPT from OpenAI’s signed Arch package repository |
-| `./setup.sh cleanup-legacy` | Remove the old ChatGPT Chrome shortcut and optionally remove known Hyprland packages |
-| `./setup.sh remove-hyprland` | Enable GDM, then review and remove the old Hyprland session packages |
-| `./setup.sh branding` | Select the MrDemonWolf Plymouth boot splash and rebuild boot images (run `apps` first) |
-| `./setup.sh display-manager` | Enable GDM and disable SDDM at startup; reboot to use the GNOME login screen |
-| `./setup.sh profile-picture` | Set the supplied profile photo without rerunning the full setup |
-| `./setup.sh purge-firefox` | Uninstall Firefox and erase its local data; leave Chrome and its profile untouched |
-| `./setup.sh dotfiles` | Install the terminal theme font and prompt engine, then run dotfiles’ dedicated desktop profile |
-| `./setup.sh drive` | Show browser-only Google Drive steps |
+| `./setup.sh status` / `state` / `verify` | Check readiness, package state, or required setup |
+| `./setup.sh camera` | Check FaceTime HD packages, driver build, and video device |
+| `./setup.sh apps` | Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and ChatGPT |
+| `./setup.sh desktop` | Apply wallpaper, Chrome shortcuts, and account photo |
+| `./setup.sh gnome-dock` | Configure dock favorites, extensions, appearance, and shortcuts |
+| `./setup.sh branding` | Rebuild the black Plymouth splash with a static wolf logo and visible disk-unlock prompt, without the spinner animation |
+| `./setup.sh display-manager` | Restore GDM as the login manager |
+| `./setup.sh profile-picture` | Set the account photo again |
+| `./setup.sh chatgpt-app` | Update ChatGPT from OpenAI’s signed Arch repository |
+| `./setup.sh cleanup-legacy` | Remove the known old ChatGPT shortcut and optionally remove old Hyprland packages |
+| `./setup.sh remove-hyprland` | Review and optionally remove the listed Hyprland packages |
+| `./setup.sh cleanup-terminals` | Review and optionally remove extra terminal apps; keep Ghostty |
+| `./setup.sh purge-firefox` | Remove Firefox and its local profile data, leaving Chrome untouched |
+| `./setup.sh dotfiles` | Run the dedicated dotfiles desktop profile |
 
-From GNOME, `all` authenticates with sudo once and reuses a short-lived sudo ticket while it runs. It groups base + apps, tools + desktop, and GNOME dock + branding into three Ansible runs, reducing repeated startup and hardware checks. It then handles old-item cleanup, dotfiles, and final checks. If ChatGPT is missing, setup installs it from OpenAI’s signed repository; its installer asks before a full system upgrade. If ChatGPT is already installed, `all` skips that installer; `./setup.sh chatgpt-app` updates it on demand. Cleanup clears the retired Chrome shortcut, offers to remove known Hyprland packages, and asks before removing extra terminal apps. Pacman shows each removal list for your approval. Ghostty and command-line tools stay installed. Reboot after removing Hyprland. Run `cleanup-legacy` or `cleanup-terminals` separately whenever needed.
+`./setup.sh all` groups related Ansible actions to avoid repeating startup checks. Dash to Dock and AppIndicator are configured for the **next GNOME login**. Reboot after removing Hyprland or changing boot branding. The boot splash is separate from the text-only systemd-boot menu and the Mac firmware picker.
 
-On this Mac, Linux calls the Command key **Super**. Press `⌘+Space` for the app grid (`⌘+A` still works), `⌘+Return` for Ghostty, `⌘+E` for Files, `⌘+Q` to close a window, `⌘+F` for fullscreen, or `⌘+L` to lock. GNOME uses dynamic workspaces: it adds spaces as you need them and removes empty ones. Switch between spaces with `Super+Page Up/Page Down` or `Ctrl+Alt+←/→`. Press `⌘+Shift+S` for screenshot options. GNOME's dark appearance and left-side window buttons keep the look familiar, without downloading a theme pack. To switch keyboard layouts, use `Ctrl+⌘+Space`.
+## GNOME shortcuts
 
-## What this setup does
+GNOME uses **dynamic workspaces**: it adds workspaces as windows need them and removes empty ones. Use `Super+Page Up` / `Super+Page Down` or `Ctrl+Alt+←` / `Ctrl+Alt+→` to move between workspaces.
 
-- Uses pacman, interactive `yay` builds, system Flathub apps, checksum-checked downloads, and local Ansible.
-- Installs the SSH **client** for VS Code Remote SSH. `sshd` stays disabled and untouched.
-- Keeps Google sign-in, Cider activation, Bluetooth pairing, and remote-computer access manual.
-- Does not install Docker, the Chrome Remote Desktop host, or server/devbox software. It does not create tunnels, credentials, or Git identity.
-- Targets only EndeavourOS/Arch x86-64 on `MacBookAir7,2`; run setup as your normal user, never as root.
+On this Mac, **Command (⌘)** maps to **Super** in Linux:
 
-See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for reviewed upstreams and licenses, and [SECURITY.md](SECURITY.md) for repository safety boundaries.
+| Shortcut | Action |
+| --- | --- |
+| `⌘+Space` or `⌘+A` | App grid |
+| `⌘+Return` | Open Ghostty |
+| `⌘+E` | Open Files |
+| `⌘+Q` | Close window |
+| `⌘+F` | Fullscreen |
+| `⌘+L` | Lock screen |
+| `⌘+Shift+S` | Screenshot options |
+| `Ctrl+⌘+Space` | Switch keyboard layout |
+
+The desktop keeps GNOME’s built-in dark style and left-side window buttons. No downloaded theme pack is required.
+
+## Validation and safety
+
+Run the setup and browser checks locally:
+
+`test_setup.sh` needs Ansible and the pinned `community.general` collection installed by `./setup.sh bootstrap`.
+
+```bash
+./tests/test_setup.sh
+npm ci
+npm run build:guide
+npm run test:guide
+git diff --check
+```
+
+The guide test uses Playwright and headless Chromium, checks keyboard and checklist behavior at desktop and mobile widths, and writes screenshots in the system temporary directory. If Chrome or Chromium is not installed, install Playwright Chromium once with `npx playwright install chromium`. You can set `GUIDE_SCREENSHOT_DIR` to choose a different screenshot folder.
+
+Run both test suites in containers on your development machine:
+
+```bash
+./tests/run_container.sh
+./tests/run_browser_container.sh
+```
+
+It requires a running Docker engine (Docker Desktop or Colima on macOS), builds an x86-64 Arch test image, and tests the guide in the official Playwright image. Each runner removes its task container and newly created test images when it exits; existing images and unrelated containers are preserved. Do not install Docker on the target MacBook. Container checks cannot confirm hardware, GNOME session behavior, encrypted boot, or the camera on the actual laptop.
+
+Protected `main` requires the **Arch container** and **Guide and browser** CI checks. GitHub Pages deployment is gated on both checks passing.
+
+The setup is restricted to EndeavourOS or Arch Linux on x86-64 `MacBookAir7,2`, uses a localhost Ansible inventory, and runs as a normal user. `--dry-run` prints a reviewed plan without sudo, network access, or managed-state writes. AUR package builds remain interactive. `sshd` is never enabled or configured; OpenSSH is installed only for its SSH client. Chrome Remote Desktop is used only as a browser client; this setup does not install the remote host.
+
+See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for upstreams and licenses, and [SECURITY.md](SECURITY.md) for the repository safety boundaries.

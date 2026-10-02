@@ -4,3 +4,6 @@
 .env.*
 !.env.example
 .ansible/
+
+node_modules/
+.linux-setup-ci.*/

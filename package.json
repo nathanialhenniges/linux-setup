@@ -1,0 +1,13 @@
+{
+  "name": "linux-setup-guide",
+  "private": true,
+  "scripts": {
+    "build:guide": "tailwindcss -i docs/guide-source.css -o docs/guide.css --minify",
+    "test:guide": "node tests/test_guide.cjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.1.18",
+    "playwright": "1.58.2",
+    "tailwindcss": "4.1.18"
+  }
+}

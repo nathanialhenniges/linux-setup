@@ -23,3 +23,7 @@ This repository is MIT licensed. Installed software remains under the licenses a
 | AccountsService profile photo | Tracked `assets/nathanial-henniges-profile-picture.png`; SHA-256 `cc3daf6176c3c7797b436fd446daacbd14640984cc4d7517fb99a1ec037134d3` | Nathanial Henniges; PNG copy for the account-photo service |
 
 Chrome, VS Code, Flatpak, and LibrePods sign-ins or license activation remain manual. No credential or application profile is included here.
+
+## Guide development tools
+
+The static guide stylesheet is built with [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) 4.1.18 (MIT). Browser tests use [Playwright](https://github.com/microsoft/playwright) 1.58.2 (Apache-2.0). Versions and transitive dependencies are recorded in `package-lock.json`; these tools are not installed on the target workstation by `setup.sh`.
