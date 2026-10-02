@@ -6,7 +6,7 @@ RUN_ID="${GITHUB_RUN_ID:-local}-$$"
 IMAGE_TAG="linux-setup-arch-ci:${RUN_ID}"
 CONTAINER_NAME="linux-setup-arch-ci-${RUN_ID}"
 BASE_IMAGE=archlinux:base-devel
-BASE_IMAGE_WAS_PRESENT=false
+BASE_IMAGE_WAS_PRESENT=unknown
 
 command -v docker >/dev/null 2>&1 || {
   printf 'tests/run_container.sh: Docker is required (start Colima or Docker Desktop first).\n' >&2
@@ -86,6 +86,8 @@ PY
 docker info >/dev/null
 if docker image inspect "$BASE_IMAGE" >/dev/null 2>&1; then
   BASE_IMAGE_WAS_PRESENT=true
+else
+  BASE_IMAGE_WAS_PRESENT=false
 fi
 docker image build --platform linux/amd64 --pull \
   --file "$CONTEXT_DIR/tests/container/Dockerfile" --tag "$IMAGE_TAG" "$CONTEXT_DIR"

@@ -26,7 +26,7 @@ fi
 tar -cf "$STAGING_DIR/source.tar" -C "$ROOT_DIR" docs package.json package-lock.json tests/test_guide.cjs
 result=0
 docker create --name "$CONTAINER_NAME" --user pwuser \
-  "$IMAGE" bash -c 'set -euo pipefail; mkdir -p /tmp/guide; cd /tmp/guide; tar -xf /tmp/source.tar; npm ci; npm run build:guide; GUIDE_SCREENSHOT_DIR=/tmp/guide-screenshots npm run test:guide' >/dev/null
+  "$IMAGE" bash -c 'set -euo pipefail; mkdir -p /tmp/guide; cd /tmp/guide; tar -xf /tmp/source.tar; npm ci; cp docs/guide.css /tmp/checked-in-guide.css; npm run build:guide; cmp /tmp/checked-in-guide.css docs/guide.css || { printf "Guide stylesheet is stale; run npm run build:guide and commit docs/guide.css.\n" >&2; exit 1; }; GUIDE_SCREENSHOT_DIR=/tmp/guide-screenshots npm run test:guide' >/dev/null
 docker cp "$STAGING_DIR/source.tar" "$CONTAINER_NAME:/tmp/source.tar"
 docker start --attach "$CONTAINER_NAME" || result=$?
 if [[ "$result" == 0 ]]; then

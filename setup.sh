@@ -238,10 +238,12 @@ extra_vars_for_actions() {
 }
 
 run_site_actions() {
+  local action_tags
+  action_tags="$(IFS=,; printf '%s' "$*")"
   require_ansible
   ensure_ansible_collections
   run_setup_ansible -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
-    --limit workstation --extra-vars "$(extra_vars_for_actions "$@")"
+    --limit workstation --tags "$action_tags" --extra-vars "$(extra_vars_for_actions "$@")"
 }
 
 run_verification() {
@@ -374,7 +376,10 @@ cleanup_legacy() {
   assert_target
   require_gnome_session
   run_site_action cleanup-legacy
+  offer_legacy_package_cleanup
+}
 
+offer_legacy_package_cleanup() {
   local answer
   local -a installed_packages=()
   mapfile -t installed_packages < <(installed_hyprland_packages)
@@ -496,7 +501,7 @@ dry_run() {
       printf '  sudo pacman -Syu --needed ansible-core\n'
       printf '  Authenticate with sudo once; reuse and refresh its temporary ticket while setup runs\n'
       printf '  Ensure the pinned community.general.pacman collection is installed\n'
-      printf '  Group Ansible actions: base + apps → tools + desktop → GNOME dock + branding\n'
+      printf '  Group Ansible actions: base + apps → tools + desktop + legacy launcher cleanup → GNOME dock + branding\n'
       printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
       printf '  Verify the official 1Password signing key before importing it for yay\n'
       printf '  If missing, install ChatGPT from OpenAI’s signed Arch repository; pacman asks before its full system upgrade\n'
@@ -693,8 +698,8 @@ main() {
       run_site_actions base apps
       install_aur_apps
       install_chatgpt_app
-      run_site_actions tools desktop
-      cleanup_legacy
+      run_site_actions tools desktop cleanup-legacy
+      offer_legacy_package_cleanup
       cleanup_terminals
       run_site_actions gnome-dock branding
       printf 'GNOME tray and dock extensions are configured; the planned reboot loads them.\n'

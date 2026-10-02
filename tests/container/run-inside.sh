@@ -11,6 +11,8 @@ git -c user.name='Linux setup container test' \
 
 printf '%s\n' '== Static checks and Ansible syntax =='
 ./tests/test_setup.sh
+bash tests/test_orchestration.sh
+python3 tests/test_flatpak.py
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf -- "$tmp_dir"' EXIT
