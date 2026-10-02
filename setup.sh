@@ -5,12 +5,16 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$ROOT_DIR"
 export ANSIBLE_CONFIG="$ROOT_DIR/ansible.cfg"
 
-AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin)
+AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin 1password)
 HYPRLAND_PACKAGES=(hyprland hypridle hyprlock hyprpaper hyprpolkitagent waybar wofi mako xdg-desktop-portal-hyprland network-manager-applet thunar thunar-volman tumbler grim slurp)
 EXTRA_TERMINAL_PACKAGES=(gnome-console gnome-terminal konsole xfce4-terminal xterm kitty alacritty foot tilix terminator mate-terminal qterminal lxterminal rxvt-unicode yakuake wezterm)
 OPENAI_CHATGPT_INSTALLER_URL=https://persistent.oaistatic.com/codex-app-prod/linux/install-arch.sh
+ONEPASSWORD_SIGNING_KEY_URL=https://downloads.1password.com/linux/keys/1password.asc
+ONEPASSWORD_SIGNING_KEY_FINGERPRINT=3FEF9748469ADBE15DA7CA80AC2D62742012EA22
 DOTFILES_URL=https://github.com/nathanialhenniges/dotfiles.git
 DOTFILES_PATH="${HOME:?HOME is not set}/.local/share/dotfiles"
+ANSIBLE_COLLECTIONS_READY=false
+SUDO_KEEPALIVE_PID=
 
 DRY_RUN=false
 ACCEPT_TARGET_WARNING=false
@@ -32,7 +36,7 @@ Actions:
   camera      Check FaceTime HD camera packages, DKMS build, and video device
   base        Install base packages and laptop power profiles
   apps        Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and official ChatGPT
-  chatgpt-app Install ChatGPT from OpenAI's signed Arch package repository
+  chatgpt-app Install or update ChatGPT from OpenAI's signed Arch package repository
   tools       Install the selected command-line tools
   desktop     Configure wallpaper, app shortcuts, and the account photo
   gnome-dock  Set up the Mac-inspired dock, familiar shortcuts, and light GNOME styling
@@ -55,6 +59,36 @@ EOF
 fail() {
   printf 'setup.sh: %s\n' "$1" >&2
   exit 1
+}
+
+stop_sudo_keepalive() {
+  [[ -n "$SUDO_KEEPALIVE_PID" ]] || return 0
+  kill -TERM "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
+  wait "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
+  SUDO_KEEPALIVE_PID=
+}
+
+start_sudo_keepalive() {
+  [[ -n "$SUDO_KEEPALIVE_PID" ]] && return 0
+  command -v sudo >/dev/null 2>&1 || fail 'sudo is required for this action'
+  [[ -t 0 && -t 1 ]] || fail 'run this action from an interactive terminal so sudo can authenticate once'
+
+  sudo -v || fail 'sudo authentication failed'
+  (
+    sleep_pid=
+    trap 'if [[ -n "$sleep_pid" ]]; then kill "$sleep_pid" 2>/dev/null || true; fi; exit 0' TERM INT
+    while true; do
+      sleep 60 &
+      sleep_pid=$!
+      wait "$sleep_pid" || exit 0
+      sleep_pid=
+      # Open the controlling terminal for sudo's cached-ticket refresh; -n prevents a prompt.
+      # shellcheck disable=SC2024
+      sudo -n -v </dev/tty || exit 0
+    done
+  ) </dev/null >/dev/null 2>&1 &
+  SUDO_KEEPALIVE_PID=$!
+  trap stop_sudo_keepalive EXIT
 }
 
 confirm_target_identity() {
@@ -144,12 +178,15 @@ require_ansible() {
 }
 
 ensure_ansible_collections() {
+  [[ "$ANSIBLE_COLLECTIONS_READY" == true ]] && return
   command -v ansible-galaxy >/dev/null 2>&1 || fail 'ansible-galaxy is missing; run ./setup.sh bootstrap first'
   if ansible-doc -t module -F 2>/dev/null | awk '$1 == "community.general.pacman" { found = 1 } END { exit !found }'; then
+    ANSIBLE_COLLECTIONS_READY=true
     return
   fi
   ansible-galaxy collection install --requirements-file "$ROOT_DIR/requirements.yml"
   ansible-doc -t module -F 2>/dev/null | awk '$1 == "community.general.pacman" { found = 1 } END { exit !found }' || fail 'community.general.pacman is unavailable after collection installation'
+  ANSIBLE_COLLECTIONS_READY=true
 }
 
 json_array() {
@@ -173,6 +210,7 @@ extra_vars() {
 sync_system() {
   assert_target
   command -v sudo >/dev/null 2>&1 || fail 'sudo is required for pacman package updates'
+  start_sudo_keepalive
   sudo pacman -Syu --needed ansible-core
   ensure_ansible_collections
 }
@@ -189,6 +227,20 @@ run_site_action() {
   run_site_action_local "$1"
 }
 
+extra_vars_for_actions() {
+  printf '{"aur_package_names":%s,"target_warning_accepted":%s,"setup_actions":%s}' \
+    "$(json_array "${AUR_PACKAGES[@]}")" \
+    "$TARGET_WARNING_ACCEPTED" \
+    "$(json_array "$@")"
+}
+
+run_site_actions() {
+  require_ansible
+  ensure_ansible_collections
+  ansible-playbook -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
+    --limit workstation --extra-vars "$(extra_vars_for_actions "$@")"
+}
+
 run_verification() {
   local mode="$1"
   require_ansible
@@ -199,23 +251,47 @@ run_verification() {
 install_chrome() {
   assert_target
   command -v yay >/dev/null 2>&1 || fail 'yay is required for Google Chrome; EndeavourOS includes it, plain Arch must install it separately'
+  start_sudo_keepalive
   yay -S --needed google-chrome
   [[ -x /usr/bin/google-chrome-stable ]] || fail 'Google Chrome did not install its expected executable'
 }
 
+ensure_1password_signing_key() (
+  command -v gpg >/dev/null 2>&1 || fail 'GnuPG is required to verify the official 1Password package signature'
+  command -v curl >/dev/null 2>&1 || fail 'curl is required to retrieve the official 1Password signing key'
+  if gpg --list-keys --with-colons "$ONEPASSWORD_SIGNING_KEY_FINGERPRINT" 2>/dev/null \
+      | awk -F: -v expected="$ONEPASSWORD_SIGNING_KEY_FINGERPRINT" '$1 == "fpr" && $10 == expected { found = 1 } END { exit !found }'; then
+    return 0
+  fi
+
+  local key_file actual_fingerprint
+  key_file="$(mktemp "${TMPDIR:-/tmp}/linux-setup-1password-key.XXXXXX")"
+  trap 'rm -f -- "$key_file"' EXIT
+  curl --proto '=https' --tlsv1.2 -fL --retry 3 -o "$key_file" "$ONEPASSWORD_SIGNING_KEY_URL"
+  actual_fingerprint="$(gpg --show-keys --with-colons "$key_file" | awk -F: '$1 == "fpr" { print $10; exit }')"
+  [[ "$actual_fingerprint" == "$ONEPASSWORD_SIGNING_KEY_FINGERPRINT" ]] \
+    || fail 'the downloaded 1Password signing key fingerprint did not match the reviewed vendor fingerprint'
+  gpg --import "$key_file"
+)
+
 install_aur_apps() {
   assert_target
   command -v yay >/dev/null 2>&1 || fail 'yay is required for the reviewed AUR apps; EndeavourOS includes it, plain Arch must install it separately'
+  start_sudo_keepalive
+  ensure_1password_signing_key
   yay -S --needed "${AUR_PACKAGES[@]}"
   [[ -x /usr/bin/google-chrome-stable ]] || fail 'Google Chrome did not install its expected executable'
   [[ -x /usr/bin/code ]] || fail 'Visual Studio Code did not install its expected executable'
   command -v oh-my-posh >/dev/null 2>&1 || fail 'Oh My Posh did not install; the configured Zsh theme needs it'
+  [[ -x /usr/bin/1password ]] || fail '1Password did not install its expected executable'
+  [[ -f /usr/share/applications/com.onepassword.OnePassword.desktop ]] || fail '1Password did not install its expected GNOME launcher'
 }
 
 install_zsh_theme_dependencies() {
   assert_target
   command -v yay >/dev/null 2>&1 || fail 'yay is required for Oh My Posh; EndeavourOS includes it, plain Arch must install it separately'
   command -v sudo >/dev/null 2>&1 || fail 'sudo is required to install the terminal font'
+  start_sudo_keepalive
   sudo pacman -Syu --needed ttf-cascadia-code-nerd
   yay -S --needed oh-my-posh-bin
   command -v oh-my-posh >/dev/null 2>&1 || fail 'Oh My Posh did not install; the configured Zsh theme needs it'
@@ -223,8 +299,15 @@ install_zsh_theme_dependencies() {
 
 install_chatgpt_app() (
   assert_target
+  local update_existing=false
+  [[ "${1:-}" == --update ]] && update_existing=true
+  if [[ "$update_existing" == false ]] && pacman -Qq chatgpt-bin >/dev/null 2>&1; then
+    printf 'The official ChatGPT package is already installed; skipping its separate installer. Use ./setup.sh chatgpt-app to update it.\n'
+    exit 0
+  fi
   command -v curl >/dev/null 2>&1 || fail 'curl is required to download the official OpenAI Linux installer'
   command -v sudo >/dev/null 2>&1 || fail 'sudo is required by the official OpenAI Linux installer'
+  start_sudo_keepalive
 
   local installer_file
   installer_file="$(mktemp "${TMPDIR:-/tmp}/linux-setup-chatgpt-installer.XXXXXX")"
@@ -277,6 +360,7 @@ cleanup_terminals() {
   case "$answer" in
     y|Y|yes|YES|Yes)
       command -v sudo >/dev/null 2>&1 || fail 'sudo is required to remove terminal packages'
+      start_sudo_keepalive
       sudo pacman -Rns -- "${installed_packages[@]}"
       ;;
     *) printf 'Left the extra terminal apps installed.\n' ;;
@@ -308,7 +392,11 @@ cleanup_legacy() {
 }
 
 install_gnome_dock_extension() {
+  if pacman -Qq gnome-shell-extension-dash-to-dock >/dev/null 2>&1; then
+    return 0
+  fi
   command -v yay >/dev/null 2>&1 || fail 'yay is required for the Dash to Dock extension; EndeavourOS includes it, plain Arch must install it separately'
+  start_sudo_keepalive
   yay -S --needed gnome-shell-extension-dash-to-dock
 }
 
@@ -320,6 +408,7 @@ require_gnome_session() {
 remove_hyprland() {
   assert_target
   [[ -t 0 ]] || fail 'run this action in an interactive terminal so you can review and approve pacman’s removal list'
+  start_sudo_keepalive
 
   printf 'This removes the old Hyprland session. Save open work; you will need to reboot when it finishes.\n'
   run_site_action_local display-manager
@@ -338,6 +427,7 @@ remove_hyprland() {
   fi
 
   printf 'Pacman will show the exact packages and any now-unused dependencies before asking for confirmation:\n  %s\n' "${installed_packages[*]}"
+  start_sudo_keepalive
   sudo pacman -Rns -- "${installed_packages[@]}"
   printf 'Hyprland session packages removed. Reboot to refresh the login screen. Personal config files remain untouched.\n'
 }
@@ -401,10 +491,12 @@ dry_run() {
     all)
       printf '  Require an active GNOME session before any changes\n'
       printf '  sudo pacman -Syu --needed ansible-core\n'
+      printf '  Authenticate with sudo once; reuse and refresh its temporary ticket while setup runs\n'
       printf '  Ensure the pinned community.general.pacman collection is installed\n'
-      printf '  Ansible actions: base → apps → tools → desktop → legacy cleanup → GNOME dock → branding\n'
+      printf '  Group Ansible actions: base + apps → tools + desktop → GNOME dock + branding\n'
       printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
-      printf '  Install ChatGPT from OpenAI’s signed Arch repository; pacman will ask before its full system upgrade\n'
+      printf '  Verify the official 1Password signing key before importing it for yay\n'
+      printf '  If missing, install ChatGPT from OpenAI’s signed Arch repository; pacman asks before its full system upgrade\n'
       printf '  Install the CaskaydiaCove Nerd Font from the official Arch repositories as part of the apps step\n'
       printf '  Configure AppIndicator and Dash to Dock to load at the next GNOME login\n'
       printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
@@ -414,11 +506,13 @@ dry_run() {
       ;;
     base|apps|tools)
       printf '  sudo pacman -Syu --needed ansible-core\n'
+      printf '  Authenticate with sudo once; reuse its temporary ticket for Ansible and package installs\n'
       printf '  Ensure the pinned community.general.pacman collection is installed\n'
       printf '  Local Ansible action: %s\n' "$ACTION"
       if [[ "$ACTION" == apps ]]; then
         printf '  Then install reviewed AUR packages: %s\n' "${AUR_PACKAGES[*]}"
-        printf '  Install ChatGPT from OpenAI’s signed Arch repository; pacman will ask before its full system upgrade\n'
+        printf '  Verify the official 1Password signing key before importing it for yay\n'
+        printf '  If missing, install ChatGPT from OpenAI’s signed Arch repository; pacman asks before its full system upgrade\n'
       fi
       ;;
     chatgpt-app)
@@ -431,9 +525,10 @@ dry_run() {
       ;;
     gnome-dock)
       printf '  Require an active GNOME session\n'
+      printf '  Authenticate with sudo once; reuse its temporary ticket for yay and Ansible\n'
       printf '  Install Dash to Dock from the AUR after reviewing yay’s prompt\n'
       printf '  Configure AppIndicator and Dash to Dock for the next GNOME login\n'
-      printf '  Set a warm translucent bottom dock, pinned MBA apps, familiar Super-key shortcuts, and GNOME’s built-in dark style\n'
+      printf '  Set a warm translucent dock, pin installed apps, restore dynamic workspaces and GNOME default number shortcuts, and apply dark style\n'
       ;;
     cleanup-legacy)
       printf '  Require an active GNOME session before changing its dock favorites\n'
@@ -592,17 +687,14 @@ main() {
     all)
       require_gnome_session
       sync_system
-      run_site_action base
-      run_site_action apps
+      run_site_actions base apps
       install_aur_apps
       install_chatgpt_app
-      run_site_action tools
-      run_site_action desktop
+      run_site_actions tools desktop
       cleanup_legacy
       cleanup_terminals
-      run_site_action gnome-dock
+      run_site_actions gnome-dock branding
       printf 'GNOME tray and dock extensions are configured; the planned reboot loads them.\n'
-      run_site_action branding
       run_dotfiles
       run_verification verify
       if confirm_firefox_purge; then
@@ -620,7 +712,9 @@ main() {
       install_chatgpt_app
       ;;
     chatgpt-app)
-      install_chatgpt_app
+      assert_target
+      start_sudo_keepalive
+      install_chatgpt_app --update
       ;;
     tools)
       sync_system
@@ -628,6 +722,7 @@ main() {
       ;;
     desktop)
       assert_target
+      start_sudo_keepalive
       run_site_action desktop
       ;;
     gnome-dock)
@@ -648,23 +743,29 @@ main() {
       ;;
     branding)
       assert_target
+      start_sudo_keepalive
       run_site_action branding
       ;;
     display-manager)
       assert_target
+      start_sudo_keepalive
       run_site_action_local display-manager
       ;;
     profile-picture)
       assert_target
+      start_sudo_keepalive
       run_site_action_local profile-picture
       ;;
     purge-firefox)
       assert_target
       if confirm_firefox_purge; then
+        start_sudo_keepalive
         run_site_action purge-firefox
       fi
       ;;
     dotfiles)
+      assert_target
+      start_sudo_keepalive
       install_zsh_theme_dependencies
       run_dotfiles
       ;;
