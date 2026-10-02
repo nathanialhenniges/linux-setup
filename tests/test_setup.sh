@@ -169,3 +169,8 @@ grep -Fq 'cc3daf6176c3c7797b436fd446daacbd14640984cc4d7517fb99a1ec037134d3' THIR
 
 git diff --check
 printf 'Setup checks passed.\n'
+
+[[ -x scripts/ansible-sudo.sh ]] || fail "Ansible sudo wrapper must be executable"
+grep -Fq 'export ANSIBLE_BECOME_EXE="$ROOT_DIR/scripts/ansible-sudo.sh"' setup.sh || fail "Ansible must reuse the controlling terminal sudo ticket"
+grep -Fq 'export ANSIBLE_PIPELINING=false' setup.sh || fail "TTY sudo requires pipelining disabled"
+bash -n scripts/ansible-sudo.sh

@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$ROOT_DIR"
 export ANSIBLE_CONFIG="$ROOT_DIR/ansible.cfg"
+export ANSIBLE_BECOME_EXE="$ROOT_DIR/scripts/ansible-sudo.sh"
+export ANSIBLE_PIPELINING=false
 
 AUR_PACKAGES=(google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin 1password)
 HYPRLAND_PACKAGES=(hyprland hypridle hyprlock hyprpaper hyprpolkitagent waybar wofi mako xdg-desktop-portal-hyprland network-manager-applet thunar thunar-volman tumbler grim slurp)
