@@ -7,14 +7,14 @@ IMAGE_TAG="linux-setup-arch-ci:${RUN_ID}"
 CONTAINER_NAME="linux-setup-arch-ci-${RUN_ID}"
 BASE_IMAGE=archlinux:base-devel
 BASE_IMAGE_WAS_PRESENT=false
-STAGING_DIR="$(mktemp -d "$ROOT_DIR/.linux-setup-ci.XXXXXX")"
-CONTEXT_DIR="$STAGING_DIR/context"
-mkdir -p "$CONTEXT_DIR"
 
 command -v docker >/dev/null 2>&1 || {
   printf 'tests/run_container.sh: Docker is required (start Colima or Docker Desktop first).\n' >&2
   exit 1
 }
+
+STAGING_DIR="$(mktemp -d "$ROOT_DIR/.linux-setup-ci.XXXXXX")"
+CONTEXT_DIR="$STAGING_DIR/context"
 
 cleanup() {
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
@@ -25,7 +25,12 @@ cleanup() {
   fi
   rm -rf -- "$STAGING_DIR"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+mkdir -p "$CONTEXT_DIR"
 
 git -C "$ROOT_DIR" diff --check
 git -C "$ROOT_DIR" diff --cached --check
