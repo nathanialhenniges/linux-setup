@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  arch-container:
+    name: Arch container
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Run isolated Arch Linux checks
+        run: bash tests/run_container.sh
+
+  guide-browser:
+    name: Guide and browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install locked guide and browser dependencies
+        run: npm ci
+      - name: Rebuild the checked-in guide stylesheet
+        run: |
+          npm run build:guide
+          git diff --exit-code -- docs/guide.css
+      - name: Run guide checks in the official Playwright container
+        run: bash tests/run_browser_container.sh
+
+  deploy-pages:
+    name: Deploy GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [arch-container, guide-browser]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+      - name: Upload the static guide
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs
+      - name: Deploy the guide
+        id: deployment
+        uses: actions/deploy-pages@v5

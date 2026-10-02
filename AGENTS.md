@@ -7,7 +7,7 @@ Configure an EndeavourOS or Arch Linux GNOME workstation on x86-64, specifically
 ## Safety boundary
 
 - `setup.sh` is the only supported entry point. Ansible inventory stays locked to `localhost` in the `workstation` group.
-- Never install or configure Docker, an SSH server, tunnels, credentials, SSH keys, Git identity, or server/devbox tooling.
+- Never install or configure Docker on the target workstation, an SSH server, tunnels, credentials, SSH keys, Git identity, or server/devbox tooling.
 - `openssh` is installed only to provide the `ssh` client for VS Code Remote SSH. Never enable, start, configure, or otherwise manage `sshd`.
 - Dotfiles flow one way only: clone/update the expected repository, require a clean checkout and exact origin, then run only its `linux-desktop.sh` entry point. After that profile succeeds, `setup.sh` may make `/usr/bin/zsh` the current non-root desktop user's login shell if it is listed in `/etc/shells`.
 - Keep account sign-ins, Google OAuth, Cloudflare enrollment, AirPods pairing, and LibrePods pairing manual. Never copy browser profiles, OAuth tokens, SSH keys, or application data.
@@ -30,4 +30,4 @@ Configure an EndeavourOS or Arch Linux GNOME workstation on x86-64, specifically
 
 ## Checks
 
-Run `./tests/test_setup.sh` and `git diff --check` before commits. Keep validation local.
+Run `./tests/test_setup.sh` and `git diff --check` before commits. Run the Arch container and browser checks locally and in CI. Require both CI checks before merging into main; deploy the guide only after they pass. Container tests do not replace physical hardware, GNOME session, encrypted boot, or camera checks.

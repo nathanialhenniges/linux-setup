@@ -4,3 +4,5 @@
 .env.*
 !.env.example
 .ansible/
+
+node_modules/

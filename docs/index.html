@@ -24,38 +24,11 @@
   <meta name="twitter:image" content="https://nathanialhenniges.github.io/linux-setup/og-image.png">
   <meta name="twitter:image:alt" content="MrDemonWolf, Inc. branded 2015 MacBook Air EndeavourOS install guide for GNOME.">
   <title>MrDemonWolf, Inc. | MacBook Air Linux Guide</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <style>
-    :root { color-scheme: dark; scroll-behavior: smooth; }
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background-color: #0b1120; color: #e2e8f0; }
-    .bg-slate-50 { background-color: #0b1120 !important; }
-    .bg-white { background-color: #111827 !important; }
-    .bg-slate-100 { background-color: #1e293b !important; }
-    .bg-slate-200 { background-color: #334155 !important; }
-    .bg-sky-50, [class~="bg-sky-50"] { background-color: #082f49 !important; }
-    .bg-sky-100 { background-color: #0c4a6e !important; }
-    .bg-sky-200 { background-color: #075985 !important; }
-    .bg-sky-300 { background-color: #0369a1 !important; }
-    .bg-amber-50 { background-color: #451a03 !important; }
-    .bg-amber-100 { background-color: #78350f !important; }
-    .bg-rose-50, [class~="bg-rose-50/70"] { background-color: #4c0519 !important; }
-    .text-slate-900 { color: #f8fafc !important; }
-    .text-slate-700 { color: #cbd5e1 !important; }
-    .text-slate-600, .text-slate-500 { color: #94a3b8 !important; }
-    .text-sky-950, .text-sky-900, .text-sky-800 { color: #bae6fd !important; }
-    .text-amber-950 { color: #fde68a !important; }
-    .text-rose-950 { color: #fecdd3 !important; }
-    .border-slate-200 { border-color: #334155 !important; }
-    .border-sky-200, .border-sky-300 { border-color: #0369a1 !important; }
-    .border-amber-200 { border-color: #92400e !important; }
-    .border-rose-200 { border-color: #9f1239 !important; }
-    .task:has(input:checked) { background: #082f49; border-color: #0ea5e9; }
-    .task:has(input:checked) .task-text { color: #94a3b8; text-decoration: line-through; text-decoration-color: #64748b; }
-    section { scroll-margin-top: 1rem; }
-    @media (prefers-reduced-motion: reduce) { :root { scroll-behavior: auto; } *, *::before, *::after { transition-duration: .01ms !important; } }
-  </style>
+  <link rel="stylesheet" href="guide.css">
+
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+  <a class="skip-link" href="#guide">Skip to the guide</a>
   <header class="bg-[#091533] text-white">
     <div class="mx-auto max-w-6xl px-5 pb-9 pt-5 sm:px-8 sm:pb-12">
       <nav class="flex items-center justify-between gap-4 text-sm">
@@ -65,10 +38,10 @@
       <div class="mt-10 grid items-center gap-8 md:mt-12 md:grid-cols-[1.25fr_.75fr]">
         <div>
           <p class="text-sm font-bold uppercase tracking-[.18em] text-sky-300">2015 MacBook Air · MacBookAir7,2</p>
-          <h1 class="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">One calm checklist.<br><span class="text-sky-300">One step at a time.</span></h1>
+          <h1 class="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl">Your MacBook Air.<br><span class="text-sky-300">Ready for Linux.</span></h1>
           <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200">Install EndeavourOS with GNOME, then add the apps, Mac-inspired dock, and MrDemonWolf branding for this MacBook Air.</p>
           <div class="mt-6 flex flex-wrap gap-2 text-sm">
-            <span class="rounded-full bg-white/10 px-3 py-1.5">Mac-specific laptop setup</span>
+            <span class="rounded-full bg-white/10 px-3 py-1.5">GNOME · Wayland · systemd-boot</span>
             <span class="rounded-full bg-white/10 px-3 py-1.5">Progress saves in this browser</span>
             <span class="rounded-full bg-white/10 px-3 py-1.5">Fresh install erases the disk</span>
           </div>
@@ -92,15 +65,18 @@
       <div class="mt-8 rounded-2xl border border-white/15 bg-white/[.07] p-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div><p class="font-bold">Your progress</p><p id="progress-text" class="mt-1 text-sm text-slate-300" aria-live="polite">0 steps checked</p></div>
+          <a id="continue-setup" class="continue-link" href="#ready">Continue setup →</a>
           <button id="reset-progress" class="rounded-lg px-3 py-2 text-sm text-slate-300 underline underline-offset-4 hover:text-white focus:ring-2 focus:ring-sky-300">Reset checkboxes</button>
         </div>
         <div class="mt-3 h-3 overflow-hidden rounded-full bg-slate-700" role="progressbar" aria-label="Checklist progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-fill" class="h-full rounded-full bg-sky-300 transition-all" style="width:0%"></div></div>
-        <p class="mt-3 text-xs text-slate-400">Checkboxes are saved only in this browser on this device. Nothing is uploaded.</p>
+        <p class="mt-3 text-sm text-slate-400">Progress stays in this browser. Transfer it to your MacBook Air with a progress file.</p>
+        <div class="progress-tools"><button id="export-progress" type="button">Save progress file</button><button id="import-progress" type="button">Load progress file</button><input id="progress-file" type="file" accept="application/json,.json" hidden></div>
+        <p id="progress-status" class="text-sm" role="status"></p>
       </div>
     </div>
   </header>
 
-  <main class="mx-auto grid max-w-6xl gap-8 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-[205px_minmax(0,1fr)]">
+  <main id="guide" class="mx-auto grid max-w-6xl gap-8 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-[205px_minmax(0,1fr)]">
     <aside class="lg:sticky lg:top-6 lg:h-fit">
       <p class="mb-3 text-xs font-bold uppercase tracking-[.15em] text-slate-500">Jump to a step</p>
       <nav class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1" aria-label="Guide sections">
@@ -118,7 +94,7 @@
       <section id="ready" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div class="flex items-start gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 font-black text-sky-900">1</span><div><h2 class="text-2xl font-black">Get ready</h2><p class="mt-1 text-slate-600">Gather these before turning the Mac off.</p></div></div>
         <div class="mt-5 space-y-3">
-          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="erase-ok"><span class="task-text leading-6"><strong>I’m ready for a fresh install.</strong> It erases the internal disk; nothing from this broken Ubuntu install needs to be kept.</span></label>
+          <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="erase-ok"><span class="task-text leading-6"><strong>I’m ready for a fresh install.</strong> It erases the internal disk. Back up anything you want to keep before continuing.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="charger"><span class="task-text leading-6">Connect the MacBook Air’s power adapter.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="usb"><span class="task-text leading-6">Have an <strong>8 GB or larger USB drive</strong>. Writing the installer erases that USB drive.</span></label>
           <label class="task flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="backup-network"><span class="task-text leading-6">Keep a backup internet option available, such as USB Ethernet, in case the live Wi-Fi driver prompt fails.</span></label>
@@ -195,6 +171,8 @@ cd linux-setup</code></pre></div>
 ./setup.sh chrome
 google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' &gt;/dev/null 2&gt;&amp;1 &amp;</code></pre><p class="mt-2 text-sm leading-6 text-slate-700">This installs Chrome before the rest of setup, then opens this guide in Chrome without holding up the terminal. Review the <code>yay</code> prompt. Firefox remains available until the final cleanup question.</p></div>
           <div class="rounded-2xl border border-slate-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold">Preview the full plan</h3><button class="copy-btn rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold hover:bg-slate-200 focus:ring-2 focus:ring-sky-500" data-copy="cmd-preview">Copy command</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm text-sky-100"><code id="cmd-preview">./setup.sh --dry-run all</code></pre><p class="mt-2 text-sm leading-6 text-slate-600">Read the plan before continuing. Dry run makes no changes and does not use sudo or the network.</p></div>
+          <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-amber-950">Run the setup</h3><button class="copy-btn rounded-lg bg-white px-3 py-2 text-sm font-semibold hover:bg-amber-100 focus:ring-2 focus:ring-amber-500" data-copy="cmd-all">Copy command</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm text-sky-100"><code id="cmd-all">./setup.sh all</code></pre><p class="mt-2 text-sm leading-6 text-amber-950">Run this inside GNOME. Enter your sudo password once, review the AUR prompts, and let each stage finish. Setup installs your apps, applies the dock and branding, imports the desktop dotfiles, and verifies the result. It asks before removing old packages or Firefox. New extensions load at the next GNOME login.</p></div>
+          <details id="focused-actions"><summary>Fix or rerun one step <span>Optional commands, app list, and shortcuts</span></summary><div class="space-y-4 mt-4">
           <div class="rounded-2xl border border-slate-200 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold">Install the official ChatGPT app</h3><button class="copy-btn rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold hover:border-sky-300" data-copy="cmd-chatgpt-app">Copy commands</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm leading-6 text-sky-100"><code id="cmd-chatgpt-app">./setup.sh --dry-run chatgpt-app
 ./setup.sh chatgpt-app</code></pre><p class="mt-2 text-sm leading-6 text-slate-600">This installs or updates ChatGPT from OpenAI’s signed Arch repository. The installer asks before a full system upgrade. The <code>all</code> and <code>apps</code> actions install ChatGPT only when it is not already present; rerun this standalone action to update it.</p></div>
           <div class="rounded-2xl border border-sky-200 bg-sky-50 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-sky-950">Clean up old setup items</h3><button class="copy-btn rounded-lg bg-white px-3 py-2 text-sm font-semibold hover:bg-sky-100" data-copy="cmd-cleanup-legacy">Copy commands</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm leading-6 text-sky-100"><code id="cmd-cleanup-legacy">./setup.sh --dry-run cleanup-legacy
@@ -203,7 +181,6 @@ google-chrome-stable 'https://nathanialhenniges.github.io/linux-setup/' &gt;/dev
 ./setup.sh cleanup-terminals</code></pre><p class="mt-2 text-sm leading-6 text-sky-950">This checks a short, reviewed list of extra terminal apps. It asks before offering any found apps to Pacman, which shows its own package and dependency removal list. Ghostty and command-line tools stay installed. The <code>all</code> action includes this cleanup.</p></div>
           <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-amber-950">Remove the old Hyprland session</h3><button class="copy-btn rounded-lg bg-white px-3 py-2 text-sm font-semibold hover:bg-amber-100 focus:ring-2 focus:ring-amber-500" data-copy="cmd-remove-hyprland">Copy commands</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm leading-6 text-sky-100"><code id="cmd-remove-hyprland">./setup.sh --dry-run remove-hyprland
 ./setup.sh remove-hyprland</code></pre><p class="mt-2 text-sm leading-6 text-amber-950">Run this from the desktop you are using now, after saving open work. It turns on GNOME’s sign-in screen, then shows the packages and unused dependencies pacman plans to remove. Pacman waits for your approval. Reboot when it finishes and choose GNOME. Your personal configuration files stay in place.</p></div>
-          <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-amber-950">Run the setup</h3><button class="copy-btn rounded-lg bg-white px-3 py-2 text-sm font-semibold hover:bg-amber-100 focus:ring-2 focus:ring-amber-500" data-copy="cmd-all">Copy command</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm text-sky-100"><code id="cmd-all">./setup.sh all</code></pre><p class="mt-2 text-sm leading-6 text-amber-950">Start in GNOME. Setup asks for your sudo password once, then reuses its temporary sudo ticket for Ansible and package installs. It groups related Ansible steps to avoid repeating startup and hardware checks. Review every AUR build prompt; setup will not approve one for you. Chrome, 1Password, VS Code, Dash to Dock, Oh My Posh, and the FaceTime HD camera support come from the AUR. 1Password uses its signed vendor download; setup checks the vendor signing-key fingerprint before importing it. The official Arch repositories provide the CaskaydiaCove Nerd Font configured in Ghostty. If ChatGPT is missing, setup installs it from OpenAI’s signed Arch repository; the installer asks before a full system upgrade. Setup clears the old ChatGPT shortcut, offers to remove known Hyprland packages, and asks before removing extra terminal apps. Ghostty stays as your terminal. Setup queues AppIndicator and Dash to Dock for your next GNOME login; the reboot below loads them. After reboot, use the camera check below, then test the actual picture in Chrome. If setup pauses on the target warning, compare the shown OS and model before entering <code>CONTINUE</code>. Use <code>--accept-target-warning</code> only when running without an interactive prompt.</p></div>
           <div class="rounded-2xl border border-sky-200 bg-sky-50 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-sky-950">Restore the familiar GNOME login</h3><button class="copy-btn rounded-lg bg-white px-3 py-2 text-sm font-semibold hover:bg-sky-100 focus:ring-2 focus:ring-sky-500" data-copy="cmd-display-manager">Copy commands</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm leading-6 text-sky-100"><code id="cmd-display-manager">./setup.sh --dry-run display-manager
 ./setup.sh display-manager
 reboot</code></pre><p class="mt-2 text-sm leading-6 text-slate-700">This turns off SDDM and makes GNOME’s GDM the login screen after reboot. At the sign-in screen, choose <strong>GNOME</strong>. You do not need to reinstall Linux.</p></div>
@@ -216,6 +193,7 @@ reboot</code></pre><p class="mt-2 text-sm leading-6 text-slate-700">This selects
 ./setup.sh profile-picture</code></pre><p class="mt-2 text-sm leading-6 text-slate-700">This changes only your account photo. Run <code>./setup.sh apps</code> once first if AccountsService is missing.</p></div>
           <div class="rounded-2xl border border-sky-200 bg-sky-50 p-4"><div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-bold text-sky-950">Remove Firefox</h3><button class="copy-btn rounded-lg bg-white px-3 py-2 text-sm font-semibold hover:bg-sky-100 focus:ring-2 focus:ring-sky-500" data-copy="cmd-purge-firefox">Copy commands</button></div><pre class="mt-3 overflow-x-auto rounded-xl bg-[#091533] p-4 text-sm leading-6 text-sky-100"><code id="cmd-purge-firefox">./setup.sh --dry-run purge-firefox
 ./setup.sh purge-firefox</code></pre><p class="mt-2 text-sm leading-6 text-slate-700">At the end of <code>./setup.sh all</code>, you will be asked whether to remove Firefox and its local profiles, saved logins, bookmarks, cookies, settings, and cache. Chrome installs first. Answer yes to remove Firefox; Google Chrome and its profile are left alone. Close Firefox before confirming. If you skip the prompt, use these commands later to review and retry.</p></div>
+          </div></details>
         </div>
         <label class="task mt-4 flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="chrome-ready"><span class="task-text leading-6">Google Chrome is installed and this guide is open on the Mac.</span></label>
         <label class="task mt-4 flex cursor-pointer gap-3 rounded-2xl border border-slate-200 p-4"><input class="mt-1 h-5 w-5 shrink-0 accent-sky-700" type="checkbox" data-check id="firefox-purged"><span class="task-text leading-6">Firefox is removed and its local data is cleared. Google Chrome stays installed.</span></label>
@@ -263,6 +241,8 @@ reboot</code></pre><p class="mt-2 text-sm leading-6 text-slate-700">This selects
       var progress = document.querySelector('[role="progressbar"]');
       var progressFill = document.getElementById('progress-fill');
       var status = document.getElementById('copy-status');
+      var progressStatus = document.getElementById('progress-status');
+      var continueLink = document.getElementById('continue-setup');
       var saved = [];
       try { saved = JSON.parse(localStorage.getItem(key) || '[]'); } catch (error) {}
       var done = new Set(Array.isArray(saved) ? saved : []);
@@ -273,7 +253,10 @@ reboot</code></pre><p class="mt-2 text-sm leading-6 text-slate-700">This selects
         progressText.textContent = count + ' of ' + boxes.length + ' steps checked';
         progress.setAttribute('aria-valuenow', String(percent));
         progressFill.style.width = percent + '%';
-        try { localStorage.setItem(key, JSON.stringify(boxes.filter(function (box) { return box.checked; }).map(function (box) { return box.id; }))); } catch (error) {}
+        var next = boxes.find(function (box) { return !box.checked; });
+        continueLink.href = next ? '#' + next.closest('section').id : '#first-login';
+        continueLink.textContent = next ? 'Continue: ' + next.closest('section').querySelector('h2').textContent + ' →' : 'Checklist complete · Review checks →';
+        try { localStorage.setItem(key, JSON.stringify(boxes.filter(function (box) { return box.checked; }).map(function (box) { return box.id; }))); } catch (error) { progressStatus.textContent = 'This browser cannot save progress. Use Save progress file before closing the guide.'; }
       }
 
       boxes.forEach(function (box) {
@@ -288,9 +271,34 @@ reboot</code></pre><p class="mt-2 text-sm leading-6 text-slate-700">This selects
         update();
       });
 
+      document.getElementById('export-progress').addEventListener('click', function () {
+        var payload = { version: 1, checked: boxes.filter(function (box) { return box.checked; }).map(function (box) { return box.id; }) };
+        var url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+        var link = document.createElement('a');
+        link.href = url; link.download = 'macbook-air-progress.json'; link.click();
+        window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        progressStatus.textContent = 'Progress file saved. Load it in this guide on your other device.';
+      });
+      var fileInput = document.getElementById('progress-file');
+      document.getElementById('import-progress').addEventListener('click', function () { fileInput.click(); });
+      fileInput.addEventListener('change', async function () {
+        if (!fileInput.files.length) return;
+        try {
+          if (fileInput.files[0].size > 65536) throw new Error('File too large');
+          var payload = JSON.parse(await fileInput.files[0].text());
+          if (!payload || payload.version !== 1 || !Array.isArray(payload.checked) || !payload.checked.every(function (id) { return typeof id === 'string'; })) throw new Error('Invalid progress file');
+          if (!window.confirm('Replace this browser’s checkboxes with the saved progress?')) return;
+          var imported = new Set(payload.checked);
+          boxes.forEach(function (box) { box.checked = imported.has(box.id); });
+          update(); progressStatus.textContent = 'Progress loaded. Continue from your next unchecked step.';
+        } catch (error) { progressStatus.textContent = 'Could not load this file. Choose a progress JSON file saved from this guide. Your checkboxes have not changed.'; }
+        finally { fileInput.value = ''; }
+      });
+
       document.querySelectorAll('[data-copy]').forEach(function (button) {
         button.addEventListener('click', async function () {
           var code = document.getElementById(button.dataset.copy);
+          var label = button.textContent;
           try {
             await navigator.clipboard.writeText(code.textContent);
             button.textContent = 'Copied';
@@ -303,7 +311,7 @@ reboot</code></pre><p class="mt-2 text-sm leading-6 text-slate-700">This selects
             status.textContent = 'Command selected. Copy it with your keyboard.';
           }
           window.setTimeout(function () {
-            button.textContent = button.dataset.copy === 'cmd-clone' || button.dataset.copy === 'cmd-bootstrap' ? 'Copy commands' : 'Copy command';
+            button.textContent = label;
           }, 1600);
         });
       });

@@ -1,0 +1,70 @@
+<schemalist>
+  <schema id="org.gnome.desktop.interface" path="/org/gnome/desktop/interface/">
+    <key name="color-scheme" type="s"><default>'default'</default></key>
+  </schema>
+  <schema id="org.gnome.desktop.wm.preferences" path="/org/gnome/desktop/wm/preferences/">
+    <key name="button-layout" type="s"><default>'appmenu:minimize,maximize,close'</default></key>
+    <key name="num-workspaces" type="i"><default>4</default></key>
+  </schema>
+  <schema id="org.gnome.mutter" path="/org/gnome/mutter/">
+    <key name="dynamic-workspaces" type="b"><default>false</default></key>
+  </schema>
+  <schema id="org.gnome.shell" path="/org/gnome/shell/">
+    <key name="always-show-log-out" type="b"><default>false</default></key>
+    <key name="enabled-extensions" type="as"><default>[]</default></key>
+    <key name="favorite-apps" type="as"><default>[]</default></key>
+  </schema>
+  <schema id="org.gnome.shell.keybindings" path="/org/gnome/shell/keybindings/">
+    <key name="toggle-application-view" type="as"><default>[]</default></key>
+    <key name="show-screenshot-ui" type="as"><default>[]</default></key>
+    <key name="switch-to-application-1" type="as"><default>['&lt;Super&gt;1']</default></key>
+    <key name="switch-to-application-2" type="as"><default>['&lt;Super&gt;2']</default></key>
+    <key name="switch-to-application-3" type="as"><default>['&lt;Super&gt;3']</default></key>
+    <key name="switch-to-application-4" type="as"><default>['&lt;Super&gt;4']</default></key>
+    <key name="switch-to-application-5" type="as"><default>['&lt;Super&gt;5']</default></key>
+    <key name="switch-to-application-6" type="as"><default>['&lt;Super&gt;6']</default></key>
+    <key name="switch-to-application-7" type="as"><default>['&lt;Super&gt;7']</default></key>
+    <key name="switch-to-application-8" type="as"><default>['&lt;Super&gt;8']</default></key>
+    <key name="switch-to-application-9" type="as"><default>['&lt;Super&gt;9']</default></key>
+  </schema>
+  <schema id="org.gnome.settings-daemon.plugins.media-keys" path="/org/gnome/settings-daemon/plugins/media-keys/">
+    <key name="custom-keybindings" type="as"><default>[]</default></key>
+    <key name="home" type="as"><default>[]</default></key>
+    <key name="screensaver" type="as"><default>[]</default></key>
+  </schema>
+  <schema id="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding">
+    <key name="name" type="s"><default>''</default></key>
+    <key name="command" type="s"><default>''</default></key>
+    <key name="binding" type="s"><default>''</default></key>
+  </schema>
+  <schema id="org.gnome.desktop.wm.keybindings" path="/org/gnome/desktop/wm/keybindings/">
+    <key name="close" type="as"><default>['&lt;Alt&gt;F4']</default></key>
+    <key name="toggle-fullscreen" type="as"><default>[]</default></key>
+    <key name="switch-input-source" type="as"><default>[]</default></key>
+    <key name="switch-input-source-backward" type="as"><default>[]</default></key>
+    <key name="switch-to-workspace-1" type="as"><default>['&lt;Control&gt;&lt;Alt&gt;Left']</default></key>
+    <key name="switch-to-workspace-2" type="as"><default>['&lt;Control&gt;&lt;Alt&gt;Right']</default></key>
+    <key name="switch-to-workspace-3" type="as"><default>['&lt;Control&gt;&lt;Alt&gt;Down']</default></key>
+    <key name="switch-to-workspace-4" type="as"><default>['&lt;Control&gt;&lt;Alt&gt;Up']</default></key>
+    <key name="move-to-workspace-1" type="as"><default>['&lt;Control&gt;&lt;Alt&gt;&lt;Shift&gt;Left']</default></key>
+    <key name="move-to-workspace-2" type="as"><default>['&lt;Control&gt;&lt;Alt&gt;&lt;Shift&gt;Right']</default></key>
+    <key name="move-to-workspace-3" type="as"><default>['&lt;Control&gt;&lt;Alt&gt;&lt;Shift&gt;Down']</default></key>
+    <key name="move-to-workspace-4" type="as"><default>['&lt;Control&gt;&lt;Alt&gt;&lt;Shift&gt;Up']</default></key>
+  </schema>
+  <schema id="org.gnome.shell.extensions.dash-to-dock" path="/org/gnome/shell/extensions/dash-to-dock/">
+    <key name="dock-position" type="s"><default>'TOP'</default></key>
+    <key name="dock-fixed" type="b"><default>false</default></key>
+    <key name="autohide" type="b"><default>true</default></key>
+    <key name="intellihide" type="b"><default>true</default></key>
+    <key name="extend-height" type="b"><default>true</default></key>
+    <key name="dash-max-icon-size" type="i"><default>32</default></key>
+    <key name="transparency-mode" type="s"><default>'DEFAULT'</default></key>
+    <key name="background-opacity" type="d"><default>0.5</default></key>
+    <key name="custom-background-color" type="b"><default>false</default></key>
+    <key name="background-color" type="s"><default>'#000000'</default></key>
+    <key name="show-show-apps-button" type="b"><default>true</default></key>
+    <key name="show-trash" type="b"><default>false</default></key>
+    <key name="hot-keys" type="b"><default>true</default></key>
+    <key name="shortcut" type="as"><default>['&lt;Super&gt;q']</default></key>
+  </schema>
+</schemalist>
