@@ -22,7 +22,9 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v7
       - name: Run isolated Arch Linux checks
-        run: bash tests/run_container.sh
+        run: |
+          bash tests/test_container_cleanup.sh
+          bash tests/run_container.sh
 
   guide-browser:
     name: Guide and browser
@@ -31,16 +33,6 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - name: Install locked guide and browser dependencies
-        run: npm ci
-      - name: Rebuild the checked-in guide stylesheet
-        run: |
-          npm run build:guide
-          git diff --exit-code -- docs/guide.css
       - name: Run guide checks in the official Playwright container
         run: bash tests/run_browser_container.sh
 

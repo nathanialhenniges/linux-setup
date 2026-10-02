@@ -168,6 +168,8 @@ It requires a running Docker engine (Docker Desktop or Colima on macOS), builds 
 
 Protected `main` requires the **Arch container** and **Guide and browser** CI checks. GitHub Pages deployment is gated on both checks passing.
 
+Setup keeps package installation sequential: pacman, yay, and Flatpak must not compete for package locks. Grouped Ansible phases run only their selected tasks; missing Flatpak apps share one installation transaction. CI builds and checks the guide stylesheet once inside its browser container. These changes reduce repeated work; they are not a measured laptop speed claim.
+
 The setup is restricted to EndeavourOS or Arch Linux on x86-64 `MacBookAir7,2`, uses a localhost Ansible inventory, and runs as a normal user. `--dry-run` prints a reviewed plan without sudo, network access, or managed-state writes. AUR package builds remain interactive. `sshd` is never enabled or configured; OpenSSH is installed only for its SSH client. Chrome Remote Desktop is used only as a browser client; this setup does not install the remote host.
 
 See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for upstreams and licenses, and [SECURITY.md](SECURITY.md) for the repository safety boundaries.
