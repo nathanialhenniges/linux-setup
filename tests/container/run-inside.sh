@@ -13,6 +13,7 @@ printf '%s\n' '== Static checks and Ansible syntax =='
 ./tests/test_setup.sh
 bash tests/test_orchestration.sh
 python3 tests/test_flatpak.py
+python3 tests/test_purge_firefox.py
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf -- "$tmp_dir"' EXIT
@@ -31,6 +32,7 @@ done
 export BLOCKED_COMMANDS="$tmp_dir/blocked-commands"
 dry_run_output="$(PATH="$stub_dir:$PATH" ./setup.sh --dry-run all)"
 grep -Fq 'Dry run: all' <<<"$dry_run_output"
+grep -Fq 'quiet splash' <<<"$dry_run_output"
 [[ ! -e "$BLOCKED_COMMANDS" ]] || {
   cat "$BLOCKED_COMMANDS" >&2
   printf 'The setup dry-run invoked a command that must not run.\n' >&2

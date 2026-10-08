@@ -35,7 +35,8 @@
       - set
       - org.gnome.shell
       - favorite-apps
-      - "[{% for desktop_id in gnome_favorites_without_legacy_chatgpt %}'{{ desktop_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+      # GVariant text accepts JSON's double-quoted, escaped strings.
+      - "{{ gnome_favorites_without_legacy_chatgpt | to_json(ensure_ascii=false) }}"
   when: legacy_chatgpt_launcher.desktop_id in current_gnome_favorite_ids
 
 - name: Remove the retired ChatGPT Chrome app-window launcher

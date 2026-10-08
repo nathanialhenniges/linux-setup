@@ -87,47 +87,29 @@
 - name: Set the account profile photo
   ansible.builtin.import_tasks: profile_picture.yml
 
-- name: Read the current GNOME light wallpaper
+- name: Read the current GNOME light and dark wallpapers
   ansible.builtin.command:
-    argv: [gsettings, get, org.gnome.desktop.background, picture-uri]
-  register: gnome_light_wallpaper
+    argv: [gsettings, get, org.gnome.desktop.background, "{{ item }}"]
+  loop: [picture-uri, picture-uri-dark]
+  register: gnome_current_wallpapers
   changed_when: false
   when: "'GNOME' in (ansible_facts.env.XDG_CURRENT_DESKTOP | default(''))"
 
-- name: Set the supplied wallpaper in GNOME light mode
+- name: Set the supplied wallpaper in GNOME light and dark modes
   ansible.builtin.command:
     argv:
       - gsettings
       - set
       - org.gnome.desktop.background
-      - picture-uri
-      - "'file://{{ workstation_home }}/Pictures/mrdemonwolf-desktop-wallpaper.png'"
+      - "{{ item.item }}"
+      - "'{{ desktop_wallpaper_uri }}'"
+  loop: "{{ gnome_current_wallpapers.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  # Keep the GNOME guard first so skipped reads, which have no stdout, are never compared.
   when:
     - "'GNOME' in (ansible_facts.env.XDG_CURRENT_DESKTOP | default(''))"
-    - >-
-      (gnome_light_wallpaper.stdout | trim | regex_replace("(^'|'$)", "")) !=
-      "file://" ~ workstation_home ~ "/Pictures/mrdemonwolf-desktop-wallpaper.png"
-
-- name: Read the current GNOME dark wallpaper
-  ansible.builtin.command:
-    argv: [gsettings, get, org.gnome.desktop.background, picture-uri-dark]
-  register: gnome_dark_wallpaper
-  changed_when: false
-  when: "'GNOME' in (ansible_facts.env.XDG_CURRENT_DESKTOP | default(''))"
-
-- name: Set the supplied wallpaper in GNOME dark mode
-  ansible.builtin.command:
-    argv:
-      - gsettings
-      - set
-      - org.gnome.desktop.background
-      - picture-uri-dark
-      - "'file://{{ workstation_home }}/Pictures/mrdemonwolf-desktop-wallpaper.png'"
-  when:
-    - "'GNOME' in (ansible_facts.env.XDG_CURRENT_DESKTOP | default(''))"
-    - >-
-      (gnome_dark_wallpaper.stdout | trim | regex_replace("(^'|'$)", "")) !=
-      "file://" ~ workstation_home ~ "/Pictures/mrdemonwolf-desktop-wallpaper.png"
+    - (item.stdout | trim | regex_replace("(^'|'$)", "")) != desktop_wallpaper_uri
 
 - name: Install checksum-pinned Chrome web-app icons and launchers
   ansible.builtin.import_tasks: chrome_web_apps.yml

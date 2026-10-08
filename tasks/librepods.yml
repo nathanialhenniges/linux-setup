@@ -102,8 +102,10 @@
       - >-
         not (librepods_autostart_state.stat.exists | default(false)) or
         (librepods_autostart_state.stat.isreg | default(false) and
-         librepods_autostart_state.stat.checksum ==
-         (lookup('ansible.builtin.template', 'librepods-autostart.desktop.j2') | hash('sha256')))
+         (librepods_autostart_state.stat.checksum ==
+          (lookup('ansible.builtin.template', 'librepods-autostart.desktop.j2') | hash('sha256')) or
+          librepods_autostart_state.stat.checksum ==
+          (lookup('ansible.builtin.template', 'librepods-autostart-legacy.desktop.j2') | hash('sha256'))))
     fail_msg: "Refusing unknown or unsafe LibrePods autostart content."
     quiet: true
 
@@ -123,6 +125,7 @@
     path: "{{ workstation_home }}/.config/autostart"
     state: directory
 
+# This rewrites a previous --start-minimized entry, which LibrePods ignores, with --hide.
 - name: Start LibrePods minimized after GNOME login
   ansible.builtin.template:
     src: librepods-autostart.desktop.j2

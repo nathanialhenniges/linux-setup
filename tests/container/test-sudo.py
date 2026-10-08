@@ -1,8 +1,14 @@
-"""Verify one terminal sudo authentication reaches piped Ansible commands."""
+"""Verify one terminal sudo authentication caches a ticket and reaches piped Ansible commands."""
 import os
 import pathlib
 import pty
+import select
+import signal
 import tempfile
+import time
+
+# A second sudo or BECOME prompt would wait forever for input; fail instead.
+DEADLINE_SECONDS = 300
 
 with tempfile.TemporaryDirectory() as directory:
     play = pathlib.Path(directory) / 'sudo.yml'
@@ -20,6 +26,8 @@ with tempfile.TemporaryDirectory() as directory:
     command = f'''set -e
 source scripts/sudo-session.sh
 authenticate_setup_sudo
+# pacman, yay, and the keepalive rely on the cached ticket, not the password.
+sudo -n true
 run_setup_ansible -i inventory.ini {play}
 run_setup_ansible -i inventory.ini {play}
 '''
@@ -28,7 +36,15 @@ run_setup_ansible -i inventory.ini {play}
         os.execvp('bash', ['bash', '-c', command])
     os.write(fd, b'container-test-only\n')
     output = bytearray()
+    deadline = time.monotonic() + DEADLINE_SECONDS
     while True:
+        ready, _, _ = select.select([fd], [], [], max(0, deadline - time.monotonic()))
+        if not ready:
+            os.killpg(child, signal.SIGKILL)
+            os.waitpid(child, 0)
+            os.close(fd)
+            raise SystemExit('Timed out: setup likely asked for a second sudo password instead of reusing '
+                             'the terminal authentication.\n' + output.decode(errors='replace'))
         try:
             chunk = os.read(fd, 65536)
         except OSError:
@@ -39,4 +55,4 @@ run_setup_ansible -i inventory.ini {play}
     os.close(fd)
     _, status = os.waitpid(child, 0)
     print(output.decode(errors='replace'))
-    assert os.waitstatus_to_exitcode(status) == 0, 'Ansible could not reuse terminal sudo authentication'
+    assert os.waitstatus_to_exitcode(status) == 0, 'setup sudo authentication was not cached or Ansible could not reuse it'

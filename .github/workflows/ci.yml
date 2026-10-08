@@ -9,9 +9,11 @@ on:
 permissions:
   contents: read
 
+# One run per workflow and ref. Superseded pull request runs are cancelled; main runs
+# queue instead, so a Pages deployment is never cut off part way.
 concurrency:
-  group: pages-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   arch-container:
@@ -41,6 +43,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [arch-container, guide-browser]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pages: write

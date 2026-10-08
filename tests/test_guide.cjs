@@ -231,7 +231,7 @@ async function run() {
         .filter((button) => !button.textContent.trim() && !button.getAttribute('aria-label'))
         .map((button) => button.id);
       const unnamedLinks = Array.from(document.querySelectorAll('a'))
-        .filter((link) => !link.textContent.trim() && !Array.from(link.images).some((image) => image.alt.trim()))
+        .filter((link) => !link.textContent.trim() && !link.getAttribute('aria-label') && !Array.from(link.querySelectorAll('img')).some((image) => image.alt.trim()))
         .map((link) => link.href);
       const skippedHeadingLevels = [];
       for (let index = 1; index < headings.length; index += 1) {
@@ -246,6 +246,9 @@ async function run() {
     assert.deepEqual(semanticAudit.unnamedLinks, [], 'Every link should have a name');
     assert.deepEqual(semanticAudit.skippedHeadingLevels, [], 'Heading levels should not skip a level');
     checks.push('heading order, labels, image alt attributes, and control names');
+
+    assert.notEqual(await page.locator('#progress-status').evaluate((element) => getComputedStyle(element).display), 'none', 'The empty progress live region should stay in the accessibility tree');
+    checks.push('progress status live region is present before its first message');
 
     await page.keyboard.press('Tab');
     assert.equal(await page.evaluate(() => document.activeElement.className), 'skip-link', 'First keyboard stop should be Skip to the guide');
@@ -364,6 +367,23 @@ async function run() {
     assert.equal(copyCount, await page.locator('[data-copy]').evaluateAll((buttons) => new Set(buttons.map((button) => button.dataset.copy)).size), 'Copy targets should be unique');
     checks.push(`${copyCount} copy controls write their matching command to the clipboard`);
 
+    for (const commandId of ['cmd-display-manager', 'cmd-branding']) {
+      const lines = (await page.locator(`#${commandId}`).textContent()).split('\n');
+      assert.match(lines[0], /^\.\/setup\.sh --dry-run /, `${commandId} should start with its dry run`);
+      assert.match(lines[lines.length - 1], /^\.\/setup\.sh \S+ && reboot$/, `${commandId} should reboot only after the action succeeds`);
+      assert.ok(!lines.includes('reboot'), `${commandId} must not reboot on its own line`);
+    }
+    checks.push('repair commands reboot only after their action succeeds');
+
+    const repeatButton = page.locator('[data-copy="cmd-all"]');
+    await page.waitForFunction(() => document.querySelector('[data-copy="cmd-all"]').textContent !== 'Copied');
+    const repeatLabel = await repeatButton.textContent();
+    await repeatButton.click();
+    await repeatButton.click();
+    await page.waitForTimeout(2000);
+    assert.equal(await repeatButton.textContent(), repeatLabel, 'Copy label should restore after repeated clicks');
+    checks.push('copy label restores after repeated clicks');
+
     for (const width of [320, 375, 390, 768, 1280]) {
       await page.setViewportSize({ width, height: width < 500 ? 844 : 900 });
       await assertNoHorizontalOverflow(page, width);
@@ -391,6 +411,21 @@ async function run() {
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'guide-mobile-viewport.png') });
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'guide-mobile.png'), fullPage: true });
     checks.push('top-of-page mobile hero screenshot');
+
+    const syncContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const olderTab = await syncContext.newPage();
+    const newerTab = await syncContext.newPage();
+    await olderTab.goto(url, { waitUntil: 'networkidle' });
+    await newerTab.goto(url, { waitUntil: 'networkidle' });
+    const syncBoxes = await olderTab.locator('[data-check]').evaluateAll((boxes) => boxes.slice(0, 2).map((box) => box.id));
+    await newerTab.locator(`#${syncBoxes[0]}`).check();
+    await olderTab.waitForFunction((id) => document.getElementById(id).checked, syncBoxes[0]);
+    await olderTab.locator(`#${syncBoxes[1]}`).check();
+    await newerTab.waitForFunction((id) => document.getElementById(id).checked, syncBoxes[1]);
+    assert.deepEqual(await olderTab.evaluate(() => JSON.parse(localStorage.getItem('mba-reinstall-checklist-v1'))).then((ids) => ids.sort()), [...syncBoxes].sort(), 'An older tab must not overwrite progress saved in another tab');
+    assert.deepEqual(await readCheckedIds(newerTab), await readCheckedIds(olderTab), 'Open guide tabs should show the same progress');
+    await syncContext.close();
+    checks.push('open guide tabs keep checklist progress in sync');
 
     const fallbackContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     await fallbackContext.addInitScript(() => {

@@ -128,6 +128,16 @@
         checksum_algorithm: sha256
       register: librepods_autostart_file
 
+    - name: Inspect the LibrePods AppImage and launcher
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        checksum_algorithm: sha256
+      loop:
+        - "{{ librepods.path }}"
+        - "{{ librepods.launcher_path }}"
+      register: librepods_files
+
     - name: Read GNOME favorite applications
       ansible.builtin.command:
         argv: [gsettings, get, org.gnome.shell, favorite-apps]
@@ -180,6 +190,18 @@
              librepods_autostart_file.stat.checksum | default('') ==
              (lookup('ansible.builtin.template', 'librepods-autostart.desktop.j2') | hash('sha256')) }}
 
+    - name: Report whether the reviewed LibrePods AppImage and launcher are installed
+      ansible.builtin.set_fact:
+        librepods_install_ready: >-
+          {{ librepods_files.results[0].stat.isreg | default(false) and
+             not (librepods_files.results[0].stat.islnk | default(false)) and
+             librepods_files.results[0].stat.executable | default(false) and
+             librepods_files.results[0].stat.checksum | default('') == librepods.sha256 and
+             librepods_files.results[1].stat.isreg | default(false) and
+             not (librepods_files.results[1].stat.islnk | default(false)) and
+             librepods_files.results[1].stat.checksum | default('') ==
+             (lookup('ansible.builtin.template', 'librepods.desktop.j2') | hash('sha256')) }}
+
     - name: Report whether the GNOME tray and dock extensions are configured
       ansible.builtin.set_fact:
         configured_gnome_extension_ids: >-
@@ -188,36 +210,37 @@
           {{ gnome_required_extensions | difference(configured_gnome_extensions.stdout | default('[]', true) | replace('@as ', '') | from_yaml) | length == 0 }}
         gnome_extensions_active: >-
           {{ gnome_required_extensions | difference(active_gnome_extensions.stdout_lines | default([])) | length == 0 }}
+        missing_dock_favorites: >-
+          {{ gnome_dock_required_ids | reject('in', gnome_favorite_apps.stdout | default('[]', true) | replace('@as ', '') | from_yaml) | list }}
 
     - name: Select the configured Flathub system remote
       ansible.builtin.set_fact:
         flathub_system_lines: "{{ flatpak_remotes.stdout_lines | default([]) | select('match', '^flathub\\s') | list }}"
 
-    - name: Enforce the requested workstation state
-      ansible.builtin.assert:
-        that:
-          - missing_pacman_packages | length == 0
-          - missing_flatpak_packages | length == 0
-          - flatpak_origins.results | length == core_flatpak_packages | length
-          - flatpak_origins.results | selectattr('rc', 'equalto', 0) | selectattr('stdout', 'equalto', core_flatpak_remote.name) | list | length == core_flatpak_packages | length
-          - flathub_system_lines | length == 1
-          - flathub_system_lines[0].split()[-1] == core_flatpak_remote.url
-          - workstation_services.results | selectattr('rc', 'equalto', 0) | selectattr('stdout', 'equalto', 'active') | list | length == 3
-          - gdm_state.stdout == 'enabled'
-          - sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime']
-          - gnome_extensions_configured
-          - librepods_autostart_ready
-          - "gnome_favorite_apps.stdout is search('org.gnome.Nautilus.desktop')"
-          - "gnome_favorite_apps.stdout is search('google-chrome.desktop')"
-          - "gnome_favorite_apps.stdout is search('com.onepassword.OnePassword.desktop')"
-          - "gnome_favorite_apps.stdout is search('discord.desktop')"
-          - "gnome_favorite_apps.stdout is search('chatgpt.desktop')"
-          - plymouth_branding_ready
-          - sshd_state.results[0].stdout != 'active'
-          - sshd_state.results[1].stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime']
-        fail_msg: "Workstation verification found missing packages, untrusted Flatpaks, missing GNOME dock/tray/autostart or boot branding, or inactive laptop services. See the state report."
-        quiet: true
-      when: verification_mode == 'verify'
+    # status and verify share this one list, so "Ready" always means verify would pass.
+    - name: Collect the reviewed workstation readiness checks
+      ansible.builtin.set_fact:
+        workstation_ready_checks:
+          pacman packages installed: "{{ missing_pacman_packages | length == 0 }}"
+          system Flatpaks installed: "{{ missing_flatpak_packages | length == 0 }}"
+          Flatpaks from Flathub: >-
+            {{ flatpak_origins.results | length == core_flatpak_packages | length and
+               flatpak_origins.results | selectattr('rc', 'equalto', 0) | selectattr('stdout', 'equalto', core_flatpak_remote.name) | list | length == core_flatpak_packages | length }}
+          Flathub system remote: "{{ flathub_system_lines | length == 1 and flathub_system_lines[0].split()[-1] == core_flatpak_remote.url }}"
+          laptop services active: "{{ workstation_services.results | selectattr('rc', 'equalto', 0) | selectattr('stdout', 'equalto', 'active') | list | length == 3 }}"
+          GDM login screen: "{{ gdm_state.stdout == 'enabled' and sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'] }}"
+          GNOME extensions configured: "{{ gnome_extensions_configured }}"
+          LibrePods reviewed AppImage and launcher: "{{ librepods_install_ready }}"
+          LibrePods login start: "{{ librepods_autostart_ready }}"
+          GNOME dock favorites: "{{ missing_dock_favorites | length == 0 }}"
+          Plymouth branding: "{{ plymouth_branding_ready }}"
+          sshd stopped and disabled: >-
+            {{ sshd_state.results[0].stdout != 'active' and
+               sshd_state.results[1].stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'] }}
+
+    - name: List the readiness checks that are not met
+      ansible.builtin.set_fact:
+        workstation_unready_checks: "{{ workstation_ready_checks | dict2items | rejectattr('value') | map(attribute='key') | list }}"
 
     - name: Show workstation package state
       ansible.builtin.debug:
@@ -231,18 +254,32 @@
           - "GNOME extensions configured to load: {{ configured_gnome_extension_ids }}"
           - "GNOME extensions active in this session: {{ active_gnome_extensions.stdout_lines | default([]) }}"
           - "GNOME extensions will load: {{ 'already active' if gnome_extensions_active else 'at the next GNOME login' }}"
+          - "LibrePods reviewed AppImage and launcher: {{ 'ready' if librepods_install_ready else 'missing or changed' }}"
           - "LibrePods minimized login start: {{ 'ready' if librepods_autostart_ready else 'missing' }}"
           - "GNOME favorites: {{ gnome_favorite_apps.stdout }}"
+          - "Missing GNOME dock favorites: {{ missing_dock_favorites }}"
           - "MrDemonWolf Plymouth branding ready: {{ plymouth_branding_ready }}"
           - "sshd service state: {{ sshd_state.results | map(attribute='stdout') | list }}"
           - "AUR apps: {{ aur_package_names | default([]) }}"
           - "OpenAI packages: {{ core_external_packages }}"
+          - "Readiness checks not met: {{ workstation_unready_checks | join(', ') if workstation_unready_checks else 'none' }}"
       when: verification_mode in ['state', 'verify']
+
+    - name: Enforce the requested workstation state
+      ansible.builtin.assert:
+        that:
+          - workstation_unready_checks | length == 0
+        fail_msg: >-
+          Workstation verification failed: {{ workstation_unready_checks | join(', ') }}.
+          See the state report above, then rerun the matching ./setup.sh action
+          (for example ./setup.sh apps for packages or LibrePods, or ./setup.sh gnome-dock for dock favorites).
+        quiet: true
+      when: verification_mode == 'verify'
 
     - name: Show concise workstation status
       ansible.builtin.debug:
         msg: >-
-          {{ 'Ready' if (missing_pacman_packages | length == 0 and missing_flatpak_packages | length == 0 and gnome_extensions_configured and librepods_autostart_ready and gnome_favorite_apps.stdout is search('google-chrome.desktop') and gnome_favorite_apps.stdout is search('com.onepassword.OnePassword.desktop') and plymouth_branding_ready and gdm_state.stdout == 'enabled' and sddm_state.stdout not in ['enabled', 'enabled-runtime', 'linked', 'linked-runtime'])
-             else 'Needs setup' }} — {{ missing_pacman_packages | length }} pacman packages and
+          {{ 'Ready' if workstation_unready_checks | length == 0 else 'Needs setup (' ~ (workstation_unready_checks | join(', ')) ~ ')' }}
+          — {{ missing_pacman_packages | length }} pacman packages and
           {{ missing_flatpak_packages | length }} system Flatpaks, GNOME dock {{ 'active' if gnome_extensions_active else ('configured for next login' if gnome_extensions_configured else 'missing') }}, Plymouth branding {{ 'ready' if plymouth_branding_ready else 'missing' }}.
       when: verification_mode == 'status'

@@ -97,7 +97,7 @@
       when: "'desktop' in selected_setup_actions"
       tags: [desktop]
 
-    - name: Configure the GNOME dock, shortcuts, and light styling
+    - name: Configure the GNOME dock, shortcuts, and dark style
       ansible.builtin.import_tasks: tasks/gnome_dock.yml
       when: "'gnome-dock' in selected_setup_actions"
       tags: [gnome-dock]
