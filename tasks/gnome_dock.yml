@@ -25,10 +25,8 @@
 - name: Require the core dock applications
   ansible.builtin.assert:
     that:
-      - "'org.gnome.Nautilus.desktop' in gnome_dock_available_ids"
-      - "'google-chrome.desktop' in gnome_dock_available_ids"
-      - "'discord.desktop' in gnome_dock_available_ids"
-    fail_msg: "GNOME Files, Google Chrome, or Discord is missing. Run ./setup.sh apps and ./setup.sh desktop first."
+      - gnome_dock_required_ids | reject('in', gnome_dock_available_ids) | list | length == 0
+    fail_msg: "Missing core dock apps: {{ gnome_dock_required_ids | reject('in', gnome_dock_available_ids) | join(', ') }}. Run ./setup.sh apps and ./setup.sh desktop first."
     quiet: true
 
 - name: Read current GNOME dock favorites
@@ -90,7 +88,8 @@
       - set
       - org.gnome.settings-daemon.plugins.media-keys
       - custom-keybindings
-      - "[{% for path in gnome_registered_custom_keybinding_paths %}'{{ path }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+      # GVariant text accepts JSON's double-quoted, escaped strings.
+      - "{{ gnome_registered_custom_keybinding_paths | to_json(ensure_ascii=false) }}"
   when: (current_gnome_custom_keybindings.stdout | trim | replace('@as ', '') | from_yaml) != gnome_registered_custom_keybinding_paths
 
 - name: Set the Mac-inspired GNOME app order
@@ -100,7 +99,7 @@
       - set
       - org.gnome.shell
       - favorite-apps
-      - "[{% for desktop_id in gnome_dock_available_ids %}'{{ desktop_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+      - "{{ gnome_dock_available_ids | to_json(ensure_ascii=false) }}"
   when: (current_gnome_favorites.stdout | trim | replace('@as ', '') | from_yaml) != gnome_dock_available_ids
 
 - name: Apply the lightweight GNOME appearance and familiar shortcuts
@@ -174,7 +173,7 @@
       - set
       - org.gnome.shell
       - enabled-extensions
-      - "[{% for extension_id in gnome_desired_extension_ids %}'{{ extension_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]"
+      - "{{ gnome_desired_extension_ids | to_json(ensure_ascii=false) }}"
   when: gnome_required_extensions | difference(gnome_configured_extension_ids) | length > 0
   register: configured_gnome_extension_update
   changed_when: configured_gnome_extension_update.rc == 0

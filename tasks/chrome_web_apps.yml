@@ -96,15 +96,26 @@
     label: "{{ item.item.icon_file }}"
 
 - name: Download checksum-pinned icons from their official sites
-  ansible.builtin.get_url:
-    url: "{{ item.icon_url }}"
-    dest: "{{ workstation_home }}/.local/share/icons/{{ item.icon_file }}"
-    checksum: "sha256:{{ item.icon_sha256 }}"
-    mode: "0644"
-  loop: "{{ chrome_web_app_launchers }}"
-  loop_control:
-    label: "{{ item.name }}"
   when: not ansible_check_mode
+  block:
+    - name: Download each reviewed Chrome app icon
+      ansible.builtin.get_url:
+        url: "{{ item.icon_url }}"
+        dest: "{{ workstation_home }}/.local/share/icons/{{ item.icon_file }}"
+        checksum: "sha256:{{ item.icon_sha256 }}"
+        mode: "0644"
+      loop: "{{ chrome_web_app_launchers }}"
+      loop_control:
+        label: "{{ item.name }}"
+  rescue:
+    - name: Explain a changed or unreachable vendor icon
+      ansible.builtin.fail:
+        msg: >-
+          The {{ ansible_failed_result.results | default([]) | selectattr('failed', 'defined') | selectattr('failed')
+          | map(attribute='item.name') | join(', ') | default('Chrome app', true) }} icon could not be downloaded
+          or no longer matches its reviewed pin. Check your network first. If the vendor changed its icon,
+          review the new file at its official URL, then update icon_sha256 in vars.yml and THIRD-PARTY-NOTICES.md
+          together before rerunning ./setup.sh desktop.
 
 - name: Install the reviewed Chrome app-window launchers
   ansible.builtin.template:

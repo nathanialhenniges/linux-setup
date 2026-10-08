@@ -25,6 +25,21 @@ MessageBelowAnimation=true
 
 [boot-up]
 UseProgressBar=true
+UseAnimation=false
+UseEndAnimation=false
+ProgressBarShowPercentComplete=false
+UseFirmwareBackground=false
+
+[shutdown]
+UseProgressBar=true
+UseAnimation=false
+UseEndAnimation=false
+ProgressBarShowPercentComplete=false
+UseFirmwareBackground=false
+
+[reboot]
+UseProgressBar=true
+UseAnimation=false
 UseEndAnimation=false
 ProgressBarShowPercentComplete=false
 UseFirmwareBackground=false

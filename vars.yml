@@ -105,8 +105,11 @@ librepods:
   launcher_path: "{{ workstation_home }}/.local/share/applications/librepods.desktop"
   autostart_path: "{{ workstation_home }}/.config/autostart/librepods.desktop"
 
+desktop_wallpaper_name: mrdemonwolf-desktop-wallpaper.png
+desktop_wallpaper_uri: "file://{{ workstation_home }}/Pictures/{{ desktop_wallpaper_name }}"
+
 desktop_assets:
-  - name: mrdemonwolf-desktop-wallpaper.png
+  - name: "{{ desktop_wallpaper_name }}"
     sha256: 1013a6ddaed8fafad60250efbce931c6a2c2d0706264558b542107126dc75840
   - name: mrdemonwolf-logo.svg
     sha256: 073aa24eea5a1385f42d4156e0328e8261a696ab3faeb1ec3544d7db30b586bf
@@ -117,23 +120,25 @@ profile_picture_asset:
   name: nathanial-henniges-profile-picture.png
   sha256: cc3daf6176c3c7797b436fd446daacbd14640984cc4d7517fb99a1ec037134d3
 
-plymouth_theme_sha256: e0bad97e187eb224d37723eb38109de70ef70cc5b7f5738ac646f0a73f8c7e1f
+plymouth_theme_sha256: 90e6561f6640dd62afd139534ad03191e2336feb4014587bc3180199b9369f83
 plymouth_previous_theme_sha256s:
+  - e0bad97e187eb224d37723eb38109de70ef70cc5b7f5738ac646f0a73f8c7e1f
   - 7282e6db16cc5b884a93fc284af1667961745061092aef5c8d09fad72c7da493
   - 93b025f20c1745717ca3750d38b68f37c107dafdc8c589cdfd5c0203e66b4899
   - b580642ff16800847051de2e3e57e83e7f7b876fe027f7f4520f07d20b45eefa
 plymouth_logo_sha256: 22903bf7891d144cf729cef04f3838567f1f9bc994e7c35dd65aeccbbeaac7f0
 dracut_plymouth_config_sha256: 4a7d9ad48c35e41043e81024bf32d36c6001ee9ba1dfb154d072e6386e172f60
 
+# legacy_icon is the Icon= value older releases wrote; it lets upgrades recognize those launchers.
 chrome_web_app_launchers:
-  - { name: Google Docs, desktop_id: linux-setup-google-docs.desktop, wm_class: linux-setup-google-docs, url: "https://docs.google.com/document/", icon_file: linux-setup-google-docs.ico, icon_url: "https://docs.google.com/favicon.ico", icon_sha256: 16640c06f6249fdafd7828fd8425753abc360864dfd88f66704a32c38943c805, categories: "Office;" }
-  - { name: Google Sheets, desktop_id: linux-setup-google-sheets.desktop, wm_class: linux-setup-google-sheets, url: "https://docs.google.com/spreadsheets/", icon_file: linux-setup-google-sheets.ico, icon_url: "https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico", icon_sha256: b4407478dcd25903b7e3719cbd1a3ff42e1f51ae74d690be7a7af11e1964ef57, categories: "Office;" }
-  - { name: Google Slides, desktop_id: linux-setup-google-slides.desktop, wm_class: linux-setup-google-slides, url: "https://docs.google.com/presentation/", icon_file: linux-setup-google-slides.ico, icon_url: "https://ssl.gstatic.com/docs/presentations/images/favicon5.ico", icon_sha256: f6458a567e44809e5e02a8585183c693be0c092aea8b7359669e56b761dcb820, categories: "Office;" }
-  - { name: Notion, desktop_id: linux-setup-notion.desktop, wm_class: linux-setup-notion, url: "https://www.notion.so/", icon_file: linux-setup-notion.ico, icon_url: "https://www.notion.so/front-static/favicon.ico", icon_sha256: 541fc85f92e348bcf46f70944b95fd558d16adbc5a0698eaa1239dccd8c9e455, categories: "Office;" }
-  - { name: Quo, desktop_id: linux-setup-quo.desktop, wm_class: linux-setup-quo, url: "https://my.quo.com/", icon_file: linux-setup-quo.png, icon_url: "https://my.quo.com/assets/icons/192x192.png", icon_sha256: a79a03300b8080dcff87cb65a398b4353560497f214a4257c0469cdee121f2a4, categories: "Network;" }
+  - { name: Google Docs, desktop_id: linux-setup-google-docs.desktop, wm_class: linux-setup-google-docs, url: "https://docs.google.com/document/", icon_file: linux-setup-google-docs.ico, icon_url: "https://docs.google.com/favicon.ico", icon_sha256: 16640c06f6249fdafd7828fd8425753abc360864dfd88f66704a32c38943c805, legacy_icon: x-office-document, categories: "Office;" }
+  - { name: Google Sheets, desktop_id: linux-setup-google-sheets.desktop, wm_class: linux-setup-google-sheets, url: "https://docs.google.com/spreadsheets/", icon_file: linux-setup-google-sheets.ico, icon_url: "https://ssl.gstatic.com/docs/spreadsheets/favicon3.ico", icon_sha256: b4407478dcd25903b7e3719cbd1a3ff42e1f51ae74d690be7a7af11e1964ef57, legacy_icon: x-office-spreadsheet, categories: "Office;" }
+  - { name: Google Slides, desktop_id: linux-setup-google-slides.desktop, wm_class: linux-setup-google-slides, url: "https://docs.google.com/presentation/", icon_file: linux-setup-google-slides.ico, icon_url: "https://ssl.gstatic.com/docs/presentations/images/favicon5.ico", icon_sha256: f6458a567e44809e5e02a8585183c693be0c092aea8b7359669e56b761dcb820, legacy_icon: x-office-presentation, categories: "Office;" }
+  - { name: Notion, desktop_id: linux-setup-notion.desktop, wm_class: linux-setup-notion, url: "https://www.notion.so/", icon_file: linux-setup-notion.ico, icon_url: "https://www.notion.so/front-static/favicon.ico", icon_sha256: 541fc85f92e348bcf46f70944b95fd558d16adbc5a0698eaa1239dccd8c9e455, legacy_icon: accessories-text-editor, categories: "Office;" }
+  - { name: Quo, desktop_id: linux-setup-quo.desktop, wm_class: linux-setup-quo, url: "https://my.quo.com/", icon_file: linux-setup-quo.png, icon_url: "https://my.quo.com/assets/icons/192x192.png", icon_sha256: a79a03300b8080dcff87cb65a398b4353560497f214a4257c0469cdee121f2a4, legacy_icon: call-start, categories: "Network;" }
 
 chrome_web_app_retired_launchers:
-  - { desktop_id: linux-setup-google-drive.desktop, wm_class: linux-setup-google-drive, url: "https://drive.google.com/", name: Google Drive, categories: "Office;" }
+  - { desktop_id: linux-setup-google-drive.desktop, wm_class: linux-setup-google-drive, url: "https://drive.google.com/", name: Google Drive, legacy_icon: folder-remote, categories: "Office;" }
 
 legacy_chatgpt_launcher:
   name: ChatGPT
@@ -152,6 +157,14 @@ gnome_dock_favorites:
   - { desktop_id: sh.cider.Cider.desktop, path: /var/lib/flatpak/exports/share/applications/sh.cider.Cider.desktop }
   - { desktop_id: code.desktop, path: /usr/share/applications/code.desktop }
   - { desktop_id: com.mitchellh.ghostty.desktop, path: /usr/share/applications/com.mitchellh.ghostty.desktop }
+
+# gnome-dock, status, and verify all require these favorites; they must also appear above.
+gnome_dock_required_ids:
+  - org.gnome.Nautilus.desktop
+  - google-chrome.desktop
+  - com.onepassword.OnePassword.desktop
+  - discord.desktop
+  - chatgpt.desktop
 
 gnome_personalization_preferences:
   - { schema: org.gnome.desktop.interface, key: color-scheme, value: "'prefer-dark'" }

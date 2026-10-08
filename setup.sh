@@ -30,7 +30,7 @@ Usage: ./setup.sh [--dry-run] [--accept-target-warning] <action>
 Actions:
   bootstrap   Upgrade the system and install local Ansible
   chrome      Install Google Chrome early so this guide can stay open on the Mac
-  all         Run setup, install the official ChatGPT app, clean up old desktop items, then ask about Firefox cleanup
+  all         Run setup, install the official ChatGPT app, clean up old desktop items, apply dotfiles and the zsh login shell, then ask about Firefox cleanup
   status      Show a short readiness summary
   state       Show missing packages, Flatpak origins, and service state
   verify      Fail unless the reviewed workstation state is present
@@ -40,7 +40,7 @@ Actions:
   chatgpt-app Install or update ChatGPT from OpenAI's signed Arch package repository
   tools       Install the selected command-line tools
   desktop     Configure wallpaper, app shortcuts, and the account photo
-  gnome-dock  Set up the Mac-inspired dock, familiar shortcuts, and light GNOME styling
+  gnome-dock  Set up the Mac-inspired dock, familiar shortcuts, and GNOME’s built-in dark style
   cleanup-terminals  Ask before removing extra terminal apps; keep Ghostty and command-line tools
   cleanup-legacy Remove the old ChatGPT Chrome shortcut and offer to remove old Hyprland packages
   remove-hyprland Set GDM as the login screen and uninstall the Hyprland session packages
@@ -48,7 +48,7 @@ Actions:
   display-manager Set GNOME's GDM login screen as the default
   profile-picture Set the supplied photo as your account/login picture
   purge-firefox Uninstall Firefox and erase its profile data (keeps Chrome)
-  dotfiles    Run only the dedicated dotfiles linux-desktop.sh profile
+  dotfiles    Run the dedicated dotfiles linux-desktop.sh profile, then set your login shell to zsh
   drive       Show the browser-only Google Drive steps
   terminal    Show how to open Ghostty from GNOME
 
@@ -66,6 +66,8 @@ stop_sudo_keepalive() {
   [[ -n "$SUDO_KEEPALIVE_PID" ]] || return 0
   kill -TERM "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
   wait "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
+  # Drop the cached ticket so it does not outlive this run.
+  sudo -k 2>/dev/null || true
   SUDO_KEEPALIVE_PID=
   SETUP_BECOME_PASSWORD=
 }
@@ -85,6 +87,8 @@ start_sudo_keepalive() {
       sleep_pid=$!
       wait "$sleep_pid" || exit 0
       sleep_pid=
+      # Stop refreshing once setup.sh itself has exited.
+      kill -0 "$$" 2>/dev/null || exit 0
       # Open the controlling terminal for sudo's cached-ticket refresh; -n prevents a prompt.
       # shellcheck disable=SC2024
       sudo -n -v </dev/tty || exit 0
@@ -201,13 +205,14 @@ json_array() {
   printf '%s]' "$result"
 }
 
+# Usage: extra_vars <verification mode or ''> [setup action...]
 extra_vars() {
-  local action="${1:-}" mode="${2:-}" result
+  local mode="$1" result
+  shift
   result="{\"aur_package_names\":$(json_array "${AUR_PACKAGES[@]}"),\"target_warning_accepted\":$TARGET_WARNING_ACCEPTED"
-  [[ -z "$action" ]] || result+=",\"setup_action\":\"$action\""
+  (($# == 0)) || result+=",\"setup_actions\":$(json_array "$@")"
   [[ -z "$mode" ]] || result+=",\"verification_mode\":\"$mode\""
-  result+='}'
-  printf '%s' "$result"
+  printf '%s}' "$result"
 }
 
 sync_system() {
@@ -222,19 +227,12 @@ run_site_action_local() {
   local action="$1"
   require_ansible
   run_setup_ansible -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
-    --limit workstation --tags "$action" --extra-vars "$(extra_vars "$action")"
+    --limit workstation --tags "$action" --extra-vars "$(extra_vars '' "$action")"
 }
 
 run_site_action() {
   ensure_ansible_collections
   run_site_action_local "$1"
-}
-
-extra_vars_for_actions() {
-  printf '{"aur_package_names":%s,"target_warning_accepted":%s,"setup_actions":%s}' \
-    "$(json_array "${AUR_PACKAGES[@]}")" \
-    "$TARGET_WARNING_ACCEPTED" \
-    "$(json_array "$@")"
 }
 
 run_site_actions() {
@@ -243,14 +241,14 @@ run_site_actions() {
   require_ansible
   ensure_ansible_collections
   run_setup_ansible -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/site.yml" \
-    --limit workstation --tags "$action_tags" --extra-vars "$(extra_vars_for_actions "$@")"
+    --limit workstation --tags "$action_tags" --extra-vars "$(extra_vars '' "$@")"
 }
 
 run_verification() {
   local mode="$1"
   require_ansible
   run_setup_ansible -i "$ROOT_DIR/inventory.ini" "$ROOT_DIR/verify.yml" \
-    --limit workstation --extra-vars "$(extra_vars '' "$mode")"
+    --limit workstation --extra-vars "$(extra_vars "$mode")"
 }
 
 install_chrome() {
@@ -297,7 +295,7 @@ install_zsh_theme_dependencies() {
   command -v yay >/dev/null 2>&1 || fail 'yay is required for Oh My Posh; EndeavourOS includes it, plain Arch must install it separately'
   command -v sudo >/dev/null 2>&1 || fail 'sudo is required to install the terminal font'
   start_sudo_keepalive
-  sudo pacman -Syu --needed ttf-cascadia-code-nerd
+  sudo pacman -Syu --needed zsh ttf-cascadia-code-nerd
   yay -S --needed oh-my-posh-bin
   command -v oh-my-posh >/dev/null 2>&1 || fail 'Oh My Posh did not install; the configured Zsh theme needs it'
 }
@@ -310,35 +308,35 @@ install_chatgpt_app() (
     printf 'The official ChatGPT package is already installed; skipping its separate installer. Use ./setup.sh chatgpt-app to update it.\n'
     exit 0
   fi
-  command -v curl >/dev/null 2>&1 || fail 'curl is required to download the official OpenAI Linux installer'
   command -v sudo >/dev/null 2>&1 || fail 'sudo is required by the official OpenAI Linux installer'
   start_sudo_keepalive
 
-  local installer_file
-  installer_file="$(mktemp "${TMPDIR:-/tmp}/linux-setup-chatgpt-installer.XXXXXX")"
-  trap 'rm -f -- "$installer_file"' EXIT
-  chmod 0600 "$installer_file"
-  curl --proto '=https' --tlsv1.2 -fL --retry 3 -o "$installer_file" "$OPENAI_CHATGPT_INSTALLER_URL"
-  bash -n "$installer_file" || fail 'the downloaded official OpenAI installer did not pass the shell syntax check'
-  printf 'Starting OpenAI’s official Arch installer. It verifies the signed package and asks pacman to confirm a full system upgrade.\n'
-  sudo bash "$installer_file"
+  # Once OpenAI's repository is configured, updates go through pacman instead of re-running the installer.
+  if [[ "$update_existing" == true && -f /etc/pacman.d/openai-chatgpt.conf ]] \
+    && grep -qxF 'Include = /etc/pacman.d/openai-chatgpt.conf' /etc/pacman.conf \
+    && pacman -Qq chatgpt-bin >/dev/null 2>&1; then
+    printf 'Updating ChatGPT from the configured OpenAI pacman repository; pacman asks before the full system upgrade.\n'
+    sudo pacman -Syu --needed chatgpt-bin || fail 'pacman could not update ChatGPT; if OpenAI rotated its signing key, remove /etc/pacman.d/openai-chatgpt.conf and its Include line, then rerun ./setup.sh chatgpt-app'
+  else
+    command -v curl >/dev/null 2>&1 || fail 'curl is required to download the official OpenAI Linux installer'
+    local installer_file
+    installer_file="$(mktemp "${TMPDIR:-/tmp}/linux-setup-chatgpt-installer.XXXXXX")"
+    trap 'rm -f -- "$installer_file"' EXIT
+    chmod 0600 "$installer_file"
+    curl --proto '=https' --tlsv1.2 -fL --retry 3 -o "$installer_file" "$OPENAI_CHATGPT_INSTALLER_URL"
+    bash -n "$installer_file" || fail 'the downloaded official OpenAI installer did not pass the shell syntax check'
+    printf 'Starting OpenAI’s official Arch installer as root. It adds and locally signs OpenAI’s repository key, adds an Include line to /etc/pacman.conf, and asks pacman to confirm a full system upgrade.\n'
+    sudo bash "$installer_file"
+  fi
   pacman -Qq chatgpt-bin >/dev/null 2>&1 || fail 'the official OpenAI installer finished without installing chatgpt-bin'
   [[ -x /usr/bin/chatgpt ]] || fail 'the official ChatGPT command was not found at /usr/bin/chatgpt'
   [[ -f /usr/share/applications/chatgpt.desktop ]] || fail 'the official ChatGPT desktop launcher was not installed'
 )
 
-installed_hyprland_packages() {
+# Print only the given packages that pacman reports as installed.
+installed_packages_from() {
   local package
-  for package in "${HYPRLAND_PACKAGES[@]}"; do
-    if pacman -Qq "$package" >/dev/null 2>&1; then
-      printf '%s\n' "$package"
-    fi
-  done
-}
-
-installed_extra_terminals() {
-  local package
-  for package in "${EXTRA_TERMINAL_PACKAGES[@]}"; do
+  for package in "$@"; do
     if pacman -Qq "$package" >/dev/null 2>&1; then
       printf '%s\n' "$package"
     fi
@@ -350,7 +348,7 @@ cleanup_terminals() {
 
   local answer
   local -a installed_packages=()
-  mapfile -t installed_packages < <(installed_extra_terminals)
+  mapfile -t installed_packages < <(installed_packages_from "${EXTRA_TERMINAL_PACKAGES[@]}")
   if ((${#installed_packages[@]} == 0)); then
     printf 'No extra terminal apps from the reviewed list were found. Ghostty stays installed.\n'
     return 0
@@ -366,7 +364,10 @@ cleanup_terminals() {
     y|Y|yes|YES|Yes)
       command -v sudo >/dev/null 2>&1 || fail 'sudo is required to remove terminal packages'
       start_sudo_keepalive
-      sudo pacman -Rns -- "${installed_packages[@]}"
+      # Declining pacman's own prompt must not stop the rest of ./setup.sh all.
+      if ! sudo pacman -Rns -- "${installed_packages[@]}"; then
+        printf 'Pacman did not remove the extra terminal apps; they stay installed.\n'
+      fi
       ;;
     *) printf 'Left the extra terminal apps installed.\n' ;;
   esac
@@ -382,7 +383,7 @@ cleanup_legacy() {
 offer_legacy_package_cleanup() {
   local answer
   local -a installed_packages=()
-  mapfile -t installed_packages < <(installed_hyprland_packages)
+  mapfile -t installed_packages < <(installed_packages_from "${HYPRLAND_PACKAGES[@]}")
   if ((${#installed_packages[@]} == 0)); then
     printf 'No old Hyprland session packages were found. The retired ChatGPT Chrome shortcut has been checked.\n'
     return 0
@@ -409,8 +410,8 @@ install_gnome_dock_extension() {
 }
 
 require_gnome_session() {
-  local desktop="${XDG_CURRENT_DESKTOP:-} ${XDG_SESSION_DESKTOP:-}"
-  [[ "$desktop" == *GNOME* ]] || fail 'log in to the GNOME session, open Terminal, and rerun this action there'
+  # Match the Ansible GNOME checks, which read only XDG_CURRENT_DESKTOP.
+  [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]] || fail 'log in to the GNOME session, open a terminal there, and rerun this action'
 }
 
 remove_hyprland() {
@@ -421,13 +422,8 @@ remove_hyprland() {
   printf 'This removes the old Hyprland session. Save open work; you will need to reboot when it finishes.\n'
   run_site_action_local display-manager
 
-  local package
   local -a installed_packages=()
-  for package in "${HYPRLAND_PACKAGES[@]}"; do
-    if pacman -Qq "$package" >/dev/null 2>&1; then
-      installed_packages+=("$package")
-    fi
-  done
+  mapfile -t installed_packages < <(installed_packages_from "${HYPRLAND_PACKAGES[@]}")
 
   if ((${#installed_packages[@]} == 0)); then
     printf 'No Hyprland session packages are installed. GDM is enabled for GNOME.\n'
@@ -435,8 +431,10 @@ remove_hyprland() {
   fi
 
   printf 'Pacman will show the exact packages and any now-unused dependencies before asking for confirmation:\n  %s\n' "${installed_packages[*]}"
-  start_sudo_keepalive
-  sudo pacman -Rns -- "${installed_packages[@]}"
+  if ! sudo pacman -Rns -- "${installed_packages[@]}"; then
+    printf 'Pacman did not remove the Hyprland packages; they stay installed. GDM is enabled for GNOME.\n'
+    return 0
+  fi
   printf 'Hyprland session packages removed. Reboot to refresh the login screen. Personal config files remain untouched.\n'
 }
 
@@ -498,19 +496,20 @@ dry_run() {
       ;;
     all)
       printf '  Require an active GNOME session before any changes\n'
-      printf '  sudo pacman -Syu --needed ansible-core\n'
       printf '  Authenticate with sudo once; reuse and refresh its temporary ticket while setup runs\n'
+      printf '  sudo pacman -Syu --needed ansible-core\n'
       printf '  Ensure the pinned community.general.pacman collection is installed\n'
-      printf '  Group Ansible actions: base + apps → tools + desktop + legacy launcher cleanup → GNOME dock + branding\n'
-      printf '  After apps installs kernel headers, interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
+      printf '  Ansible: base + apps, including kernel headers and the CaskaydiaCove Nerd Font from the official Arch repositories\n'
+      printf '  Interactive yay packages: %s\n' "${AUR_PACKAGES[*]}"
       printf '  Verify the official 1Password signing key before importing it for yay\n'
-      printf '  If missing, install ChatGPT from OpenAI’s signed Arch repository; pacman asks before its full system upgrade\n'
-      printf '  Install the CaskaydiaCove Nerd Font from the official Arch repositories as part of the apps step\n'
-      printf '  Configure AppIndicator and Dash to Dock to load at the next GNOME login\n'
-      printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh shell\n'
+      printf '  If missing, run OpenAI’s official Arch installer as root; it adds and locally signs OpenAI’s pacman key, and pacman asks before its full system upgrade\n'
+      printf '  Ansible: tools + desktop + legacy launcher cleanup\n'
       printf '  Offer to remove detected legacy Hyprland packages; pacman shows the exact removal list\n'
       printf '  Offer to remove detected extra terminal apps; keep Ghostty and command-line tools\n'
-      printf '  Final: strict status verification, then ask whether to uninstall Firefox and erase its data\n'
+      printf '  Ansible: GNOME dock + branding; AppIndicator and Dash to Dock load at the next GNOME login\n'
+      printf '  Branding sets the custom Plymouth theme and quiet splash in /etc/kernel/cmdline, then rebuilds systemd-boot entries and initrds\n'
+      printf '  Dotfiles: clean expected checkout → linux-desktop.sh → user zsh login shell\n'
+      printf '  Final: strict verify check, then ask whether to uninstall Firefox and erase its data\n'
       ;;
     base|apps|tools)
       printf '  sudo pacman -Syu --needed ansible-core\n'
@@ -520,12 +519,13 @@ dry_run() {
       if [[ "$ACTION" == apps ]]; then
         printf '  Then install reviewed AUR packages: %s\n' "${AUR_PACKAGES[*]}"
         printf '  Verify the official 1Password signing key before importing it for yay\n'
-        printf '  If missing, install ChatGPT from OpenAI’s signed Arch repository; pacman asks before its full system upgrade\n'
+        printf '  If missing, run OpenAI’s official Arch installer as root; it adds and locally signs OpenAI’s pacman key, and pacman asks before its full system upgrade\n'
       fi
       ;;
     chatgpt-app)
-      printf '  Download OpenAI’s official Arch installer over HTTPS and check its shell syntax\n'
-      printf '  The installer verifies OpenAI’s signed repository and package, then asks pacman to confirm a full system upgrade\n'
+      printf '  If OpenAI’s repository is already configured and ChatGPT is installed, update it with sudo pacman -Syu --needed chatgpt-bin\n'
+      printf '  Otherwise download OpenAI’s official Arch installer over HTTPS, check its shell syntax, and run it as root\n'
+      printf '  The installer adds and locally signs OpenAI’s pacman key, adds an Include line to /etc/pacman.conf, then asks pacman to confirm a full system upgrade\n'
       ;;
     desktop)
       printf '  Local Ansible action: desktop\n'
@@ -575,8 +575,8 @@ dry_run() {
       printf '  Leave Google Chrome and its profile data untouched\n'
       ;;
     dotfiles)
-      printf '  sudo pacman -Syu --needed ttf-cascadia-code-nerd\n'
-      printf '  Install the CaskaydiaCove Nerd Font from the official Arch repository\n'
+      printf '  sudo pacman -Syu --needed zsh ttf-cascadia-code-nerd\n'
+      printf '  Install Zsh and the CaskaydiaCove Nerd Font from the official Arch repositories\n'
       printf '  Install the reviewed Oh My Posh AUR package so the configured Zsh theme can load\n'
       printf '  Clone or fast-forward the clean expected dotfiles checkout\n'
       printf "  Run only linux-desktop.sh; set the current user's shell to /usr/bin/zsh after success\n"

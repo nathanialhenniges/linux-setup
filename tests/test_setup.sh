@@ -9,7 +9,7 @@ fail() {
   exit 1
 }
 
-command -v ansible-playbook >/dev/null 2>&1 || fail 'run ./setup.sh bootstrap before this check'
+command -v ansible-playbook >/dev/null 2>&1 || fail 'install ansible-core (./setup.sh bootstrap on the laptop) before this check'
 bash -n setup.sh
 grep -Fq 'ansible-doc -t module -F' setup.sh || fail 'collection detection must confirm the pacman module is listed'
 grep -Fq '  - fuse2' vars.yml || fail 'Arch AppImage support must use the fuse2 package name'
@@ -50,7 +50,12 @@ grep -Fq 'enabled-extensions' tasks/gnome_dock.yml || fail 'new system extension
 ! grep -Fq 'gnome-extensions, enable' tasks/gnome_dock.yml || fail 'do not try to enable newly installed system extensions in the current GNOME session'
 grep -Fq 'gnome_extensions_configured' verify.yml || fail 'verification must confirm GNOME extensions are configured to load'
 grep -Fq 'gnome_extensions_active' verify.yml || fail 'status must distinguish active GNOME extensions from those queued for next login'
-grep -Fq "gnome_favorite_apps.stdout is search('com.onepassword.OnePassword.desktop')" verify.yml || fail 'verification must confirm 1Password is pinned in the GNOME dock'
+grep -Fq 'gnome_dock_required_ids | reject(' verify.yml || fail 'verification must confirm the required apps, including 1Password, are pinned in the GNOME dock'
+required_dock_block="$(awk '/^gnome_dock_required_ids:/{inside=1; next} inside && /^[^ ]/{exit} inside{print}' vars.yml)"
+for app_id in com.onepassword.OnePassword.desktop chatgpt.desktop; do
+  grep -Fxq "  - $app_id" <<<"$required_dock_block" || fail "gnome_dock_required_ids must require $app_id"
+done
+grep -Fq 'workstation_unready_checks | length == 0' verify.yml || fail 'status and verify must share one readiness list'
 grep -Fiq 'log out and back in, or reboot' setup.sh || fail 'the GNOME dock action must explain how to load newly installed extensions'
 grep -Fq 'next GNOME login' README.md || fail 'the setup guide must explain delayed GNOME extension activation'
 grep -Fq 'next GNOME login' docs/index.html || fail 'the web guide must explain delayed GNOME extension activation'
@@ -117,7 +122,14 @@ grep -Fq 'BackgroundStartColor=0x000000' themes/mrdemonwolf.plymouth || fail 'th
 grep -Fq 'BackgroundEndColor=0x000000' themes/mrdemonwolf.plymouth || fail 'the Plymouth splash must stay black through transitions'
 grep -Fq 'UseProgressBar=true' themes/mrdemonwolf.plymouth || fail 'the Plymouth boot-up theme must not use the spinner animation'
 grep -Fq 'UseEndAnimation=false' themes/mrdemonwolf.plymouth || fail 'the Plymouth boot-up theme must not show a spinner at completion'
-grep -Fq 'plymouth_theme_sha256: e0bad97e187eb224d37723eb38109de70ef70cc5b7f5738ac646f0a73f8c7e1f' vars.yml || fail 'the static black splash needs its matching theme checksum'
+theme_sha256="$(shasum -a 256 themes/mrdemonwolf.plymouth 2>/dev/null || sha256sum themes/mrdemonwolf.plymouth)"
+[[ "${theme_sha256%% *}" == 90e6561f6640dd62afd139534ad03191e2336feb4014587bc3180199b9369f83 ]] || fail 'the reviewed Plymouth theme file changed; update its pin and keep the old one as a previous version'
+grep -Fq 'plymouth_theme_sha256: 90e6561f6640dd62afd139534ad03191e2336feb4014587bc3180199b9369f83' vars.yml || fail 'the static black splash needs its matching theme checksum'
+grep -Fq '  - e0bad97e187eb224d37723eb38109de70ef70cc5b7f5738ac646f0a73f8c7e1f' vars.yml || fail 'branding must allow upgrading the prior boot-only static theme'
+for section in '[boot-up]' '[shutdown]' '[reboot]'; do
+  grep -Fxq "$section" themes/mrdemonwolf.plymouth || fail "the Plymouth theme must configure its $section mode"
+done
+[[ "$(grep -Fxc 'UseAnimation=false' themes/mrdemonwolf.plymouth)" == 3 ]] || fail 'the Plymouth theme must disable the spinner at startup, shutdown, and reboot'
 grep -Fq 'plymouth_previous_theme_sha256s:' vars.yml || fail 'branding must allow upgrading previously installed Plymouth themes'
 grep -Fq 'A static wolf logo sits near the bottom of a black splash' docs/index.html || fail 'the web guide must explain the black static boot splash'
 grep -Fq 'without the spinner animation' README.md || fail 'the setup guide must explain the static boot splash'
@@ -130,15 +142,28 @@ grep -Fq 'checksum in ([plymouth_theme_sha256] + plymouth_previous_theme_sha256s
 grep -Fq "when: \"'branding' in selected_setup_actions\"" site.yml || fail 'branding must remain an explicit setup action'
 grep -Fq '/usr/bin/reinstall-kernels' tasks/branding.yml || fail 'branding must rebuild systemd-boot kernel images'
 grep -Fq 'yay -S --needed' setup.sh || fail 'AUR package installation must stay interactive'
+! grep -Fq -- '--noconfirm' setup.sh || fail 'setup.sh must not pass --noconfirm; pacman and yay prompts stay interactive'
+grep -Fq 'kill -0 "$$" 2>/dev/null || exit 0' setup.sh || fail 'the sudo keepalive must stop once setup.sh exits'
+while read -r register_name; do
+  (($(grep -ow -- "$register_name" tasks/branding.yml | wc -l) > 1)) || fail "unused branding register: $register_name"
+done < <(sed -n 's/^ *register: //p' tasks/branding.yml)
+grep -Fq 'excludes: [watermark.png]' tasks/branding.yml || fail 'branding must never copy the stock spinner watermark over the branded logo'
+grep -Fq 'update icon_sha256 in vars.yml' tasks/chrome_web_apps.yml || fail 'a changed vendor icon must explain how to review and update its pin'
+! grep -Fqi hyprland docs/og-image.svg || fail 'the guide preview image must describe the GNOME setup'
 grep -Fq 'linux-desktop.sh' setup.sh || fail 'dotfiles must use the dedicated desktop entry point'
 grep -Fq 'status --porcelain' setup.sh || fail 'dotfiles must fail closed on dirty checkouts'
 grep -Fq 'sshd.service' setup.sh || fail 'setup must preflight sshd before package changes'
 grep -Fq 'sshd.service' site.yml || fail 'Ansible must check that sshd remains inactive and disabled'
 
-for package in google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin 1password; do
-  grep -Fq "$package" setup.sh || fail "missing reviewed AUR package: $package"
-  grep -Fq "$package" THIRD-PARTY-NOTICES.md || fail "missing AUR notice: $package"
+# Read the lists from their sources so an added or dropped package cannot slip past its notice.
+read -ra aur_packages <<<"$(sed -n 's/^AUR_PACKAGES=(\(.*\))$/\1/p' setup.sh)"
+((${#aur_packages[@]})) || fail 'could not read AUR_PACKAGES from setup.sh'
+[[ "${aur_packages[*]}" == 'google-chrome visual-studio-code-bin facetimehd-dkms facetimehd-firmware gnome-shell-extension-dash-to-dock oh-my-posh-bin 1password' ]] \
+  || fail 'AUR_PACKAGES changed; review each package and update THIRD-PARTY-NOTICES.md and this list together'
+for package in "${aur_packages[@]}"; do
+  grep -Fq "\`$package\`" THIRD-PARTY-NOTICES.md || fail "missing AUR notice: $package"
 done
+grep -Fq 'community.general' THIRD-PARTY-NOTICES.md || fail 'the pinned Ansible collection needs notice coverage'
 grep -Fq 'ttf-cascadia-code-nerd' THIRD-PARTY-NOTICES.md || fail 'the configured Ghostty Nerd Font needs third-party notice coverage'
 grep -Fq 'linux-headers' vars.yml || fail 'camera DKMS needs matching kernel headers'
 grep -Fq 'camera_diagnostics' setup.sh || fail 'setup must provide the post-reboot camera check'
@@ -147,9 +172,11 @@ for action in display-manager branding profile-picture gnome-dock remove-hyprlan
   grep -Fq "id=\"cmd-$action\"" docs/index.html || fail "the public guide must include the $action repair command"
 done
 
-for app_id in org.telegram.desktop org.upscayl.Upscayl sh.cider.Cider tv.plex.PlexDesktop; do
-  grep -Fq "$app_id" vars.yml || fail "missing reviewed Flatpak: $app_id"
-  grep -Fq "$app_id" THIRD-PARTY-NOTICES.md || fail "missing Flatpak notice: $app_id"
+mapfile -t flatpak_ids < <(awk '/^core_flatpak_packages:/{inside=1; next} inside && /^[^ ]/{exit} inside && sub(/^  - /, ""){print}' vars.yml)
+[[ "${flatpak_ids[*]}" == 'org.telegram.desktop org.upscayl.Upscayl sh.cider.Cider tv.plex.PlexDesktop' ]] \
+  || fail 'core_flatpak_packages changed; review each app and update THIRD-PARTY-NOTICES.md and this list together'
+for app_id in "${flatpak_ids[@]}"; do
+  grep -Fq "\`$app_id\`" THIRD-PARTY-NOTICES.md || fail "missing Flatpak notice: $app_id"
 done
 
 grep -Fq 'not ansible_check_mode' tasks/flatpak_apps.yml || fail 'Flatpak mutations need a check-mode guard'
@@ -157,7 +184,10 @@ grep -Fq 'argv: [flatpak, remotes, --system, "--columns=name,url"]' tasks/flatpa
 grep -Fq 'argv: [flatpak, remotes, --system, "--columns=name,url"]' verify.yml || fail 'Flatpak verification remote columns must remain one command argument'
 grep -Fq 'checksum: "sha256:{{ librepods.sha256 }}"' tasks/librepods.yml || fail 'LibrePods download needs checksum validation'
 [[ -f templates/librepods-autostart.desktop.j2 ]] || fail 'LibrePods needs a user-local GNOME autostart entry'
-grep -Fq -- '--start-minimized' templates/librepods-autostart.desktop.j2 || fail 'LibrePods must autostart minimized'
+grep -Fq -- '--hide' templates/librepods-autostart.desktop.j2 || fail 'LibrePods must autostart minimized with its --hide option'
+! grep -Fq -- '--start-minimized' templates/librepods-autostart.desktop.j2 || fail 'LibrePods ignores --start-minimized; use --hide'
+grep -Fq 'librepods-autostart-legacy.desktop.j2' tasks/librepods.yml || fail 'LibrePods must recognize and replace the earlier --start-minimized autostart entry'
+grep -Fq "checksum | default('') == librepods.sha256" verify.yml || fail 'verification must check the reviewed LibrePods AppImage checksum'
 grep -Fq 'X-GNOME-Autostart-Delay=30' templates/librepods-autostart.desktop.j2 || fail 'LibrePods must wait for GNOME to settle before autostart'
 grep -Fq 'Refuse unknown LibrePods autostart content' tasks/librepods.yml || fail 'LibrePods autostart must refuse unknown existing content'
 grep -Fq '0569ba9a15aa58e660ec3ccb4d2d39ffd8800d6a5da3741802aefd86fd4b55a6' vars.yml || fail 'LibrePods version pin must match the reviewed AppImage checksum'
@@ -167,8 +197,12 @@ grep -Fq '22903bf7891d144cf729cef04f3838567f1f9bc994e7c35dd65aeccbbeaac7f0' THIR
 grep -Fq '1920f8b51754209286ce867c760993ea5e751eb81ebd6d343796dfcfc36ca673' THIRD-PARTY-NOTICES.md || fail 'profile image pin needs notice coverage'
 grep -Fq 'cc3daf6176c3c7797b436fd446daacbd14640984cc4d7517fb99a1ec037134d3' THIRD-PARTY-NOTICES.md || fail 'AccountsService profile PNG pin needs notice coverage'
 
-git diff --check
-printf 'Setup checks passed.\n'
-
 bash -n scripts/sudo-session.sh
 grep -Fq -- '--become-password-file -' scripts/sudo-session.sh || fail "Ansible must receive authentication through stdin"
+
+# Check uncommitted, staged, and committed files: the container runs these checks on a fresh
+# one-commit snapshot, where a plain git diff --check has nothing to compare.
+git diff --check || fail 'unstaged changes contain whitespace errors or conflict markers'
+git diff --cached --check || fail 'staged changes contain whitespace errors or conflict markers'
+git diff --check "$(git hash-object -t tree /dev/null)" HEAD || fail 'committed files contain whitespace errors or conflict markers'
+printf 'Setup checks passed.\n'

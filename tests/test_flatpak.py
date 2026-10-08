@@ -10,6 +10,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 APPS = ["org.example.First", "org.example.Second", "org.example.Third"]
+# x86-64 emulation on Apple Silicon (Colima, Docker Desktop) runs Ansible far slower than CI.
+PLAYBOOK_TIMEOUT = 300
 
 
 class FlatpakTasks(unittest.TestCase):
@@ -46,7 +48,7 @@ elif args[0] == "info":
                                TEST_ORIGIN=origin, ANSIBLE_LOCAL_TEMP=str(folder / "ansible"),
                                ANSIBLE_REMOTE_TEMP=str(folder / "remote"))
             result = subprocess.run(["ansible-playbook", "-i", "localhost,", str(play)],
-                                    env=environment, cwd=folder, capture_output=True, text=True, timeout=60)
+                                    env=environment, cwd=folder, capture_output=True, text=True, timeout=PLAYBOOK_TIMEOUT)
             calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
             return result, calls
 

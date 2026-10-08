@@ -9,7 +9,10 @@ authenticate_setup_sudo() {
   for attempt in 1 2 3; do
     IFS= read -r -s -p 'Sudo password (used for this setup run): ' SETUP_BECOME_PASSWORD </dev/tty || return 1
     printf '\n' >/dev/tty
-    if printf '%s\n' "$SETUP_BECOME_PASSWORD" | sudo -k -S -p '' -v; then
+    # Drop any old ticket so the typed password is checked, then let -v cache
+    # it for pacman, yay, and the keepalive. (-k with -v would skip caching.)
+    sudo -k
+    if printf '%s\n' "$SETUP_BECOME_PASSWORD" | sudo -S -p '' -v; then
       return 0
     fi
   done

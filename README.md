@@ -28,13 +28,13 @@ Recommended choices:
 - Keep the automatic **systemd-boot** setup. Do not create partitions or a volume group manually. Skip a separate swap partition; hibernation needs a later encrypted swapfile setup.
 - Create a normal user account. Run this repository as that user, never as root.
 
-In the live desktop, accept EndeavourOS’s Broadcom Wi-Fi driver offer if it appears, then load a webpage before starting the online install. If Wi-Fi fails, stop and use another working network connection. The installed system also needs its own Wi-Fi driver, which the `apps` action installs.
+In the live desktop, accept EndeavourOS’s Broadcom Wi-Fi driver offer if it appears, then load a webpage before starting the online install. If Wi-Fi fails, stop and use another working network connection. Accepting that prompt should carry Wi-Fi into the installed system; `./setup.sh apps` keeps Arch’s `broadcom-wl-dkms` package installed with headers for the regular and LTS kernels. If Wi-Fi is missing after the first login, connect USB Ethernet or another working network before running the setup commands, and keep it available until setup finishes.
 
 If the Mac shows its startup picker after installation, hold **Option (⌥)** and choose **EFI Boot**. At the GDM login screen, choose **GNOME**.
 
 ## Run setup
 
-Open Ghostty or another terminal in GNOME. If Git is missing, install it first:
+Open GNOME’s built-in terminal app (setup installs Ghostty later). If Git is missing, install it first:
 
 ```bash
 sudo pacman -Syu --needed git
@@ -65,7 +65,7 @@ Review the no-change plan, then run the full setup:
 ./setup.sh all
 ```
 
-`all` asks for your sudo password once and refreshes the temporary sudo ticket while it runs. Ansible does not ask for a second BECOME password. Separate approval prompts may still appear for AUR builds, package changes, detected cleanup items, or ChatGPT’s full-system upgrade if ChatGPT needs installation. At the end, choose whether to remove Firefox and its local data. Reboot after setup:
+`all` asks for your sudo password once and refreshes the temporary sudo ticket while it runs. Ansible does not ask for a second BECOME password. Separate approval prompts may still appear for AUR builds, package changes, detected cleanup items, or ChatGPT’s full-system upgrade if ChatGPT needs installation. `all` also runs the dotfiles `linux-desktop.sh` profile and sets `/usr/bin/zsh` as your login shell. At the end, choose whether to remove Firefox and its local data. Reboot after setup:
 
 ```bash
 reboot
@@ -107,10 +107,12 @@ Run only the step you need. Preview mutating actions with `--dry-run` first.
 | --- | --- |
 | `./setup.sh status` / `state` / `verify` | Check readiness, package state, or required setup |
 | `./setup.sh camera` | Check FaceTime HD packages, driver build, and video device |
+| `./setup.sh base` | Reinstall base packages and laptop power profiles |
 | `./setup.sh apps` | Install laptop apps, Wi-Fi support, Flatpaks, LibrePods, and ChatGPT |
+| `./setup.sh tools` | Reinstall the selected command-line tools |
 | `./setup.sh desktop` | Apply wallpaper, Chrome shortcuts, and account photo |
 | `./setup.sh gnome-dock` | Configure dock favorites, extensions, appearance, and shortcuts |
-| `./setup.sh branding` | Rebuild the black Plymouth splash with a static wolf logo and visible disk-unlock prompt, without the spinner animation |
+| `./setup.sh branding` | Rebuild the black Plymouth splash with a static wolf logo and visible disk-unlock prompt, without the spinner animation at startup, shutdown, or reboot |
 | `./setup.sh display-manager` | Restore GDM as the login manager |
 | `./setup.sh profile-picture` | Set the account photo again |
 | `./setup.sh chatgpt-app` | Update ChatGPT from OpenAI’s signed Arch repository |
@@ -118,7 +120,8 @@ Run only the step you need. Preview mutating actions with `--dry-run` first.
 | `./setup.sh remove-hyprland` | Review and optionally remove the listed Hyprland packages |
 | `./setup.sh cleanup-terminals` | Review and optionally remove extra terminal apps; keep Ghostty |
 | `./setup.sh purge-firefox` | Remove Firefox and its local profile data, leaving Chrome untouched |
-| `./setup.sh dotfiles` | Run the dedicated dotfiles desktop profile |
+| `./setup.sh dotfiles` | Run the dedicated dotfiles `linux-desktop.sh` profile, then set zsh as your login shell |
+| `./setup.sh drive` / `terminal` | Show the browser-only Google Drive steps or how to open Ghostty |
 
 `./setup.sh all` groups related Ansible actions to avoid repeating startup checks. Dash to Dock and AppIndicator are configured for the **next GNOME login**. Reboot after removing Hyprland or changing boot branding. The boot splash is separate from the text-only systemd-boot menu and the Mac firmware picker.
 
@@ -145,7 +148,7 @@ The desktop keeps GNOME’s built-in dark style and left-side window buttons. No
 
 Run the setup and browser checks locally:
 
-`test_setup.sh` needs Ansible and the pinned `community.general` collection installed by `./setup.sh bootstrap`.
+`test_setup.sh` needs `ansible-core` and the pinned `community.general` collection. On the laptop, `./setup.sh bootstrap` installs both. On a development machine such as a Mac, where `setup.sh` refuses to run, install `ansible-core` and run `ansible-galaxy collection install -r requirements.yml`.
 
 ```bash
 ./tests/test_setup.sh

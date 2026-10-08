@@ -103,7 +103,7 @@
          (item.stat.checksum == item.item.sha256 or
           (item.item.path == '/usr/share/plymouth/themes/mrdemonwolf/mrdemonwolf.plymouth' and
            item.stat.checksum in plymouth_previous_theme_sha256s)))
-    fail_msg: "Refusing unknown or modified MrDemonWolf Plymouth theme file: {{ item.item.path }}"
+    fail_msg: "Refusing unknown or modified MrDemonWolf Plymouth theme file: {{ item.item.path }}. If an earlier branding run was interrupted, review and remove that file, then rerun ./setup.sh branding."
     quiet: true
   loop: "{{ mrdemonwolf_theme_files.results }}"
   loop_control:
@@ -128,22 +128,12 @@
     state: directory
     mode: "0755"
 
-- name: Copy the packaged spinner assets into the separate local theme
-  become: true
-  ansible.builtin.copy:
-    src: /usr/share/plymouth/themes/spinner/
-    dest: /usr/share/plymouth/themes/mrdemonwolf/
-    remote_src: true
-    mode: preserve
-  register: copied_spinner_assets
-
 - name: Install the MrDemonWolf two-step theme descriptor
   become: true
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/themes/mrdemonwolf.plymouth"
     dest: /usr/share/plymouth/themes/mrdemonwolf/mrdemonwolf.plymouth
     mode: "0644"
-  register: copied_brand_theme
 
 - name: Install the supplied logo as the theme watermark
   become: true
@@ -151,7 +141,25 @@
     src: "{{ playbook_dir }}/assets/mrdemonwolf-plymouth-logo.png"
     dest: /usr/share/plymouth/themes/mrdemonwolf/watermark.png
     mode: "0644"
-  register: copied_brand_logo
+
+- name: Find the packaged spinner assets except its watermark
+  ansible.builtin.find:
+    paths: /usr/share/plymouth/themes/spinner
+    file_type: file
+    excludes: [watermark.png]
+  register: spinner_asset_files
+
+# Copy per file so the stock watermark never replaces the branded logo, even briefly.
+- name: Copy the packaged spinner assets into the separate local theme
+  become: true
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "/usr/share/plymouth/themes/mrdemonwolf/{{ item.path | basename }}"
+    remote_src: true
+    mode: preserve
+  loop: "{{ spinner_asset_files.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
 
 - name: Inspect the custom dracut configuration path
   become: true
@@ -186,7 +194,6 @@
       add_dracutmodules+=" plymouth "
     dest: /etc/dracut.conf.d/99-mrdemonwolf-plymouth.conf
     mode: "0644"
-  register: configured_dracut_plymouth
 
 - name: Read the currently selected Plymouth theme
   become: true
@@ -224,8 +231,8 @@
     line: '\1 {{ item }}'
     backrefs: true
   loop: [quiet, splash]
-  register: systemd_boot_splash_options
 
+# Rebuild on every branding run so a rerun repairs boot images after an earlier rebuild failed.
 - name: Rebuild systemd-boot entries and initramfs images for both installed kernels
   become: true
   ansible.builtin.command:
